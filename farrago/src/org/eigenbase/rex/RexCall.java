@@ -63,6 +63,9 @@ public class RexCall extends RexNode
         SqlOperator op,
         RexNode [] operands)
     {
+        assert type != null : "precondition: type != null";
+        assert op != null : "precondition: op != null";
+        assert operands != null : "precondition: operands != null";
         this.type = type;
         this.op = op;
         this.operands = operands;
@@ -144,12 +147,14 @@ public class RexCall extends RexNode
             return RexKind.Like;
         case SqlKind.SimilarORDINAL:
             return RexKind.Similar;
+        case SqlKind.MultisetValueConstructorORDINAL:
+            return RexKind.MultisetValueConstructor;
         default:
             throw kind.unexpected();
         }
     }
 
-    private String computeDigest(boolean withType)
+    protected String computeDigest(boolean withType)
     {
         StringBuffer sb = new StringBuffer(op.name);
         if (operands.length == 0

@@ -27,12 +27,10 @@ import openjava.mop.CannotExecuteException;
 import openjava.mop.OJClass;
 
 import org.eigenbase.oj.util.*;
-import org.eigenbase.reltype.RelDataType;
-import org.eigenbase.reltype.RelDataTypeFactory;
-import org.eigenbase.reltype.RelDataTypeFactoryImpl;
-import org.eigenbase.reltype.RelDataTypeField;
+import org.eigenbase.reltype.*;
 import org.eigenbase.util.Util;
 import org.eigenbase.runtime.*;
+import org.eigenbase.sql.type.*;
 
 
 /**
@@ -46,12 +44,12 @@ import org.eigenbase.runtime.*;
  * @see RelDataTypeFactory
  * @since May 30, 2003
  */
-public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
+public class OJTypeFactoryImpl extends SqlTypeFactoryImpl
     implements OJTypeFactory
 {
     //~ Instance fields -------------------------------------------------------
 
-    private final HashMap mapOJClassToType = new HashMap();
+    protected final HashMap mapOJClassToType = new HashMap();
 
     private final OJClassMap ojClassMap;
 
@@ -78,9 +76,18 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
         return toType(OJClass.forClass(clazz));
     }
 
+    // override RelDataTypeFactoryImpl
+    public RelDataType createArrayType(
+        RelDataType elementType,
+        long maxCardinality)
+    {
+        OJClass ojClass = OJUtil.typeToOJClass(elementType, this);
+        return new OJScalarType(OJClass.arrayOf(ojClass));
+    }
+    
     protected OJClass createOJClassForRecordType(
         OJClass declarer,
-        RecordType recordType)
+        RelRecordType recordType)
     {
         // convert to synthetic project type
         final RelDataTypeField [] fields = recordType.getFields();
@@ -92,7 +99,7 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
                     field.getName(),
                     i);
             final RelDataType fieldType = field.getType();
-            fieldClasses[i] = OJUtil.typeToOJClass(declarer, fieldType);
+            fieldClasses[i] = OJUtil.typeToOJClass(declarer, fieldType, this);
         }
         return ojClassMap.createProject(declarer, fieldClasses,
             fieldNames);
@@ -107,8 +114,8 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
         } else if (type instanceof JavaType) {
             JavaType scalarType = (JavaType) type;
             return OJClass.forClass(scalarType.clazz);
-        } else if (type instanceof RecordType) {
-            RecordType recordType = (RecordType) type;
+        } else if (type instanceof RelRecordType) {
+            RelRecordType recordType = (RelRecordType) type;
             OJClass projectClass =
                 createOJClassForRecordType(declarer, recordType);
 
@@ -116,13 +123,13 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
             // "projectClass" back to "type"
             mapOJClassToType.put(projectClass, type);
             return projectClass;
-        } else if (type instanceof CrossType) {
+        } else if (type instanceof RelCrossType) {
             // convert to synthetic join type
-            CrossType crossType = (RelDataTypeFactoryImpl.CrossType) type;
+            RelCrossType crossType = (RelCrossType) type;
             final RelDataType [] types = crossType.types;
             final OJClass [] ojClasses = new OJClass[types.length];
             for (int i = 0; i < types.length; i++) {
-                ojClasses[i] = OJUtil.typeToOJClass(declarer, types[i]);
+                ojClasses[i] = OJUtil.typeToOJClass(declarer, types[i], this);
             }
             final OJClass joinClass =
                 ojClassMap.createJoin(declarer, ojClasses);
@@ -171,13 +178,13 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
      * {@link #createJavaType} instead.
      * </li>
      * <li>
-     * If the {@link OJClass} is synthetic, call {@link #createProjectType} or
+     * If the {@link OJClass} is synthetic, call {@link #createStructType} or
      * {@link #createJoinType} instead.
      * </li>
      * </ul>
      * </p>
      */
-    private class OJScalarType extends TypeImpl
+    private class OJScalarType extends RelDataTypeImpl
     {
         private final OJClass ojClass;
 
@@ -192,7 +199,7 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
          */
         OJScalarType(OJClass ojClass)
         {
-            super(new RelDataTypeField[1]);
+            super(null);
             assert (ojClass != null);
             assert (!OJSyntheticClass.isJoinClass(ojClass));
 
@@ -200,34 +207,8 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
             // why
             
             //assert(!OJSyntheticClass.isProjectClass(ojClass));
-            fields[0] = new FieldImpl("this", 0, this);
             this.ojClass = ojClass;
-            this.digest = computeDigest();
-        }
-
-        public RelDataType getArrayType()
-        {
-            return new OJScalarType(OJClass.arrayOf(ojClass));
-        }
-
-        public RelDataTypeField getField(String fieldName)
-        {
-            return null;
-        }
-
-        public int getFieldCount()
-        {
-            return 1;
-        }
-
-        public int getFieldOrdinal(String fieldName)
-        {
-            return 0;
-        }
-
-        public RelDataTypeField [] getFields()
-        {
-            return new RelDataTypeField[0];
+            computeDigest();
         }
 
         public RelDataType getComponentType()
@@ -239,9 +220,11 @@ public class OJTypeFactoryImpl extends RelDataTypeFactoryImpl
             return toType(colType);
         }
 
-        protected String computeDigest()
+        protected void generateTypeString(StringBuffer sb, boolean withDetail)
         {
-            return "OJScalarType(" + ojClass + ")";
+            sb.append("OJScalarType(");
+            sb.append(ojClass);
+            sb.append(")");
         }
     }
 }

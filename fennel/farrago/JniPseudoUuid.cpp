@@ -1,0 +1,65 @@
+/*
+// $Id$
+// Fennel is a relational database kernel.
+// Copyright (C) 1999-2004 John V. Sichi.
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public License
+// as published by the Free Software Foundation; either version 2.1
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+*/
+
+#include "fennel/common/CommonPreamble.h"
+#include "fennel/common/PseudoUuid.h"
+#include "JniPseudoUuid.h"
+
+#include <jni.h>
+
+FENNEL_BEGIN_CPPFILE("$Id$");
+
+static jbyteArray makeJbyteArray(JNIEnv *jEnv, PseudoUuid cppUuid)
+{
+    jbyteArray uuid = jEnv->NewByteArray(16);
+    jbyte *uuidBytes = jEnv->GetByteArrayElements(uuid, NULL);
+
+    for(int i = 0; i < 16; i++) {
+        uuidBytes[i] = cppUuid.getByte(i);
+    }
+
+    jEnv->ReleaseByteArrayElements(uuid, uuidBytes, 0);
+
+    return uuid;
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_net_sf_farrago_fennel_FennelPseudoUuid_nativeGenerate(
+    JNIEnv *jEnv, jclass)
+{
+    PseudoUuid cppUuid;
+    cppUuid.generate();
+
+    return makeJbyteArray(jEnv, cppUuid);
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_net_sf_farrago_fennel_FennelPseudoUuid_nativeGenerateInvalid(
+    JNIEnv *jEnv, jclass)
+{
+    PseudoUuid cppUuid;
+    cppUuid.generateInvalid();
+
+    return makeJbyteArray(jEnv, cppUuid);
+}
+
+FENNEL_END_CPPFILE("$Id$");
+
+// End JniPseudoUuid.cpp

@@ -642,7 +642,6 @@ public abstract class OperandsTypeChecking
                 SqlValidator.Scope scope,
                 SqlCall call, boolean throwOnFailure)
             {
-                assert (2 == call.operands.length);
                 RelDataType type1 =
                     validator.deriveType(scope, call.operands[0]);
                 RelDataType type2 =
@@ -652,7 +651,7 @@ public abstract class OperandsTypeChecking
                 if (type1.equals(nullType) || type2.equals(nullType)) {
                     return true; //null is ok;
                 }
-                if (!(type1.isSameType(type2) || type2.isSameType(type1))) {
+                if (!SqlTypeUtil.sameNamedType(type1, type2)) {
                     if (throwOnFailure) {
                         throw validator.newValidationError(call,
                             EigenbaseResource.instance()
@@ -691,12 +690,21 @@ public abstract class OperandsTypeChecking
 
                 //null is ok;
                 if (!(
-                    (type1.equals(nullType) || type2.equals(nullType) ||
-                    type1.isSameType(type2) || type2.isSameType(type1)) &&
-                    (type1.equals(nullType) || type3.equals(nullType) ||
-                    type1.isSameType(type3) || type3.isSameType(type1)) &&
-                    (type2.equals(nullType) || type3.equals(nullType) ||
-                    type2.isSameType(type3) || type3.isSameType(type2)))) {
+                    (
+                        type1.equals(nullType)
+                        || type2.equals(nullType)
+                        || SqlTypeUtil.sameNamedType(type1, type2))
+                    &&
+                    (
+                        type1.equals(nullType)
+                        || type3.equals(nullType)
+                        || SqlTypeUtil.sameNamedType(type1, type3))
+                    &&
+                    (
+                        type2.equals(nullType)
+                        || type3.equals(nullType)
+                        || SqlTypeUtil.sameNamedType(type2, type3))))
+                {
 
                     if (throwOnFailure) {
                         throw validator.newValidationError(call,
@@ -854,19 +862,14 @@ public abstract class OperandsTypeChecking
                 RelDataType t1 = validator.deriveType(scope, call.operands[1]);
                 assert (null != t0) : "should not be null";
                 assert (null != t1) : "should not be null";
-                RelDataType nullType =
-                    validator.typeFactory.createSqlType(SqlTypeName.Null);
-                if (!nullType.isAssignableFrom(t0, false)
-                    && !nullType.isAssignableFrom(t1, false)) {
-                    if (!t0.isSameTypeFamily(t1)) {
-                        if (throwOnFailure) {
-                            //parser postition retrieved in
-                            //newValidationSignatureError()
-                            throw call.newValidationSignatureError(
-                                validator, scope);
-                        }
-                        return false;
+                if (!SqlTypeUtil.inSameFamilyOrNull(t0, t1)) {
+                    if (throwOnFailure) {
+                        //parser postition retrieved in
+                        //newValidationSignatureError()
+                        throw call.newValidationSignatureError(
+                            validator, scope);
                     }
+                    return false;
                 }
                 return super.check(validator, scope, call, throwOnFailure);
             }
@@ -926,17 +929,14 @@ public abstract class OperandsTypeChecking
                 assert (null != t0) : "should not be null";
                 assert (null != t1) : "should not be null";
                 assert (null != t2) : "should not be null";
-                RelDataType nullType =
-                    validator.typeFactory.createSqlType(SqlTypeName.Null);
-                if (!nullType.isAssignableFrom(t0, false)
-                    && !nullType.isAssignableFrom(t1, false)
-                    && !nullType.isAssignableFrom(t2, false)) {
-                    if (!t0.isSameTypeFamily(t1) || !t1.isSameTypeFamily(t2)) {
-                        if (throwOnFailure) {
-                            throw call.newValidationSignatureError(validator, scope);
-                        }
-                        return false;
+                if (!SqlTypeUtil.inSameFamilyOrNull(t0, t1)
+                    || !SqlTypeUtil.inSameFamilyOrNull(t1, t2)
+                    || !SqlTypeUtil.inSameFamilyOrNull(t0, t2))
+                {
+                    if (throwOnFailure) {
+                        throw call.newValidationSignatureError(validator, scope);
                     }
+                    return false;
                 }
                 return super.check(validator, scope, call, throwOnFailure);
             }
@@ -1196,7 +1196,7 @@ public abstract class OperandsTypeChecking
     public static final OperandsTypeChecking typeNullableIntervalNumeric =
         new SimpleOperandsTypeChecking(new SqlTypeName [][] {
             SqlTypeName.timeIntervalNullableTypes,
-            SqlTypeName.numericNullableTypes            
+            SqlTypeName.numericNullableTypes
         });
 
     public static final OperandsTypeChecking typeNullableDatetimeInterval =
@@ -1247,6 +1247,27 @@ public abstract class OperandsTypeChecking
 //todo                , typeNullableDatetimeInterval
             });
 
+    public static final OperandsTypeChecking typeMinusDateOperator =
+        new SimpleOperandsTypeChecking(new SqlTypeName [][] {
+            SqlTypeName.datetimeNullableTypes
+            , SqlTypeName.datetimeNullableTypes
+            , SqlTypeName.timeIntervalNullableTypes
+        }) {
+            public boolean check(
+                SqlValidator validator,
+                SqlValidator.Scope scope,
+                SqlCall call,
+                boolean throwOnFailure) {
+                if (!super.check(validator, scope, call, throwOnFailure)) {
+                    return false;
+                }
+                if (!typeNullableSameSame.check(validator, scope, call, throwOnFailure)) {
+                    return false;
+                }
+                return true;
+            }
+        };
+
     public static final OperandsTypeChecking typeNullableNumericOrInterval =
         new CompositeOrOperandsTypeChecking(
             new OperandsTypeChecking[] {
@@ -1281,7 +1302,7 @@ public abstract class OperandsTypeChecking
      * types must be
      * [nullable] Multiset, [nullable] mutliset
      * and the two types must have the same element type
-     * @see {@link RelDataTypeFactoryImpl.MultisetSqlType#getComponentType}
+     * @see {@link MultisetSqlType#getComponentType}
      */
     public static final OperandsTypeChecking typeNullableMultisetMultiset =
         new OperandsTypeChecking() {
@@ -1318,8 +1339,8 @@ public abstract class OperandsTypeChecking
                 argTypes[1] = validator.deriveType(scope, op1).getComponentType();
                 //TODO this wont work if element types are of ROW types and there is a
                 //mismatch.
-                RelDataType biggest = ReturnTypeInference.useBiggest.
-                    getType(validator.typeFactory, argTypes);
+                RelDataType biggest = SqlTypeUtil.getNullableBiggest(
+                    validator.typeFactory, argTypes);
                 if (null==biggest) {
                     if (throwOnFailure) {
                         throw EigenbaseResource.instance().newTypeNotComparable(

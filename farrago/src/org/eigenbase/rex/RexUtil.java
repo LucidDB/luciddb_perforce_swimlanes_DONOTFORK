@@ -23,6 +23,11 @@ package org.eigenbase.rex;
 
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeField;
+import org.eigenbase.sql.SqlNode;
+import org.eigenbase.sql.SqlLiteral;
+import org.eigenbase.sql.SqlKind;
+import org.eigenbase.sql.SqlCall;
+import org.eigenbase.sql.type.SqlTypeName;
 
 
 /**
@@ -82,8 +87,8 @@ public class RexUtil
         RelDataType lhsRowType,
         RelDataType rhsRowType)
     {
-        int n = rhsRowType.getFieldCount();
-        assert (n == lhsRowType.getFieldCount());
+        int n = rhsRowType.getFieldList().size();
+        assert (n == lhsRowType.getFieldList().size());
         RexNode [] rhsExps = new RexNode[n];
         for (int i = 0; i < n; ++i) {
             rhsExps[i] =
@@ -110,10 +115,10 @@ public class RexUtil
         RelDataType lhsRowType,
         RexNode [] rhsExps)
     {
-        final int fieldCount = lhsRowType.getFieldCount();
+        RelDataTypeField [] lhsFields = lhsRowType.getFields();
+        final int fieldCount = lhsFields.length;
         RexNode [] castExps = new RexNode[fieldCount];
         assert fieldCount == rhsExps.length;
-        RelDataTypeField [] lhsFields = lhsRowType.getFields();
         for (int i = 0; i < fieldCount; ++i) {
             RelDataTypeField lhsField = lhsFields[i];
             RelDataType lhsType = lhsField.getType();
@@ -125,6 +130,59 @@ public class RexUtil
             }
         }
         return castExps;
+    }
+
+
+    /**
+     * Returns whether a node represents the NULL value.
+     *
+     * <p>Examples:<ul>
+     * <li>For {@link org.eigenbase.rex.RexLiteral} Unknown, returns false.
+     * <li>For <code>CAST(NULL AS <i>type</i>)</code>, returns true if
+     *     <code>allowCast</code> is true, false otherwise.
+     * <li>For <code>CAST(CAST(NULL AS <i>type</i>) AS <i>type</i>))</code>,
+     *     returns false.
+     * </ul>
+     */
+    public static boolean isNullLiteral(
+        RexNode node,
+        boolean allowCast)
+    {
+        if (node instanceof RexLiteral) {
+            RexLiteral literal = (RexLiteral) node;
+            if (literal.typeName == SqlTypeName.Null) {
+                assert (null == literal.getValue());
+                return true;
+            } else {
+                // We don't regard UNKNOWN -- SqlLiteral(null,Boolean) -- as NULL.
+                return false;
+            }
+        }
+        if (allowCast) {
+            if (node.isA(RexKind.Cast)) {
+                RexCall call = (RexCall) node;
+                if (isNullLiteral(call.operands[0], false)) {
+                    // node is "CAST(NULL as type)"
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether a node represents the NULL value or a series of nested
+     * CAST(NULL as <TYPE>) calls
+     * <br>
+     * For Example:<br>
+     * isNull(CAST(CAST(NULL as INTEGER) AS VARCHAR(1))) returns true
+     */
+    public static boolean isNull(RexNode node)
+    {
+        /* Checks to see if the RexNode is null */
+        return RexLiteral.isNullLiteral(node)
+            || ((node.getKind() == RexKind.Cast)
+            && isNull(((RexCall) node).operands[0]));
     }
 }
 

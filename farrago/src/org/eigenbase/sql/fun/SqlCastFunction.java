@@ -27,7 +27,7 @@ import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.test.SqlOperatorTests;
 import org.eigenbase.sql.test.SqlTester;
-import org.eigenbase.sql.type.UnknownParamInference;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.Util;
 
 
@@ -64,12 +64,21 @@ public class SqlCastFunction extends SqlFunction
     returnNode = operands[1];
     return super.createCall(new SqlNode [] {operands[0]});
     } */
-    public RelDataType getType(
-        RelDataTypeFactory factory,
-        RelDataType [] argTypes)
+    protected RelDataType getType(
+        SqlValidator validator,
+        SqlValidator.Scope scope,
+        RelDataTypeFactory typeFactory,
+        CallOperands callOperands)
     {
-        assert argTypes.length == 2;
-        return argTypes[1];
+        assert(callOperands.size() == 2);
+        RelDataType ret = callOperands.getType(1);
+        RelDataType firstType = callOperands.getType(0);
+        ret = typeFactory.createTypeWithNullability(ret, firstType.isNullable());
+        if (null!=validator) {
+            SqlCall call = (SqlCall) callOperands.getUnderlyingObject();
+            validator.setValidatedNodeType(call.operands[0], ret);
+        }
+        return ret;
     }
 
     protected String getSignatureTemplate(final int operandsCount)
@@ -112,7 +121,7 @@ public class SqlCastFunction extends SqlFunction
         RelDataType validatedNodeType =
             validator.getValidatedNodeType(call.operands[0]);
         RelDataType returnType = validator.deriveType(scope, call.operands[1]);
-        if (!returnType.isAssignableFrom(validatedNodeType, true)) {
+        if (!SqlTypeUtil.canCastFrom(returnType, validatedNodeType, true)) {
             if (throwOnFailure) {
                 throw EigenbaseResource.instance().newCannotCastValue(
                     validatedNodeType.toString(),
@@ -121,30 +130,6 @@ public class SqlCastFunction extends SqlFunction
             return false;
         }
         return true;
-    }
-
-    /**
-     * Figure out the type of the return of this function.
-     * We have already checked that the number and types of arguments are as
-     * required.
-     */
-    protected RelDataType inferType(
-        SqlValidator validator,
-        SqlValidator.Scope scope,
-        SqlCall call)
-    {
-        RelDataType ret = validator.deriveType(scope, call.operands[1]);
-        boolean isNullable;
-        if (SqlUtil.isNullLiteral(call.operands[0], false)) {
-            isNullable = true;
-        } else {
-            RelDataType firstType =
-                validator.getValidatedNodeType(call.operands[0]);
-            isNullable = firstType.isNullable();
-        }
-        ret = validator.typeFactory.createTypeWithNullability(ret, isNullable);
-        validator.setValidatedNodeType(call.operands[0], ret);
-        return ret;
     }
 
     public SqlSyntax getSyntax()

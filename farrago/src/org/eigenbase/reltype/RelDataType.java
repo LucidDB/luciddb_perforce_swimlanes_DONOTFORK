@@ -22,14 +22,21 @@
 package org.eigenbase.reltype;
 
 import java.nio.charset.Charset;
+import java.util.*;
 
-import org.eigenbase.sql.SqlCollation;
-import org.eigenbase.sql.type.SqlTypeName;
+import org.eigenbase.sql.*;
+import org.eigenbase.sql.type.*;
 
 
 /**
- * The type of a scalar expression or a row returned from a relational
- * expression.
+ * RelDataType represents the type of a scalar expression or entire row
+ * returned from a relational expression.
+ *
+ *<p>
+ *
+ * This is a somewhat "fat" interface which unions the attributes of many
+ * different type classes into one.  Inelegant, but since our type system was
+ * defined before the advent of Java generics, it avoids a lot of typecasting.
  *
  * @author jhyde
  * @version $Id$
@@ -40,145 +47,155 @@ public interface RelDataType
 {
     //~ Methods ---------------------------------------------------------------
 
-    RelDataTypeFactory getFactory();
-
-    RelDataTypeField getField(String fieldName);
-
     /**
-     * Returns the number of columns.
-     */
-    int getFieldCount();
-
-    int getFieldOrdinal(String fieldName);
-
-    /**
-     * Returns the columns.
+     * Queries whether this is a structured type.
      *
-     * @post return != null
+     * @return whether this type has fields; examples include rows and
+     * user-defined structured types in SQL, and classes in Java
      */
-    RelDataTypeField [] getFields();
+    public boolean isStruct();
 
+    // NOTE jvs 17-Dec-2004:  once we move to Java generics, getFieldList()
+    // will be declared to return a read-only List<RelDataTypeField>,
+    // and getFields() will be eliminated.  Currently,
+    // anyone can mutate a type by poking into the array returned
+    // by getFields!
+    
     /**
-     * Whether the type represents a cartesian product of regular types.
-     */
-    boolean isJoin();
-
-    /**
-     * Returns the component types of a join type.
+     * Gets the fields in a struct type.  The field count is equal
+     * to the size of the returned list.
      *
-     * @pre isJoin()
-     */
-    RelDataType [] getJoinTypes();
-
-    boolean isProject();
-
-    /**
-     * Whether this type is identical to another, save for differences in
-     * nullability.
-     */
-    boolean equalsSansNullability(RelDataType type);
-
-    /**
-     * @return whether this type allows null values.
-     */
-    boolean isNullable();
-
-    /**
-     * Returns the component type if type is a collection, otherwise null.
-     */
-    RelDataType getComponentType();
-
-    /**
-     * Returns an array type with this type as the component.
-     */
-    RelDataType getArrayType();
-
-    // REVIEW jvs 1-Mar-2004:  The implementations for this method
-    // are asymmetric, e.g. INT.isAssignableFrom(SMALLINT) but
-    // not vice-versa (due to possible overflow?).  The SQL definition of
-    // assignability is symmetric (e.g. overflow is a runtime check).  So
-    // maybe the name of this method should be something like
-    // isSupertypeOf instead?
-
-    /**
-     * Returns whether a value of this type can be assigned from a value of
-     * a given other type.
-     */
-    boolean isAssignableFrom(
-        RelDataType t,
-        boolean coerce);
-
-    /**
-     * Returns whether two values are of the same type. E.g.
-     *  varchar(5) and varchar(0), are of the same type
-     *  double and float, aren't
-     */
-    boolean isSameType(RelDataType t);
-
-    /**
-     * Returns whether two values are of the same type family. E.g.
-     *  varchar(5) and varchar(0), are of the same type family
-     *  double, float, int, bigint, are of the same type family
-     *  varchar(x) and int are NOT of the same type family
-     */
-    boolean isSameTypeFamily(RelDataType t);
-
-    /**
-     * If type represent a char, varchar or any other type that can carry a collation
-     * this function must return true, otherwise returns false. <BR>
-     */
-    boolean isCharType();
-
-    /**
-     * Returns this type's character set, or null if this type can carry a
-     * character set but no character set is defined.
+     * @return read-only list of fields
      *
-     * @throws RuntimeException if this type is not of a kind (char,
-     *   varchar, and so forth) that can carry a character set.
+     * @pre this.isStruct()
      */
-    Charset getCharset();
+    public List getFieldList();
 
     /**
-     * Returns this type's collation, or null if this type can carry a
-     * collation but no collation is defined.
+     * Gets the fields in a struct type.  The field count is equal
+     * to the length of the returned array.
      *
-     * @throws RuntimeException if this type is not of a kind (char,
-     *   varchar, and so forth) that can carry a collation.
+     *<p>
+     *
+     * NOTE jvs 17-Dec-2004:  this method will become deprecated
+     * once we move to Java generics, and eventually eliminated
+     *
+     * @return array of fields
+     *
+     * @pre this.isStruct()
      */
-    SqlCollation getCollation()
-        throws RuntimeException;
+    public RelDataTypeField [] getFields();
 
     /**
-     * Returns the maximum number of bytes storage required to store a value
-     * of this type. If the type is fixed-length, returns -1.
+     * Looks up the ordinal of a field by name.
+     *
+     * @param fieldName name of field to find
+     *
+     * @return 0-based ordinal of named field, or -1 if not found
+     *
+     * @pre this.isStruct()
      */
-    int getMaxBytesStorage();
+    public int getFieldOrdinal(String fieldName);
+    
+    /**
+     * Looks up a field by name.
+     *
+     * @param fieldName name of field to find
+     *
+     * @return named field, or null if not found
+     *
+     * @pre this.isStruct()
+     */
+    public RelDataTypeField getField(String fieldName);
 
     /**
-     * @return number of digits or characters of precision
+     * Queries whether this type allows null values.
+     *
+     * @return whether type allows null values
+     */
+    public boolean isNullable();
+
+    /**
+     * Gets the component type if this type is a collection, otherwise null.
+     *
+     * @return canonical type descriptor for components
+     */
+    public RelDataType getComponentType();
+
+    /**
+     * Gets this type's character set, or null if this type cannot carry a
+     * character set or has no character set defined.
+     *
+     * @return charset of type
+     */
+    public Charset getCharset();
+
+    /**
+     * Gets this type's collation, or null if this type cannot carry a
+     * collation or has no collation defined.
+     *
+     * @return collation of type
+     */
+    public SqlCollation getCollation();
+
+    /**
+     * Gets this type's interval qualifier, or null if this is
+     * not an interval type.
+     *
+     * @return interval qualifier
+     */
+    public SqlIntervalQualifier getIntervalQualifier();
+    
+    /**
+     * Gets the precision of this type.
+     *
+     * @return number of digits of precision for numeric and datetime types;
+     * length in characters for character types; length in bytes
+     * for binary types; length in bits for bit types
      */
     public int getPrecision();
 
     /**
-     * get the SqlTypeName for this RelDataType.
+     * Gets the scale of this type.
+     *
+     * @return number of digits of scale
+     */
+    public int getScale();
+
+    /**
+     * Gets the {@link SqlTypeName} of this type.
+     *
+     * @return SqlTypeName, or null if
+     * this is not an SQL type
      */
     public SqlTypeName getSqlTypeName();
 
     /**
-     * @return this type as a string without detail
-     * such as character set and nullability
+     * Gets a string representation of this type without detail
+     * such as character set and nullability.
+     *
+     * @return abbreviated type string
      */
     public String toString();
 
     /**
-     * Compute a string from this type with full detail such as character set
-     * and nullability.  This string must serve as a "digest" for the type,
-     * meaning two types can be considered identical iff their digests are
-     * equal.
+     * Gets a string representation of this type with full detail such as
+     * character set and nullability.  The string must serve as a "digest" for
+     * this type, meaning two types can be considered identical iff their
+     * digests are equal.
      *
-     * @return the full type string
+     * @return full type string
      */
     public String getFullTypeString();
+
+    /**
+     * Gets a canonical object representing the family of this type.
+     * Two values can be compared if and only if their types are in
+     * the same family.
+     *
+     * @return canonical object representing type family
+     */
+    public RelDataTypeFamily getFamily();
 }
 
 

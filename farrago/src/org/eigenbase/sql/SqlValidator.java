@@ -27,9 +27,7 @@ import org.eigenbase.reltype.RelDataTypeField;
 import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.fun.SqlRowOperator;
 import org.eigenbase.sql.parser.ParserPosition;
-import org.eigenbase.sql.type.ReturnTypeInference;
-import org.eigenbase.sql.type.SqlTypeName;
-import org.eigenbase.sql.type.UnknownParamInference;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.sql.util.SqlBasicVisitor;
 import org.eigenbase.util.EnumeratedValues;
 import org.eigenbase.util.Util;
@@ -57,8 +55,6 @@ public class SqlValidator
 
     public static final RelDataType [] emptyTypes = new RelDataType[0];
     public static final String [] emptyStrings = new String[0];
-    public static final SqlNodeList emptySqlNodeList =
-        new SqlNodeList(ParserPosition.ZERO);
 
     //~ Instance fields -------------------------------------------------------
 
@@ -69,7 +65,7 @@ public class SqlValidator
      * Maps {@link SqlNode query node} objects to the {@link Scope} scope
      * created from them}.
      */
-    private final HashMap scopes = new HashMap();
+    protected final HashMap scopes = new HashMap();
     /**
      * Maps a {@link SqlSelect} node to the scope used by its WHERE and
      * HAVING clauses.
@@ -88,12 +84,13 @@ public class SqlValidator
      * Maps a {@link SqlNode node} to the {@link Namespace} the namespace which
      * describes what columns they contain.
      */
-    private final HashMap namespaces = new HashMap();
+    protected final HashMap namespaces = new HashMap();
     private SqlNode outermostNode;
     private int nextGeneratedId;
     public final RelDataTypeFactory typeFactory;
     public final RelDataType unknownType;
     public final RelDataType anyType;
+    public final RelDataType booleanType;
 
     /**
      * Map of derived RelDataType for each node.  This is an IdentityHashMap
@@ -130,6 +127,7 @@ public class SqlValidator
         // parameters and null literals until a real type is imposed for them.
         unknownType = typeFactory.createSqlType(SqlTypeName.Null);
         anyType = typeFactory.createSqlType(SqlTypeName.Any);
+        booleanType = typeFactory.createSqlType(SqlTypeName.Boolean);
     }
 
     //~ Methods ---------------------------------------------------------------
@@ -286,6 +284,14 @@ public class SqlValidator
         if (namespace == null) {
             throw Util.newInternal("Not a query: " + node);
         }
+        validateNamespace(namespace);
+    }
+
+    /**
+     * Validates a namespace.
+     */
+    protected void validateNamespace(final Namespace namespace)
+    {
         namespace.validate();
     }
 
@@ -358,6 +364,7 @@ public class SqlValidator
     public Namespace getNamespace(SqlNode node) {
         switch (node.getKind().getOrdinal()) {
         case SqlKind.AsORDINAL:
+        case SqlKind.OverORDINAL:
             return getNamespace(((SqlCall) node).operands[0]);
         default:
             return (Namespace) namespaces.get(node);
@@ -497,7 +504,7 @@ public class SqlValidator
     {
         assert values.getOperands().length >= 1;
         final SqlNode operand = values.getOperands()[0];
-        assert operand.isA(SqlKind.Row);
+        assert(operand.isA(SqlKind.Row));
         SqlCall rowConstructor = (SqlCall) operand;
 
         // REVIEW jvs 10-Sept-2003: This assumes we can get everything we need
@@ -512,7 +519,7 @@ public class SqlValidator
             final RelDataType type = deriveType(scope, operands[i]);
             types.add(type);
         }
-        return typeFactory.createProjectType((RelDataType []) types.toArray(
+        return typeFactory.createStructType((RelDataType []) types.toArray(
                 emptyTypes), (String []) aliases.toArray(emptyStrings));
     }
 
@@ -521,7 +528,7 @@ public class SqlValidator
      *
      * @param node the node of interest
      *
-     * @return validated type
+     * @return validated type, never null
      */
     public RelDataType getValidatedNodeType(SqlNode node)
     {
@@ -533,7 +540,7 @@ public class SqlValidator
         if (ns != null) {
             return ns.getRowType();
         }
-        throw Util.needToImplement("Type derivation for " + node);
+        throw Util.needToImplement(node);
     }
 
     public void setValidatedNodeType(
@@ -552,7 +559,7 @@ public class SqlValidator
         RelDataType type)
     {
         //(every charset must have a default collation)
-        if (type.isCharType()) {
+        if (SqlTypeUtil.inCharFamily(type)) {
             Charset strCharset = type.getCharset();
             Charset colCharset = type.getCollation().getCharset();
             assert (null != strCharset);
@@ -605,6 +612,8 @@ public class SqlValidator
         Scope scope,
         SqlNode operand)
     {
+        // REVIEW jvs 2-Dec-2004:  this method has outgrown its pants
+
         RelDataType type;
         if (operand instanceof SqlIdentifier) {
             SqlIdentifier id = (SqlIdentifier) operand;
@@ -647,7 +656,7 @@ public class SqlValidator
                     type = fieldType;
                 }
             }
-            if (type.isCharType()) {
+            if (SqlTypeUtil.inCharFamily(type)) {
                 Charset charset =
                     (type.getCharset() == null) ? Util.getDefaultCharset()
                     : type.getCharset();
@@ -672,7 +681,7 @@ public class SqlValidator
         }
 
         if (operand instanceof SqlIntervalQualifier) {
-            return typeFactory.createIntervalType(
+            return typeFactory.createSqlIntervalType(
                 (SqlIntervalQualifier) operand);
         }
 
@@ -680,10 +689,10 @@ public class SqlValidator
             return unknownType;
         }
 
-        // SqlDataType may occur in an expression as the 2nd arg to the CAST
+        // SqlDataTypeSpec may occur in an expression as the 2nd arg to the CAST
         // function.
-        if (operand instanceof SqlDataType) {
-            SqlDataType dataType = (SqlDataType) operand;
+        if (operand instanceof SqlDataTypeSpec) {
+            SqlDataTypeSpec dataType = (SqlDataTypeSpec) operand;
             return dataType.deriveType(this);
         }
 
@@ -698,6 +707,18 @@ public class SqlValidator
                 type = call.operator.getType(this, scope, call);
                 return type;
             }
+
+            if (call.isA(SqlKind.MultisetQueryConstructor)) {
+                SqlSelect subSelect = (SqlSelect) call.operands[0];
+                subSelect.validateExpr(this, scope);
+                Namespace ns = getNamespace(subSelect);
+                assert(null!=ns.getRowType());
+                final RelDataType ret =
+                    typeFactory.createMultisetType(ns.getRowType(),-1);
+                return typeFactory.createTypeWithNullability(
+                    ret, ns.getRowType().isNullable());
+            }
+
             final SqlSyntax syntax = call.operator.getSyntax();
             switch (syntax.ordinal) {
             case SqlSyntax.Prefix_ordinal:
@@ -706,10 +727,19 @@ public class SqlValidator
                 // TODO: use this switch statement to resolve functions instead
                 // of all of these 'if's.
             }
+
             if (call.operator instanceof SqlCaseOperator) {
                 return call.operator.getType(this, scope, call);
             }
+            if (call.isA(SqlKind.Over)) {
+                return call.operator.getType(this, scope, call);
+            }
 
+            Scope subScope = scope;
+            if (scope instanceof AggregatingScope &&
+                call.operator.isAggregator()) {
+                subScope = ((AggregatingScope) scope).getScopeAboveAggregation();
+            }
             if ((call.operator instanceof SqlFunction)
                     || (call.operator instanceof SqlSpecialOperator)
                     || (call.operator instanceof SqlRowOperator)) {
@@ -719,7 +749,7 @@ public class SqlValidator
                     if (operands[i] instanceof SqlSymbol) {
                         continue; // operand is a symbol e.g. LEADING
                     }
-                    RelDataType nodeType = deriveType(scope, operands[i]);
+                    RelDataType nodeType = deriveType(subScope, operands[i]);
                     setValidatedNodeType(operands[i], nodeType);
                     argTypes[i] = nodeType;
                 }
@@ -779,11 +809,9 @@ public class SqlValidator
                         getValidatedNodeType(call.operands[0]);
                     RelDataType operandType2 =
                         getValidatedNodeType(call.operands[1]);
-                    if ((null == operandType1) || (null == operandType2)) {
-                        throw Util.newInternal(
-                            "operands' types should have been derived");
-                    }
-                    if (operandType1.isCharType() && operandType2.isCharType()) {
+                    if (SqlTypeUtil.inCharFamily(operandType1)
+                        && SqlTypeUtil.inCharFamily(operandType2))
+                    {
                         Charset cs1 = operandType1.getCharset();
                         Charset cs2 = operandType2.getCharset();
                         assert ((null != cs1) && (null != cs2)) :
@@ -806,7 +834,7 @@ public class SqlValidator
                             SqlCollation.getCoercibilityDyadicOperator(col1,
                                 col2);
 
-                        if (type.isCharType()) {
+                        if (SqlTypeUtil.inCharFamily(type)) {
                             type =
                                 typeFactory.createTypeWithCharsetAndCollation(
                                     type,
@@ -816,14 +844,14 @@ public class SqlValidator
                     }
                 }
                 //determine coercibility and resulting collation name of unary operator if needed
-                else if (type.isCharType()) {
+                else if (SqlTypeUtil.inCharFamily(type)) {
                     RelDataType operandType =
                         getValidatedNodeType(call.operands[0]);
                     if (null == operandType) {
                         throw Util.newInternal(
                             "operand's type should have been derived");
                     }
-                    if (operandType.isCharType()) {
+                    if (SqlTypeUtil.inCharFamily(operandType)) {
                         SqlCollation collation = operandType.getCollation();
                         assert (null != collation) : "An implicit or explicit collation should have been set";
                         type =
@@ -844,6 +872,10 @@ public class SqlValidator
                 return unknownType;
             }
         }
+        // Operand is of a type that we can't derive a type for.
+        // If the operand is of a peculiar type, such as a SqlNodeList, then
+        // you should override the operator's validateCall() method so that
+        // it doesn't try to validate that operand as an expression.
         throw Util.needToImplement(operand);
     }
 
@@ -877,6 +909,10 @@ public class SqlValidator
         Scope scope,
         SqlNode node)
     {
+        final Scope newScope = (Scope) scopes.get(node);
+        if (newScope != null) {
+            scope = newScope;
+        }
         if (node instanceof SqlDynamicParam
             || SqlUtil.isNullLiteral(node, false)) {
             if (inferredType.equals(unknownType)) {
@@ -887,7 +923,7 @@ public class SqlValidator
             // REVIEW:  should dynamic parameter types always be nullable?
             RelDataType newInferredType =
                 typeFactory.createTypeWithNullability(inferredType, true);
-            if (inferredType.isCharType()) {
+            if (SqlTypeUtil.inCharFamily(inferredType)) {
                 newInferredType =
                     typeFactory.createTypeWithCharsetAndCollation(
                         newInferredType,
@@ -897,8 +933,8 @@ public class SqlValidator
             setValidatedNodeType(node, newInferredType);
         } else if (node instanceof SqlNodeList) {
             SqlNodeList nodeList = (SqlNodeList) node;
-            if (inferredType.isProject()) {
-                if (inferredType.getFieldCount() != nodeList.size()) {
+            if (inferredType.isStruct()) {
+                if (inferredType.getFieldList().size() != nodeList.size()) {
                     // this can happen when we're validating an INSERT
                     // where the source and target degrees are different;
                     // bust out, and the error will be detected higher up
@@ -910,7 +946,7 @@ public class SqlValidator
             while (iter.hasNext()) {
                 SqlNode child = (SqlNode) iter.next();
                 RelDataType type;
-                if (inferredType.isProject()) {
+                if (inferredType.isStruct()) {
                     type = inferredType.getFields()[i].getType();
                     ++i;
                 } else {
@@ -923,14 +959,14 @@ public class SqlValidator
             SqlCase caseCall = (SqlCase) node;
             RelDataType returnType = deriveType(scope, node);
 
-            List whenList = caseCall.getWhenOperands();
+            SqlNodeList whenList = caseCall.getWhenOperands();
             for (int i = 0; i < whenList.size(); i++) {
-                SqlNode sqlNode = (SqlNode) whenList.get(i);
+                SqlNode sqlNode = whenList.get(i);
                 inferUnknownTypes(unknownType, scope, sqlNode);
             }
-            List thenList = caseCall.getThenOperands();
+            SqlNodeList thenList = caseCall.getThenOperands();
             for (int i = 0; i < thenList.size(); i++) {
-                SqlNode sqlNode = (SqlNode) thenList.get(i);
+                SqlNode sqlNode = thenList.get(i);
                 inferUnknownTypes(returnType, scope, sqlNode);
             }
 
@@ -949,7 +985,7 @@ public class SqlValidator
         } else if (node instanceof SqlCall) {
             SqlCall call = (SqlCall) node;
             UnknownParamInference paramTypeInference =
-                call.operator.getParamTypeInference();
+                call.operator.getUnknownParamTypeInference();
             SqlNode [] operands = call.getOperands();
             RelDataType [] operandTypes = new RelDataType[operands.length];
             if (paramTypeInference == null) {
@@ -1149,6 +1185,7 @@ public class SqlValidator
         case SqlKind.IntersectORDINAL:
         case SqlKind.ExceptORDINAL:
         case SqlKind.ValuesORDINAL:
+        case SqlKind.UnnestORDINAL:
             newNode = node;
             if (alias == null) {
                 // give this anonymous construct a name since later
@@ -1279,7 +1316,7 @@ public class SqlValidator
             call = (SqlCall) node;
             SqlNode [] operands = call.getOperands();
             for (int i = 0; i < operands.length; ++i) {
-                assert (operands[i].isA(SqlKind.Row));
+                assert(operands[i].isA(SqlKind.Row));
 
                 // FIXME jvs 9-Feb-2004:  Correlation should
                 // be illegal in these subqueries.  Same goes for
@@ -1315,6 +1352,17 @@ public class SqlValidator
                 usingScope, updateCall.getSourceSelect(),
                 null);
             break;
+        case SqlKind.UnnestORDINAL:
+            SqlCall unnestCall = (SqlCall) node;
+            final UnnestNamespace unnestNamespace =
+                new UnnestNamespace(node, usingScope);
+            registerNamespace(usingScope, alias, unnestNamespace);
+            if (unnestCall.operands[0].isA(
+                SqlKind.MultisetQueryConstructor)) {
+                final SqlCall queryCtor = (SqlCall) unnestCall.operands[0];
+                registerSubqueries(usingScope, queryCtor.operands[0]);
+            }
+            break;
         default:
             throw node.getKind().unexpected();
         }
@@ -1324,9 +1372,11 @@ public class SqlValidator
      * Returns whether a SELECT statement is an aggregation. Criteria are:
      * (1) contains GROUP BY, or
      * (2) contains HAVING, or
-     * (3) SELECT or ORDER BY clause contains aggregate functions.
+     * (3) SELECT or ORDER BY clause contains aggregate functions. (Windowed
+     *     aggregate functions, such as <code>SUM(x) OVER w</code>, don't
+     *     count.)
      */
-    private boolean isAggregate(SqlSelect select) {
+    public boolean isAggregate(SqlSelect select) {
         return select.getGroup() != null ||
             select.getHaving() != null ||
             aggFinder.findAgg(select.getSelectList()) != null;
@@ -1376,13 +1426,13 @@ public class SqlValidator
     }
 
     /**
-     * Validates a {@link SqlIntervalQualifier} 
+     * Validates a {@link SqlIntervalQualifier}
      */
     public void validateIntervalQualifier(SqlIntervalQualifier qualifier) {
         // default is to do nothing
     }
 
-    private void validateFrom(
+    protected void validateFrom(
         SqlNode node,
         RelDataType targetRowType,
         Scope scope)
@@ -1401,9 +1451,7 @@ public class SqlValidator
             validateOver((SqlCall) node, scope);
             return;
         default:
-            final Namespace namespace2 = getNamespace(node);
-            assert namespace2 != null : node;
-            namespace2.validate();
+            validateQuery(node);
         }
     }
 
@@ -1502,10 +1550,19 @@ public class SqlValidator
                 id.toString()));
     }
 
-    private void validateSelect(
+    /**
+     * Validates a SELECT statement.
+     *
+     * @param select Select statement
+     * @param targetRowType Desired row type, must not be null, may be the
+     *   data type 'unknown'.
+     * @pre targetRowType != null
+     */
+    protected void validateSelect(
         SqlSelect select,
         RelDataType targetRowType)
     {
+        Util.pre(targetRowType != null, "targetRowType != null");
         final SelectNamespace ns = (SelectNamespace) getNamespace(select);
         assert ns.rowType == null;
 
@@ -1579,15 +1636,19 @@ public class SqlValidator
         orderList.validate(this, orderScope);
     }
 
-    private void validateGroupClause(SqlSelect select)
+    /**
+     * Validates the GROUP BY clause of a SELECT statement. This method is
+     * called even if no GROUP BY clause is present.
+     */
+    protected void validateGroupClause(SqlSelect select)
     {
         SqlNodeList group = select.getGroup();
         if (group == null) {
             return;
         }
         final Scope groupScope = getScope(select, SqlSelect.GROUP_OPERAND);
-        group.validate(this, groupScope);
         inferUnknownTypes(unknownType, groupScope, group);
+        group.validate(this, groupScope);
     }
 
     private void validateWhereClause(SqlSelect select)
@@ -1603,12 +1664,16 @@ public class SqlValidator
             throw newValidationError(agg,
                 EigenbaseResource.instance().newAggregateIllegalInWhere());
         }
-        where.validate(this, whereScope);
         inferUnknownTypes(
-            typeFactory.createSqlType(SqlTypeName.Boolean),
+            booleanType,
             whereScope,
             where);
-        deriveType(whereScope, where);
+        where.validate(this, whereScope);
+        final RelDataType type = deriveType(whereScope, where);
+        if (!SqlTypeUtil.inBooleanFamily(type)) {
+            throw newValidationError(where,
+                EigenbaseResource.instance().newWhereMustBeBoolean());
+        }
     }
 
     private void validateHavingClause(SqlSelect select) {
@@ -1622,6 +1687,15 @@ public class SqlValidator
         }
         final Scope havingScope = getScope(select, SqlSelect.HAVING_OPERAND);
         having.validate(this, havingScope);
+        inferUnknownTypes(
+            booleanType,
+            havingScope,
+            having);
+        final RelDataType type = deriveType(havingScope, having);
+        if (!SqlTypeUtil.inBooleanFamily(type)) {
+            throw newValidationError(having,
+                EigenbaseResource.instance().newHavingMustBeBoolean());
+        }
     }
 
     private RelDataType validateSelectList(final SqlNodeList selectItems,
@@ -1666,7 +1740,7 @@ public class SqlValidator
         final RelDataType [] types =
             (RelDataType []) typeList.toArray(emptyTypes);
         final String [] aliases = (String []) aliasList.toArray(emptyStrings);
-        return typeFactory.createProjectType(types, aliases);
+        return typeFactory.createStructType(types, aliases);
     }
 
 
@@ -1678,13 +1752,13 @@ public class SqlValidator
         RelDataTypeField [] targetFields = baseRowType.getFields();
         int targetColumnCount = targetColumnList.size();
         if (append) {
-            targetColumnCount += baseRowType.getFieldCount();
+            targetColumnCount += baseRowType.getFieldList().size();
         }
         RelDataType [] types = new RelDataType[targetColumnCount];
         String [] fieldNames = new String[targetColumnCount];
         int iTarget = 0;
         if (append) {
-            iTarget += baseRowType.getFieldCount();
+            iTarget += baseRowType.getFieldList().size();
             for (int i = 0; i < iTarget; ++i) {
                 types[i] = targetFields[i].getType();
                 fieldNames[i] = deriveAliasFromOrdinal(i);
@@ -1703,7 +1777,7 @@ public class SqlValidator
             types[iTarget] = targetFields[iColumn].getType();
             ++iTarget;
         }
-        return typeFactory.createProjectType(types, fieldNames);
+        return typeFactory.createStructType(types, fieldNames);
     }
 
     /**
@@ -1713,7 +1787,7 @@ public class SqlValidator
     {
         IdentifierNamespace targetNamespace =
             (IdentifierNamespace) getNamespace(call.getTargetTable());
-        targetNamespace.validate();
+        validateNamespace(targetNamespace);
         Table table = targetNamespace.getTable();
 
         RelDataType targetRowType = table.getRowType();
@@ -1729,10 +1803,12 @@ public class SqlValidator
         validateSelect(sqlSelect, targetRowType);
         RelDataType sourceRowType = getNamespace(sqlSelect).getRowType();
 
-        if (targetRowType.getFieldCount() != sourceRowType.getFieldCount()) {
+        if (targetRowType.getFieldList().size()
+            != sourceRowType.getFieldList().size())
+        {
             throw EigenbaseResource.instance().newUnmatchInsertColumn(
-                new Integer(targetRowType.getFieldCount()),
-                new Integer(sourceRowType.getFieldCount()));
+                new Integer(targetRowType.getFieldList().size()),
+                new Integer(sourceRowType.getFieldList().size()));
         }
 
         // TODO:  validate updatability, type compatibility, etc.
@@ -1761,7 +1837,7 @@ public class SqlValidator
         final ListScope fromScope = (ListScope) getScope(select, SqlSelect.WHERE_OPERAND);
         IdentifierNamespace targetNamespace =
             (IdentifierNamespace) fromScope.getChild(name);
-        targetNamespace.validate();
+        validateNamespace(targetNamespace);
         Table table = targetNamespace.getTable();
 
         RelDataType targetRowType =
@@ -1796,9 +1872,9 @@ public class SqlValidator
                     "Values function where operands are scalars");
             }
             SqlCall rowConstructor = (SqlCall) operands[i];
-            if (targetRowType.isProject()
-                    && (rowConstructor.getOperands().length != targetRowType
-                    .getFieldCount())) {
+            if (targetRowType.isStruct() &&
+                rowConstructor.getOperands().length !=
+                targetRowType.getFieldList().size()) {
                 return;
             }
 
@@ -1837,8 +1913,7 @@ public class SqlValidator
                 }
 
                 final RelDataType type =
-                    ReturnTypeInference.useNullableBiggest.getType(typeFactory,
-                        types);
+                    SqlTypeUtil.getNullableBiggest(typeFactory, types);
 
                 if (null == type) {
                     throw newValidationError(node,
@@ -1864,31 +1939,33 @@ public class SqlValidator
     }
 
     /**
-     * Converts the <code>ordinal</code>th argument of a call to a positive
-     * integer, otherwise throws.
+     * Resolves a multi-part identifier such as "SCHEMA.EMP.EMPNO" to a
+     * namespace. The returned namespace may represent a schema, table, column,
+     * etc.
+     *
+     * @pre names.length > 0
+     * @post return != null
      */
-    public static int getOperandAsPositiveInteger(SqlCall call, int ordinal) {
-        if (call.operands.length >= ordinal) {
-            SqlNode exp = call.operands[ordinal];
-            if (exp instanceof SqlLiteral) {
-                SqlLiteral literal = (SqlLiteral) exp;
-                switch (literal.typeName.ordinal) {
-                case SqlTypeName.Decimal_ordinal:
-                    int precision = literal.intValue();
-                    if (precision >= 0) {
-                        return precision;
-                    }
-                }
+    protected Namespace lookup(Scope scope, String[] names)
+    {
+        Util.pre(names.length > 0, "names.length > 0");
+        Namespace namespace = null;
+        for (int i = 0; i < names.length; i++) {
+            String name = names[i];
+            if (i == 0) {
+                namespace = scope.resolve(name, null, null);
+            } else {
+                namespace = namespace.lookupChild(name, null, null);
             }
         }
-        throw EigenbaseResource.instance().newArgumentMustBePositiveInteger(
-                call.operator.name);
+        Util.permAssert(namespace != null, "post: namespace != null");
+        return namespace;
     }
 
     /**
      * Validates a data type expression.
      */
-    public void validateDataType(SqlDataType dataType)
+    public void validateDataType(SqlDataTypeSpec dataType)
     {
     }
 
@@ -1966,6 +2043,52 @@ public class SqlValidator
         return copy;
     }
 
+    /**
+     * Converts a window specification or window name into a fully-resolved
+     * window specification.
+     *
+     * For example, in
+     *
+     * <code>SELECT sum(x) OVER (PARTITION BY x ORDER BY y),
+     *   sum(y) OVER w1,
+     *   sum(z) OVER (w ORDER BY y)
+     * FROM t
+     * WINDOW w AS (PARTITION BY x)</code>
+     *
+     * all aggregations have the same resolved window specification
+     * <code>(PARTITION BY x ORDER BY y)</code>.
+     *
+     * @param windowOrRef Either the name of a window (a {@link SqlIdentifier})
+     *   or a window specification (a {@link SqlWindow}).
+     *
+     * @param scope Scope in which to resolve window names
+     *
+     * @return A window
+     * @throws RuntimeException Validation exception if window does not exist
+     */
+    public SqlWindow resolveWindow(SqlNode windowOrRef, Scope scope) {
+        SqlWindow window;
+        if (windowOrRef instanceof SqlIdentifier) {
+            String windowName = ((SqlIdentifier) windowOrRef).getSimple();
+            window = scope.lookupWindow(windowName);
+        } else {
+            window = (SqlWindow) windowOrRef;
+        }
+        while (true) {
+            final SqlIdentifier refId = window.getRefName();
+            if (refId == null) {
+                return window;
+            }
+            final String refName = refId.getSimple();
+            SqlWindow refWindow = scope.lookupWindow(refName);
+            if (refWindow == null) {
+                throw newValidationError(refId,
+                    EigenbaseResource.instance().newWindowNotFound(refName));
+            }
+            window = window.overlay(refWindow, this);
+        }
+    }
+
     //~ Inner Interfaces ------------------------------------------------------
 
     /**
@@ -2034,7 +2157,9 @@ public class SqlValidator
 
         /**
          * Returns a list of names of output columns. If the scope's type has
-         * not yet been derived, derives it.
+         * not yet been derived, derives it. Never returns null.
+         *
+         * @post return != null
          */
         RelDataType getRowType();
 
@@ -2042,6 +2167,9 @@ public class SqlValidator
          * Validates this scope.
          *
          * <p>If the scope has already been validated, does nothing.</p>
+         *
+         * <p>Please call {@link SqlValidator#validateNamespace} rather than
+         * calling this method directly.</p>
          */
         void validate();
 
@@ -2050,6 +2178,24 @@ public class SqlValidator
         Namespace lookupChild(String name, Scope [] ancestorOut, int [] offsetOut);
 
         boolean fieldExists(String name);
+
+        /**
+         * Returns the object containing implementation-specific information.
+         */
+        Object getExtra();
+
+        /**
+         * Saves an object containing implementation-specific information.
+         */
+        void setExtra(Object o);
+
+        /**
+         * Returns a list of expressions which are monotonic in this namespace.
+         * For example, if the namespace represents a relation ordered by
+         * a column called "TIMESTAMP", then the list would contain a
+         * {@link SqlIdentifier} called "TIMESTAMP".
+         */
+        SqlNodeList getMonotonicExprs();
     }
 
     private abstract class AbstractNamespace implements Namespace {
@@ -2063,16 +2209,14 @@ public class SqlValidator
          * output column. Set on validate.
          */
         protected RelDataType rowType;
+        private Object extra;
+
         /**
          * Creates an AbstractNamespace.
          */
         AbstractNamespace() {
         }
-        /**
-         * Validates this scope.
-         *
-         * <p>If the scope has already been validated, does nothing.</p>
-         */
+
         public void validate() {
             switch (status.ordinal) {
             case Status.Unvalidated_ordinal:
@@ -2107,13 +2251,9 @@ public class SqlValidator
          */
         protected abstract RelDataType validateImpl();
 
-        /**
-         * Returns a list of names of output columns. If the scope's type has
-         * not yet been derived, derives it.
-         */
         public RelDataType getRowType() {
             if (rowType == null) {
-                validate();
+                validateNamespace(this);
                 Util.permAssert(rowType != null, "validate must set rowType");
             }
             return rowType;
@@ -2136,6 +2276,21 @@ public class SqlValidator
             final RelDataType rowType = getRowType();
             final RelDataType dataType = lookupField(rowType, name);
             return dataType != null;
+        }
+
+        public Object getExtra()
+        {
+            return extra;
+        }
+
+        public void setExtra(Object o)
+        {
+            this.extra = o;
+        }
+
+        public SqlNodeList getMonotonicExprs()
+        {
+            return SqlNodeList.Empty;
         }
     }
 
@@ -2195,6 +2350,12 @@ public class SqlValidator
          */
         SqlWindow lookupWindow(String name);
 
+        /**
+         * Returns whether an expression is monotonic in this scope.
+         * For example, if the scope has previously been sorted by columns
+         * X, Y, then X is monotonic in this scope, but Y is not.
+         */
+        boolean isMonotonic(SqlNode expr);
     }
 
     /**
@@ -2245,9 +2406,17 @@ public class SqlValidator
      * parent is null. (This scope knows not ask about its parents, just like
      * Adam.)
      */
-    private class EmptyScope extends AbstractScope
+    private class EmptyScope implements Scope
     {
         EmptyScope() {
+        }
+
+        public SqlValidator getValidator() {
+            return SqlValidator.this;
+        }
+
+        public SqlIdentifier fullyQualify(SqlIdentifier identifier) {
+            return null;
         }
 
         public SqlNode getNode() {
@@ -2278,6 +2447,13 @@ public class SqlValidator
         public SqlWindow lookupWindow(String name) {
             // No windows defined in this scope.
             return null;
+        }
+
+        public boolean isMonotonic(SqlNode expr)
+        {
+            return expr instanceof SqlLiteral ||
+                expr instanceof SqlDynamicParam ||
+                expr instanceof SqlDataTypeSpec;
         }
     }
 
@@ -2459,10 +2635,6 @@ public class SqlValidator
             return null;
         }
 
-        public SqlValidator getValidator() {
-            return SqlValidator.this;
-        }
-
         public SqlNode getNode()
         {
             return select;
@@ -2479,6 +2651,21 @@ public class SqlValidator
                 }
             }
             return super.lookupWindow(name);
+        }
+
+        public boolean isMonotonic(SqlNode expr)
+        {
+            if (children.size() == 1) {
+                final SqlNodeList monotonicExprs =
+                    ((Namespace) children.get(0)).getMonotonicExprs();
+                for (int i = 0; i < monotonicExprs.size(); i++) {
+                    SqlNode monotonicExpr = monotonicExprs.get(i);
+                    if (expr.equalsDeep(monotonicExpr)) {
+                        return true;
+                    }
+                }
+            }
+            return super.isMonotonic(expr);
         }
     }
 
@@ -2525,7 +2712,7 @@ public class SqlValidator
             super(parent, select);
             SqlNodeList groupExprs = select.getGroup();
             if (groupExprs == null) {
-                groupExprs = emptySqlNodeList;
+                groupExprs = SqlNodeList.Empty;
             }
             // We deep-copy the group-list in case subsequent validation
             // modifies it and makes it no longer equivalent.
@@ -2573,6 +2760,17 @@ public class SqlValidator
             public boolean fieldExists(String name) {
                 return false;
             }
+
+            public Object getExtra() {
+                return null;
+            }
+
+            public void setExtra(Object o) {
+            }
+
+            public SqlNodeList getMonotonicExprs() {
+                return null;
+            }
         };
     }
 
@@ -2581,7 +2779,7 @@ public class SqlValidator
      * either an {@link SqlIdentifier identifier} referencing a window, or
      * an {@link SqlWindow inline window specification}.
      */
-    protected void validateWindow(SqlNode windowOrId, Scope scope) {
+    public void validateWindow(SqlNode windowOrId, Scope scope) {
         switch (windowOrId.getKind().ordinal) {
         case SqlKind.IdentifierORDINAL:
             SqlIdentifier id = (SqlIdentifier) windowOrId;
@@ -2608,12 +2806,44 @@ public class SqlValidator
     }
 
     /**
+     * Combines windows
+     */
+
+    /**
      * Validates a call to an operator.
      */
     public void validateCall(SqlCall call, Scope scope)
     {
-        // Delegate valiation to the operator.
-        call.operator.validateCall(call, this, scope);
+        Scope operandScope = scope;
+        if (scope instanceof SqlValidator.AggregatingScope) {
+            SqlValidator.AggregatingScope aggScope =
+                (SqlValidator.AggregatingScope) scope;
+            if (call.operator.isAggregator()) {
+                // If we're the 'SUM' node in 'select a + sum(b + c) from t
+                // group by a', then we should validate our arguments in
+                // the non-aggregating scope, where 'b' and 'c' are valid
+                // column references.
+                operandScope = aggScope.getScopeAboveAggregation();
+            } else {
+                // Check whether expression is constant within the group.
+                //
+                // If not, throws. Example, 'empno' in
+                //    SELECT empno FROM emp GROUP BY deptno
+                //
+                // If it perfectly matches an expression in the GROUP BY
+                // clause, we validate its arguments in the non-aggregating
+                // scope. Example, 'empno + 1' in
+                //
+                //   SELET empno + 1 FROM emp GROUP BY empno + 1
+
+                final boolean matches = aggScope.checkAggregateExpr(call);
+                if (matches) {
+                    operandScope = aggScope.getScopeAboveAggregation();
+                }
+            }
+        }
+        // Delegate validation to the operator.
+        call.operator.validateCall(call, this, scope, operandScope);
    }
 
     /**
@@ -2626,6 +2856,10 @@ public class SqlValidator
 
         /** The underlying table. Set on validate. */
         private Table table;
+
+        /** List of monotonic expressions. */
+        private final SqlNodeList monotonicExprs =
+            new SqlNodeList(ParserPosition.ZERO);
 
         IdentifierNamespace(SqlIdentifier id)
         {
@@ -2673,12 +2907,17 @@ public class SqlValidator
         {
             return null;
         }
+
+        public SqlNodeList getMonotonicExprs()
+        {
+            return monotonicExprs;
+        }
     }
 
     /**
      * Namespace based upon a set operation (UNION, INTERSECT, EXCEPT).
      */
-    class SetopNamespace extends AbstractNamespace
+    protected class SetopNamespace extends AbstractNamespace
     {
         private final SqlCall call;
 
@@ -2737,6 +2976,36 @@ public class SqlValidator
         public SqlNode getNode()
         {
             return values;
+        }
+    }
+
+    /**
+     * Namespace for UNNEST
+     */
+    class UnnestNamespace extends AbstractNamespace
+    {
+        private final SqlNode child;
+        private final Scope scope;
+
+        UnnestNamespace(SqlNode child, Scope scope)
+        {
+            this.child = child;
+            this.scope = scope;
+        }
+
+        protected RelDataType validateImpl()
+        {
+            RelDataType type = scope.getValidator().deriveType(scope, child);
+            if (type.isStruct()) {
+                return type;
+            }
+            return typeFactory.createStructType(
+                new RelDataType[]{type}, new String[]{ deriveAlias(child, 0) });
+        }
+
+        public SqlNode getNode()
+        {
+            return child;
         }
     }
 
@@ -2801,17 +3070,6 @@ public class SqlValidator
         public SqlNode getNode() {
             return join;
         }
-    }
-
-    private abstract class AbstractScope implements Scope {
-        public SqlValidator getValidator() {
-            return SqlValidator.this;
-        }
-
-        public SqlIdentifier fullyQualify(SqlIdentifier identifier) {
-            return null;
-        }
-
     }
 
     /**
@@ -2918,6 +3176,10 @@ public class SqlValidator
 
         public SqlWindow lookupWindow(String name) {
             return parent.lookupWindow(name);
+        }
+
+        public boolean isMonotonic(SqlNode expr) {
+            return parent.isMonotonic(expr);
         }
     }
 

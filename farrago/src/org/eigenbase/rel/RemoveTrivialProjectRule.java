@@ -55,7 +55,7 @@ public class RemoveTrivialProjectRule extends RelOptRule
         ProjectRel project = (ProjectRel) call.rels[0];
         RelNode child = project.child;
         final RelDataType childRowType = child.getRowType();
-        if (!childRowType.isProject()) {
+        if (!childRowType.isStruct()) {
             return;
         }
         if (!project.isBoxed()) {
@@ -81,8 +81,8 @@ public class RemoveTrivialProjectRule extends RelOptRule
         String [] fieldNames,
         RelDataType childRowType)
     {
-        int fieldCount = childRowType.getFieldCount();
         RelDataTypeField [] childFields = childRowType.getFields();
+        int fieldCount = childFields.length;
         if (exps.length != fieldCount) {
             return false;
         }

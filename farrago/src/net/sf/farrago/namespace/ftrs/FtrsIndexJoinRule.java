@@ -147,6 +147,9 @@ class FtrsIndexJoinRule extends RelOptRule
         RelDataType rightType =
             scanRel.getRowType().getFields()[rightOrdinal].getType();
 
+        FarragoTypeFactory typeFactory =
+            scanRel.getPreparingStmt().getFarragoTypeFactory();
+
         // decide what to do with nulls
         RelNode nullFilterRel;
         if (isOuter) {
@@ -154,7 +157,7 @@ class FtrsIndexJoinRule extends RelOptRule
             // handle the null semantics
             nullFilterRel = leftRel;
             rightType =
-                rightType.getFactory().createTypeWithNullability(
+                typeFactory.createTypeWithNullability(
                     rightType,
                     leftType.isNullable());
         } else {
@@ -165,14 +168,21 @@ class FtrsIndexJoinRule extends RelOptRule
         // cast the search keys from the left to the type of the search column
         // on the right
         RelNode castRel;
-        int leftFieldCount = leftRel.getRowType().getFieldCount();
+        int leftFieldCount = leftRel.getRowType().getFieldList().size();
         if (leftType.equals(rightType)) {
             // no cast required
             castRel = nullFilterRel;
         } else {
+            RelDataType rightStructType =
+                typeFactory.createStructType(
+                    new RelDataType [] { rightType },
+                    new String [] { "rightColumn" });
+            
             RelDataType castRowType =
-                leftType.getFactory().createJoinType(
-                    new RelDataType [] { leftRel.getRowType(), rightType });
+                typeFactory.createJoinType(
+                    new RelDataType [] {
+                        leftRel.getRowType(), rightStructType
+                    });
             RexNode [] castExps = new RexNode[leftFieldCount + 1];
             String [] fieldNames = new String[leftFieldCount + 1];
             RexBuilder rexBuilder = leftRel.getCluster().rexBuilder;

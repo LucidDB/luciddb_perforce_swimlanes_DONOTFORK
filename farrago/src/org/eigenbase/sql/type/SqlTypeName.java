@@ -23,8 +23,23 @@ package org.eigenbase.sql.type;
 
 import org.eigenbase.util.EnumeratedValues;
 
+import java.sql.*;
+
 /**
  * Enumeration of the type names which can be used to construct a SQL type.
+ * Rationale for this class's existence (instead of just using the standard
+ * java.sql.Type ordinals):
+ *
+ *<ul>
+ *
+ *<li>java.sql.Type does not include all SQL2003 datatypes
+ *
+ *<li>SqlTypeName provides a type-safe enumeration
+ *
+ *<li>SqlTypeName provides a place to hang extra information such
+ * as whether the type carries precision and scale
+ *
+ *</ul>
  *
  * @author jhyde
  * @since Nov 24, 2003
@@ -39,6 +54,10 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     private static final int PrecYesScaleNo = 2;
     private static final int PrecYesScaleYes = 4;
 
+    private static SqlTypeName [] jdbcTypeToName;
+    public static final int MIN_JDBC_TYPE = Types.BIT;
+    public static final int MAX_JDBC_TYPE = Types.REF;
+    
     // SQL Type Definitions ------------------
     public static final int Boolean_ordinal = 0;
     public static final SqlTypeName Boolean =
@@ -128,6 +147,42 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
             Float, Multiset
         });
 
+    static 
+    {
+        // This squanders some memory since MAX_JDBC_TYPE == 2006!
+        jdbcTypeToName =
+            new SqlTypeName[(1 + MAX_JDBC_TYPE) - MIN_JDBC_TYPE];
+
+        setNameForJdbcType(Types.BIT, Bit);
+        setNameForJdbcType(Types.TINYINT, Tinyint);
+        setNameForJdbcType(Types.SMALLINT, Smallint);
+        setNameForJdbcType(Types.BIGINT, Bigint);
+        setNameForJdbcType(Types.INTEGER, Integer);
+        setNameForJdbcType(Types.NUMERIC, Decimal); // REVIEW
+        setNameForJdbcType(Types.DECIMAL, Decimal);
+
+        setNameForJdbcType(Types.FLOAT, Float);
+        setNameForJdbcType(Types.REAL, Real);
+        setNameForJdbcType(Types.DOUBLE, Double);
+
+        setNameForJdbcType(Types.CHAR, Char);
+        setNameForJdbcType(Types.VARCHAR, Varchar);
+
+        // TODO
+        // setNameForJdbcType(Types.LONGVARCHAR, Longvarchar);
+        // setNameForJdbcType(Types.CLOB, Clob);
+        // setNameForJdbcType(Types.LONGVARBINARY, Longvarbinary);
+        // setNameForJdbcType(Types.BLOB, Blob);
+
+        setNameForJdbcType(Types.BINARY, Binary);
+        setNameForJdbcType(Types.VARBINARY, Varbinary);
+
+        setNameForJdbcType(Types.DATE, Date);
+        setNameForJdbcType(Types.TIME, Time);
+        setNameForJdbcType(Types.TIMESTAMP, Timestamp);
+        setNameForJdbcType(Types.BOOLEAN, Boolean);
+    }
+    
     //~ Instance fields -------------------------------------------------------
 
     /**
@@ -218,7 +273,11 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
      */
     public static SqlTypeName get(String name)
     {
-        return (SqlTypeName) enumeration.getValue(name);
+        if (enumeration.containsName(name)) {
+            return (SqlTypeName) enumeration.getValue(name);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -241,6 +300,17 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
         return (signatures & PrecYesScaleNo) != 0;
     }
 
+    public boolean allowsPrec()
+    {
+        return allowsPrecScale(true, true)
+            || allowsPrecScale(true, false);
+    }
+
+    public boolean allowsScale()
+    {
+        return allowsPrecScale(true, true);
+    }
+    
     /**
      * Returns whether this type can be specified with a given combination
      * of precision and scale.
@@ -291,6 +361,57 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
         return false;
     }
 
+    /**
+     * @return the ordinal from {@link java.sql.Types} corresponding
+     * to this SqlTypeName
+     */
+    public int getJdbcOrdinal()
+    {
+        switch (ordinal) {
+        case Boolean_ordinal:
+            return Types.BOOLEAN;
+        case Tinyint_ordinal:
+            return Types.TINYINT;
+        case Smallint_ordinal:
+            return Types.SMALLINT;
+        case Integer_ordinal:
+            return Types.INTEGER;
+        case Bigint_ordinal:
+            return Types.BIGINT;
+        case Decimal_ordinal:
+            return Types.DECIMAL;
+        case Float_ordinal:
+            return Types.FLOAT;
+        case Real_ordinal:
+            return Types.REAL;
+        case Double_ordinal:
+            return Types.DOUBLE;
+        case Date_ordinal:
+            return Types.DATE;
+        case Time_ordinal:
+            return Types.TIME;
+        case Timestamp_ordinal:
+            return Types.TIMESTAMP;
+        case Bit_ordinal:
+        case Varbit_ordinal:
+            return Types.BIT;
+        case Char_ordinal:
+            return Types.CHAR;
+        case Varchar_ordinal:
+            return Types.VARCHAR;
+        case Binary_ordinal:
+            return Types.BINARY;
+        case Varbinary_ordinal:
+            return Types.VARBINARY;
+        case Null_ordinal:
+            return Types.NULL;
+        case Multiset_ordinal:
+            return Types.ARRAY;
+        default:
+            return Types.OTHER;
+        }
+    }
+
     private static SqlTypeName[] makeNullable(SqlTypeName[] array) {
         return combine(new SqlTypeName[]{SqlTypeName.Null},array);
     }
@@ -301,6 +422,48 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
         System.arraycopy(array0,0,ret,0,array0.length);
         System.arraycopy(array1,0,ret,array0.length,array1.length);
         return ret;
+    }
+
+    /**
+     * @return default precision for this type if supported, otherwise
+     * -1 if precision is either unsupported or must be
+     * specified explicitly
+     */
+    public int getDefaultPrecision()
+    {
+        switch (ordinal) {
+        case Char_ordinal:
+        case Binary_ordinal:
+        case Bit_ordinal:
+            return 1;
+        case Time_ordinal:
+            return 0;
+        case Timestamp_ordinal:
+            // TODO jvs 26-July-2004:  should be 6 for microseconds,
+            // but we can't support that yet
+            return 0;
+        default:
+            return -1;
+        }
+    }
+    
+    /**
+     * Gets the SqlTypeName corresponding to a JDBC type.
+     *
+     * @param jdbcType the JDBC type of interest
+     *
+     * @return corresponding SqlTypeName
+     */
+    public static SqlTypeName getNameForJdbcType(int jdbcType)
+    {
+        return jdbcTypeToName[jdbcType - MIN_JDBC_TYPE];
+    }
+    
+    private static void setNameForJdbcType(
+        int jdbcType,
+        SqlTypeName name)
+    {
+        jdbcTypeToName[jdbcType - MIN_JDBC_TYPE] = name;
     }
 }
 

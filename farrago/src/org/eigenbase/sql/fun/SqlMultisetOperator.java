@@ -21,11 +21,11 @@
 package org.eigenbase.sql.fun;
 
 import org.eigenbase.reltype.RelDataType;
+import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.test.SqlTester;
-import org.eigenbase.sql.type.ReturnTypeInference;
-import org.eigenbase.sql.type.UnknownParamInference;
+import org.eigenbase.sql.type.*;
 
 /**
  * SqlMultisetOperator represents the SQL:2003 standard MULTISET constructor
@@ -38,12 +38,15 @@ public class SqlMultisetOperator extends SqlSpecialOperator
 {
     //~ Constructors ----------------------------------------------------------
 
-    public SqlMultisetOperator()
+    public SqlMultisetOperator(SqlKind kind)
     {
         // Precedence of 100 because nothing can pull parentheses apart.
-        super("MULTISET", SqlKind.Multiset, 100, false,
-            ReturnTypeInference.useFirstArgType,
-            UnknownParamInference.useFirstKnown, null);
+        super("MULTISET", kind, 100, false,
+            ReturnTypeInferenceImpl.useFirstArgType,
+            null, null);
+        assert(kind.isA(SqlKind.MultisetQueryConstructor) ||
+               kind.isA(SqlKind.MultisetValueConstructor));
+
     }
 
     //~ Methods ---------------------------------------------------------------
@@ -60,20 +63,25 @@ public class SqlMultisetOperator extends SqlSpecialOperator
         return OperandsCountDescriptor.variadicCountDescriptor;
     }
 
-    // implement SqlOperator
-    protected RelDataType inferType(
+    protected RelDataType getType(
         SqlValidator validator,
         SqlValidator.Scope scope,
-        SqlCall call)
+        RelDataTypeFactory typeFactory,
+        CallOperands callOperands)
     {
-        RelDataType type =
-            ReturnTypeInference.useNullableBiggest.getType(validator, scope, call);
+        RelDataType type = getComponentType(typeFactory,  callOperands.collectTypes());
         if (null == type) {
             return null;
         }
-        RelDataType ret = validator.typeFactory.createMultisetType(type);
-        ret = validator.typeFactory.createTypeWithNullability(ret, type.isNullable());
+        RelDataType ret = typeFactory.createMultisetType(type, -1);
+        ret = typeFactory.createTypeWithNullability(ret, type.isNullable());
         return ret;
+    }
+
+    private RelDataType getComponentType(RelDataTypeFactory typeFactory,
+        RelDataType[] argTypes)
+    {
+        return SqlTypeUtil.getNullableBiggest(typeFactory, argTypes);
     }
 
     protected boolean checkArgTypes(
@@ -82,7 +90,8 @@ public class SqlMultisetOperator extends SqlSpecialOperator
         SqlValidator.Scope scope,
         boolean throwOnFailure)
     {
-        if (null==inferType(validator, scope, call)) {
+        if (null==getComponentType(validator.typeFactory,
+                SqlTypeUtil.collectTypes(validator, scope, call.operands))) {
             if (throwOnFailure) {
                 throw validator.newValidationError(call,
                     EigenbaseResource.instance().newNeedSameTypeParameter());
@@ -104,14 +113,24 @@ public class SqlMultisetOperator extends SqlSpecialOperator
         int leftPrec,
         int rightPrec) {
 
-        writer.print("MULTISET[");
+        writer.print("MULTISET");
+        if (kind.isA(SqlKind.MultisetValueConstructor)) {
+            writer.print("[");
+        } else {
+            writer.print("(");
+        }
         for (int i = 0; i < operands.length; i++) {
             if (i>0) {
+                assert(kind.isA(SqlKind.MultisetValueConstructor));
                 writer.print(", ");
             }
             operands[i].unparse(writer, leftPrec, rightPrec);
         }
-        writer.print("]");
+        if (kind.isA(SqlKind.MultisetValueConstructor)) {
+            writer.print("]");
+        } else {
+            writer.print(")");
+        }
     }
 }
 

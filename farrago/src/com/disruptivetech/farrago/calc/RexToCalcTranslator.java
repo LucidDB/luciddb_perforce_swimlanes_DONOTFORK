@@ -30,7 +30,7 @@ import org.eigenbase.reltype.RelDataTypeField;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.fun.SqlStdOperatorTable;
-import org.eigenbase.sql.type.SqlTypeName;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.SaffronProperties;
 import org.eigenbase.util.Util;
 
@@ -105,6 +105,9 @@ public class RexToCalcTranslator implements RexVisitor
                 new TypePair(
                     fac.createSqlType(SqlTypeName.Bigint),
                     CalcProgramBuilder.OpType.Int8),
+                new TypePair(
+                    fac.createSqlType(SqlTypeName.Float),
+                    CalcProgramBuilder.OpType.Double),
                 new TypePair(
                     fac.createSqlType(SqlTypeName.Double),
                     CalcProgramBuilder.OpType.Double),
@@ -233,15 +236,9 @@ public class RexToCalcTranslator implements RexVisitor
         if (typeDigest.startsWith("BINARY")) {
             calcType = CalcProgramBuilder.OpType.Binary;
         }
-        RelDataType lookupThis = getSimilarSqlType(relDataType);
         for (int i = 0; i < knownTypes.length; i++) {
             TypePair knownType = knownTypes[i];
-            if (relDataType.isSameType(knownType.relDataType)) {
-                calcType = knownType.opType;
-            }
-
-            if ((lookupThis != null)
-                    && lookupThis.isSameType(knownType.relDataType)) {
+            if (SqlTypeUtil.sameNamedType(relDataType, knownType.relDataType)) {
                 calcType = knownType.opType;
             }
         }
@@ -250,39 +247,22 @@ public class RexToCalcTranslator implements RexVisitor
             throw Util.newInternal("unknown type " + relDataType);
         }
 
-        int bytes = relDataType.getMaxBytesStorage();
-        if (bytes < 0) {
-            // Adjust for types which map to char or binary,  but which
-            // don't know their maximum length. The java string relDataType is an
-            // example of this.
-            switch (calcType.getOrdinal()) {
-            case CalcProgramBuilder.OpType.Binary_ordinal:
-            case CalcProgramBuilder.OpType.Char_ordinal:
-            case CalcProgramBuilder.OpType.Varbinary_ordinal:
-            case CalcProgramBuilder.OpType.Varchar_ordinal:
+        int bytes;
+        switch (calcType.getOrdinal()) {
+        case CalcProgramBuilder.OpType.Binary_ordinal:
+        case CalcProgramBuilder.OpType.Char_ordinal:
+        case CalcProgramBuilder.OpType.Varbinary_ordinal:
+        case CalcProgramBuilder.OpType.Varchar_ordinal:
+            bytes = SqlTypeUtil.getMaxByteSize(relDataType);
+            if (bytes < 0) {
                 bytes = 0;
-                break;
             }
+            break;
+        default:
+            bytes = -1;
         }
 
         return new CalcProgramBuilder.RegisterDescriptor(calcType, bytes);
-    }
-
-    /**
-     * If type is a SQL type, returns a broader SQL type, otherwise returns
-     * null.
-     */
-    private RelDataType getSimilarSqlType(RelDataType type)
-    {
-        if (!RelDataTypeFactoryImpl.isJavaType(type)) {
-            return null;
-        }
-        SqlTypeName typeName =
-            RelDataTypeFactoryImpl.JavaToSqlTypeConversionRules.instance()
-                .lookup(type);
-        return RelDataTypeFactoryImpl.createSqlTypeIgnorePrecOrScale(
-            rexBuilder.getTypeFactory(),
-            typeName);
     }
 
     private Object getKey(RexNode node)
@@ -575,7 +555,7 @@ public class RexToCalcTranslator implements RexVisitor
             assert resultDesc.getType() == CalcProgramBuilder.OpType.Bool;
             CalcProgramBuilder.Register strCmpResult =
                 builder.newLocal(CalcProgramBuilder.OpType.Int4, -1);
-            if (call.operands[0].getType().isCharType()) {
+            if (SqlTypeUtil.inCharFamily(call.operands[0].getType())) {
                 String collationToUse =
                     SqlCollation.getCoercibilityDyadicComparison(
                         call.operands[0].getType().getCollation(),
@@ -631,15 +611,6 @@ public class RexToCalcTranslator implements RexVisitor
             + op);
     }
 
-    protected boolean lhsTypeIsNullableRHSType(
-        RelDataType returnType,
-        RelDataType argType)
-    {
-        return returnType.isSameType(argType)
-            || (returnType.isNullable() && !argType.isNullable()
-            && returnType.getSqlTypeName().equals(argType.getSqlTypeName()));
-    }
-
     private boolean isStrCmp(RexCall call)
     {
         SqlOperator op = call.op;
@@ -651,7 +622,8 @@ public class RexToCalcTranslator implements RexVisitor
             RelDataType t0 = call.operands[0].getType();
             RelDataType t1 = call.operands[1].getType();
 
-            return (t0.isCharType() && t1.isCharType())
+            return
+                (SqlTypeUtil.inCharFamily(t0) && SqlTypeUtil.inCharFamily(t1))
                 || (isOctetString(t0) && isOctetString(t1));
         }
         return false;
@@ -685,7 +657,7 @@ public class RexToCalcTranslator implements RexVisitor
         RexNode op2,
         CalcProgramBuilder.Register [] regs)
     {
-        if (op1.getType().isCharType()
+        if (SqlTypeUtil.inCharFamily(op1.getType())
                 && (op1.getType().getSqlTypeName() != op2.getType()
                 .getSqlTypeName())) {
             // Need to perform a cast.

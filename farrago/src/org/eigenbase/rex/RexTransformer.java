@@ -27,7 +27,7 @@ import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.SqlOperatorTable;
 import org.eigenbase.sql.fun.SqlStdOperatorTable;
-import org.eigenbase.sql.type.SqlTypeName;
+import org.eigenbase.sql.type.*;
 
 
 /**
@@ -45,7 +45,6 @@ public class RexTransformer
 
     private RexNode root;
     private final RexBuilder rexBuilder;
-    private final RelDataType boolType;
     private int isParentsCount;
     private final SqlStdOperatorTable opTab = SqlOperatorTable.std();
     private final HashSet transformableOperators = new HashSet();
@@ -58,8 +57,6 @@ public class RexTransformer
     {
         this.root = root;
         this.rexBuilder = rexBuilder;
-        boolType =
-            rexBuilder.getTypeFactory().createSqlType(SqlTypeName.Boolean);
         isParentsCount = 0;
 
         transformableOperators.add(opTab.andOperator);
@@ -79,7 +76,7 @@ public class RexTransformer
     private boolean isBoolean(RexNode node)
     {
         RelDataType type = node.getType();
-        return boolType.isSameType(type);
+        return SqlTypeUtil.inBooleanFamily(type);
     }
 
     private boolean isNullable(RexNode node)

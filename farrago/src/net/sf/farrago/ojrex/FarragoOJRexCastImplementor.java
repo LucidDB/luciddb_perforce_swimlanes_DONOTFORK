@@ -28,6 +28,7 @@ import org.eigenbase.oj.util.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.type.*;
 
 
 /**
@@ -64,15 +65,8 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
         if (lhsExp == null) {
             lhsExp = translator.createScratchVariable(lhsType);
         }
-        if (lhsType instanceof FarragoType) {
-            translator.addStatement(
-                translator.createSetNullStatement(lhsExp, true));
-        } else {
-            translator.addStatement(
-                new ExpressionStatement(
-                    new AssignmentExpression(lhsExp,
-                        AssignmentExpression.EQUALS, rhsExp)));
-        }
+        translator.addStatement(
+            translator.createSetNullStatement(lhsExp, true));
         return lhsExp;
     }
 
@@ -102,14 +96,15 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
                         NullablePrimitive.NULL_IND_FIELD_NAME),
                     AssignmentExpression.EQUALS,
                     rhsIsNull)));
-        FarragoAtomicType lhsAtomicType = (FarragoAtomicType) lhsType;
+        FarragoTypeFactory factory = translator.getFarragoTypeFactory();
         translator.addStatement(
             new ExpressionStatement(
                 new AssignmentExpression(
                     new FieldAccess(lhsExp, NullablePrimitive.VALUE_FIELD_NAME),
                     AssignmentExpression.EQUALS,
                     new CastExpression(
-                        OJClass.forClass(lhsAtomicType.getClassForPrimitive()),
+                        OJClass.forClass(
+                            factory.getClassForPrimitive(lhsType)),
                         rhsExp))));
         return lhsExp;
     }
@@ -125,7 +120,8 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
             rhsExp =
                 new FieldAccess(rhsExp, NullablePrimitive.VALUE_FIELD_NAME);
         }
-        OJClass lhsClass = OJUtil.typeToOJClass(lhsType);
+        OJClass lhsClass = OJUtil.typeToOJClass(
+            lhsType, translator.getFarragoTypeFactory());
         rhsExp = new CastExpression(lhsClass, rhsExp);
         return convertDirectAssignment(translator, lhsExp, rhsExp);
     }
@@ -164,34 +160,29 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
                     new ExpressionList(rhsExp))));
 
         boolean mayNeedPadOrTruncate = false;
-        if (lhsType instanceof FarragoAtomicType) {
-            FarragoAtomicType lhsAtomicType = (FarragoAtomicType) lhsType;
-            if (lhsAtomicType.isString() && !lhsAtomicType.isLob()) {
-                mayNeedPadOrTruncate = true;
-            }
+        if (SqlTypeUtil.inCharOrBinaryFamilies(lhsType)
+            && !SqlTypeUtil.isLob(lhsType))
+        {
+            mayNeedPadOrTruncate = true;
         }
         if (mayNeedPadOrTruncate) {
-            FarragoPrecisionType lhsPrecisionType =
-                (FarragoPrecisionType) lhsType;
-
-            if (rhsType instanceof FarragoPrecisionType) {
+            if ((rhsType != null)
+                && (rhsType.getFamily() == lhsType.getFamily())
+                && !SqlTypeUtil.isLob(rhsType))
+            {
                 // we may be able to skip pad/truncate based on
                 // known facts about source and target precisions
-                FarragoPrecisionType rhsPrecisionType =
-                    (FarragoPrecisionType) rhsType;
-
-                if (lhsPrecisionType.isBoundedVariableWidth()) {
-                    if (lhsPrecisionType.getPrecision() >= rhsPrecisionType
-                            .getPrecision()) {
+                if (SqlTypeUtil.isBoundedVariableWidth(lhsType)) {
+                    if (lhsType.getPrecision() >= rhsType.getPrecision()) {
                         // target precision is greater than source
                         // precision, so truncation is impossible
                         // and we can skip adjustment
                         return lhsExp;
                     }
                 } else {
-                    if ((lhsPrecisionType.getPrecision() == rhsPrecisionType
-                            .getPrecision())
-                            && !rhsPrecisionType.isBoundedVariableWidth()) {
+                    if ((lhsType.getPrecision() == rhsType.getPrecision())
+                            && !SqlTypeUtil.isBoundedVariableWidth(rhsType))
+                    {
                         // source and target are both fixed-width, and
                         // precisions are the same, so there's no adjustment
                         // needed
@@ -202,15 +193,16 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
 
             // determine target precision
             Expression precisionExp =
-                Literal.makeLiteral(lhsPrecisionType.getPrecision());
+                Literal.makeLiteral(lhsType.getPrecision());
 
             // need to pad only for fixed width
             Expression needPadExp =
-                Literal.makeLiteral(!lhsPrecisionType.isBoundedVariableWidth());
+                Literal.makeLiteral(
+                    !SqlTypeUtil.isBoundedVariableWidth(lhsType));
 
             // pad character is 0 for binary, space for character
             Expression padByteExp;
-            if (!lhsPrecisionType.isCharType()) {
+            if (!SqlTypeUtil.inCharFamily(lhsType)) {
                 padByteExp =
                     new CastExpression(
                         OJSystem.BYTE,
@@ -244,35 +236,29 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
         if (!lhsType.isNullable() && rhsType.isNullable()) {
             // generate code which will throw an exception whenever an attempt
             // is made to cast a null value to a NOT NULL type
-            if (RelDataTypeFactoryImpl.isJavaType(rhsType)) {
-                translator.addStatement(
-                    new ExpressionStatement(
-                        new MethodCall(
-                            translator.getRelImplementor()
-                                .getConnectionVariable(),
-                            "checkNotNull",
-                            new ExpressionList(rhsExp))));
-            } else {
+            if (!RelDataTypeFactoryImpl.isJavaType(rhsType)) {
                 Variable variable = translator.createScratchVariable(rhsType);
                 translator.addStatement(
                     new ExpressionStatement(
                         new AssignmentExpression(variable,
                             AssignmentExpression.EQUALS, rhsExp)));
-
-                // TODO:  provide exception context
-                translator.addStatement(
-                    new ExpressionStatement(
-                        new MethodCall(
-                            translator.getRelImplementor()
-                                .getConnectionVariable(),
-                            "checkNotNull",
-                            new ExpressionList(variable))));
                 rhsExp = variable;
             }
+            
+            // TODO:  provide exception context
+            translator.addStatement(
+                new ExpressionStatement(
+                    new MethodCall(
+                        translator.getRelImplementor()
+                        .getConnectionVariable(),
+                        "checkNotNull",
+                        new ExpressionList(rhsExp))));
         }
 
         // special case for source explicit null
-        OJClass rhsClass = OJUtil.typeToOJClass(rhsType);
+        OJClass rhsClass = OJUtil.typeToOJClass(
+            rhsType,
+            translator.getFarragoTypeFactory());
         if (rhsClass == OJSystem.NULLTYPE) {
             if (lhsType.isNullable()) {
                 return convertCastNull(translator, lhsType, rhsType, lhsExp,
@@ -285,18 +271,21 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
         }
 
         if (translator.isNullablePrimitive(lhsType)) {
-            if (rhsType instanceof FarragoPrimitiveType) {
+            if (SqlTypeUtil.isJavaPrimitive(rhsType)
+                && (!rhsType.isNullable()
+                    || translator.isNullablePrimitive(rhsType)))
+            {
                 return convertCastPrimitiveToNullablePrimitive(translator,
                     lhsType, rhsType, lhsExp, rhsExp);
             } else {
                 return convertCastToAssignableValue(translator, lhsType,
                     rhsType, lhsExp, rhsExp);
             }
-        } else if (lhsType instanceof FarragoPrimitiveType) {
+        } else if (SqlTypeUtil.isJavaPrimitive(lhsType)) {
             return convertCastToNotNullPrimitive(translator, lhsType, rhsType,
                 lhsExp, rhsExp);
-        } else if (lhsType.isProject()) {
-            assert (rhsType.isProject());
+        } else if (lhsType.isStruct()) {
+            assert (rhsType.isStruct());
 
             // TODO jvs 27-May-2004:  relax this assert and deal with
             // conversions, null checks, etc.
@@ -312,25 +301,21 @@ public class FarragoOJRexCastImplementor extends FarragoOJRexImplementor
     // implement OJRexImplementor
     public boolean canImplement(RexCall call)
     {
-        RelDataType lhsType = (FarragoAtomicType) call.getType();
+        RelDataType lhsType = call.getType();
         RelDataType rhsType = call.operands[0].getType();
-        if ((lhsType instanceof FarragoAtomicType)
-                && (rhsType instanceof FarragoAtomicType)) {
-            FarragoTypeFamily lhsTypeFamily =
-                ((FarragoAtomicType) lhsType).getFamily();
-            FarragoTypeFamily rhsTypeFamily =
-                ((FarragoAtomicType) rhsType).getFamily();
+        
+        RelDataTypeFamily lhsTypeFamily = lhsType.getFamily();
+        RelDataTypeFamily rhsTypeFamily = rhsType.getFamily();
 
-            // casting between numeric and non-numeric types is
-            // not yet implemented
-            if (lhsTypeFamily.equals(FarragoTypeFamily.NUMERIC)
-                    && !rhsTypeFamily.equals(FarragoTypeFamily.NUMERIC)) {
-                return false;
-            }
-            if (rhsTypeFamily.equals(FarragoTypeFamily.NUMERIC)
-                    && !lhsTypeFamily.equals(FarragoTypeFamily.NUMERIC)) {
-                return false;
-            }
+        // casting between numeric and non-numeric types is
+        // not yet implemented
+        if ((lhsTypeFamily == SqlTypeFamily.Numeric)
+            && (rhsTypeFamily != SqlTypeFamily.Numeric)) {
+            return rhsType.getSqlTypeName() == SqlTypeName.Null;
+        }
+        if ((rhsTypeFamily == SqlTypeFamily.Numeric)
+            && (lhsTypeFamily != SqlTypeFamily.Numeric)) {
+            return false;
         }
 
         // TODO jvs 11-Aug-2004:  think through other cases

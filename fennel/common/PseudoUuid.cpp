@@ -63,6 +63,13 @@ bool PseudoUuid::operator == (PseudoUuid const &other) const
 #endif
 }
 
+unsigned char PseudoUuid::getByte(int index) const
+{
+    assert(index < sizeof(data));
+
+    return data[index];
+}
+
 FENNEL_END_CPPFILE("$Id$");
 
 // End PseudoUuid.cpp

@@ -27,10 +27,7 @@ import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.rex.RexNode;
 import org.eigenbase.sql.parser.ParserPosition;
 import org.eigenbase.sql.test.SqlTester;
-import org.eigenbase.sql.type.OperandsTypeChecking;
-import org.eigenbase.sql.type.ReturnTypeInference;
-import org.eigenbase.sql.type.UnknownParamInference;
-import org.eigenbase.sql.type.TypeUtil;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.Util;
 
 import java.text.MessageFormat;
@@ -60,8 +57,14 @@ public abstract class SqlOperator
      * there could be a potential problem. To avoid this, all types are outputted
      * WITH CAPITAL letters, and this string must therefore consist
      * of at least one lowercase letter.
+     *
+     *<p>
+     *
+     * REVIEW jvs 2-Dec-2004:  what about user-defined types with quoted
+     * names?  They could be all-lowercase.  Do we really have to use such
+     * a hokey mechanism?
      */
-    private static final String ANONYMOUS_REPLACE = "anystringwilldothatisntthesameasatype";
+    private static final String ANONYMOUS_REPLACE = "xyzzy";
 
     //~ Instance fields -------------------------------------------------------
 
@@ -91,10 +94,10 @@ public abstract class SqlOperator
     public final int rightPrec;
 
     /** used to get the return type of operator/function */
-    private final ReturnTypeInference typeInference;
+    private final ReturnTypeInference returnTypeInference;
 
     /** used to inference unknown params */
-    private final UnknownParamInference paramTypeInference;
+    private final UnknownParamInference unknownParamTypeInference;
 
     /** used to validate operands */
     protected final OperandsTypeChecking operandsCheckingRule;
@@ -118,14 +121,12 @@ public abstract class SqlOperator
         OperandsTypeChecking operandsCheckingRule)
     {
         Util.pre(kind != null, "kind != null");
-
-//        Util.pre(operandsCheckingRule != null, "operandsCheckingRule != null");
         this.name = name;
         this.kind = kind;
         this.leftPrec = leftPrecedence;
         this.rightPrec = rightPrecedence;
-        this.typeInference = typeInference;
-        this.paramTypeInference = paramTypeInference;
+        this.returnTypeInference = typeInference;
+        this.unknownParamTypeInference = paramTypeInference;
         this.operandsCheckingRule = operandsCheckingRule;
     }
 
@@ -321,67 +322,21 @@ public abstract class SqlOperator
      * @param call the call to this operator
      * @param validator the active validator
      * @param scope validator scope
+     * @param operandScope validator scope in which to validate operands to
+     *    this call. Usually equal to scope, but may be different if the
+     *    operator is an aggregate function.
      */
     public void validateCall(
         SqlCall call,
         SqlValidator validator,
-        SqlValidator.Scope scope)
+        SqlValidator.Scope scope,
+        SqlValidator.Scope operandScope)
     {
         assert call.operator == this;
         final SqlNode[] operands = call.getOperands();
-        if (scope instanceof SqlValidator.AggregatingScope) {
-            SqlValidator.AggregatingScope aggScope =
-                (SqlValidator.AggregatingScope) scope;
-            if (isAggregator()) {
-                // If we're the 'SUM' node in 'select a + sum(b + c) from t
-                // group by a', then we should validate our arguments in
-                // the non-aggregating scope, where 'b' and 'c' are valid
-                // column references.
-                scope = aggScope.getScopeAboveAggregation();
-            } else {
-                // Check whether expression is constant within the group.
-                //
-                // If not, throws. Example, 'empno' in
-                //    SELECT empno FROM emp GROUP BY deptno
-                //
-                // If it perfectly matches an expression in the GROUP BY
-                // clause, we validate its arguments in the non-aggregating
-                // scope. Example, 'empno + 1' in
-                //
-                //   SELET empno + 1 FROM emp GROUP BY empno + 1
-
-                final boolean matches = aggScope.checkAggregateExpr(call);
-                if (matches) {
-                    scope = aggScope.getScopeAboveAggregation();
-                }
-            }
-        }
         for (int i = 0; i < operands.length; i++) {
-            operands[i].validateExpr(validator, scope);
+            operands[i].validateExpr(validator, operandScope);
         }
-    }
-
-    /**
-     * Deduces the type of a call to this operator, assuming that the types of
-     * the arguments are already known.
-     *
-     * <p>Particular operators can affect the behavior of this method in two
-     * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference},
-     * it is used; otherwise, they must override this method. (Operators with
-     * unusual type inference schemes should override this method; others
-     * should generally use a type-inference strategy to share code.)
-     */
-    public RelDataType getType(
-        RelDataTypeFactory typeFactory,
-        RelDataType [] argTypes)
-    {
-        if (typeInference != null) {
-            return typeInference.getType(typeFactory, argTypes);
-        }
-
-        // If you see this you must either give typeInference a value
-        // or override this method.
-        throw Util.needToImplement(this);
     }
 
     /**
@@ -390,15 +345,15 @@ public abstract class SqlOperator
      *
      * Normally (as in the default implementation), only the types of the operands
      * are needed  to determine the type of the call.  If the call type depends
-     * on the values of the operands, then override this method.
+     * on the values of the operands, then override
+     * {@link #getType(org.eigenbase.sql.SqlValidator, org.eigenbase.sql.SqlValidator.Scope, org.eigenbase.sql.SqlCall)}
      */
-    public RelDataType getType(
+    public final RelDataType getType(
         RelDataTypeFactory typeFactory,
         RexNode [] exprs)
     {
-        return getType(
-            typeFactory,
-            TypeUtil.collectTypes(exprs));
+        return getType(null, null, typeFactory,
+            new CallOperands.RexCallOperands(typeFactory,  this, exprs));
     }
 
     /**
@@ -408,12 +363,11 @@ public abstract class SqlOperator
      *
      * <p>Particular operators can affect the behavior of this method in two
      * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference},
-     * it is used; otherwise, they
-     * must override this method. (Operators with unusual type inference schemes
-     * should override this method; others should generally use a type-inference
-     * strategy to share code.)
+     * it is used (prefered since it enables code reuse); otherwise, operators with unusual type inference schemes
+     * should override
+     * {@link #getType(org.eigenbase.sql.SqlValidator, org.eigenbase.sql.SqlValidator.Scope, org.eigenbase.reltype.RelDataTypeFactory, org.eigenbase.sql.type.CallOperands)}
      */
-    public RelDataType getType(
+    public final RelDataType getType(
         SqlValidator validator,
         SqlValidator.Scope scope,
         SqlCall call)
@@ -424,7 +378,39 @@ public abstract class SqlOperator
         checkArgTypes(call, validator, scope, true);
 
         // Now infer the result type.
-        return inferType(validator, scope, call);
+        CallOperands.SqlCallOperands callOperands =
+            new CallOperands.SqlCallOperands(validator,  scope, call);
+        RelDataType ret =
+            getType(validator, scope, validator.typeFactory, callOperands);
+        validator.setValidatedNodeType(call, ret);
+        return ret;
+    }
+
+    /**
+     * Figure out the type of the return of this function.
+     * We have already checked that the number and types of arguments are as
+     * required.
+     * If no {@link ReturnTypeInference} object was set, you must override this
+     * method.
+     * This method can be called by the {@link SqlValidator validator}
+     * in which case validator!=null and scope!=null<br>
+     * or in the {@link org.eigenbase.sql2rel.SqlToRelConverter} in which
+     * case validator==null and scope==null
+     */
+    protected RelDataType getType(
+        SqlValidator validator,
+        SqlValidator.Scope scope,
+        RelDataTypeFactory typeFactory,
+        CallOperands callOperands)
+    {
+        if (returnTypeInference != null) {
+            return returnTypeInference.getType(
+                validator, scope, typeFactory, callOperands);
+        }
+
+        // Derived type should have overridden this method, since it didn't
+        // supply a type inference rule.
+        throw Util.needToImplement(this);
     }
 
     /**
@@ -460,25 +446,6 @@ public abstract class SqlOperator
             throw validator.newValidationError(call,
                 EigenbaseResource.instance().newWrongNumOfArguments());
         }
-    }
-
-    /**
-     * Figure out the type of the return of this function.
-     * We have already checked that the number and types of arguments are as
-     * required.
-     */
-    protected RelDataType inferType(
-        SqlValidator validator,
-        SqlValidator.Scope scope,
-        SqlCall call)
-    {
-        if (typeInference != null) {
-            return typeInference.getType(validator, scope, call);
-        }
-
-        // Derived type should have overridden this method, since it didn't
-        // supply a type inference rule.
-        throw Util.needToImplement(this);
     }
 
     /**
@@ -559,10 +526,9 @@ public abstract class SqlOperator
         return original.replaceAll(ANONYMOUS_REPLACE, name);
     }
 
-    // REVIEW jvs 23-Dec-2003:  need wrapper call like getType?
-    public UnknownParamInference getParamTypeInference()
+    public UnknownParamInference getUnknownParamTypeInference()
     {
-        return paramTypeInference;
+        return unknownParamTypeInference;
     }
 
     public boolean isAggregator()

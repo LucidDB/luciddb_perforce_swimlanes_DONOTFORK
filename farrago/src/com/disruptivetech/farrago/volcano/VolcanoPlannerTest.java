@@ -28,6 +28,7 @@ import org.eigenbase.rel.convert.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
+import org.eigenbase.sql.type.*;
 
 
 /**
@@ -61,7 +62,7 @@ public class VolcanoPlannerTest extends TestCase
     private RelOptCluster newCluster(VolcanoPlanner planner)
     {
         RelOptQuery query = new RelOptQuery(planner);
-        RelDataTypeFactory typeFactory = new RelDataTypeFactoryImpl();
+        RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl();
         return query.createCluster(
             new TestEnvironment(),
             typeFactory,
@@ -254,7 +255,7 @@ public class VolcanoPlannerTest extends TestCase
         // implement RelNode
         protected RelDataType deriveRowType()
         {
-            return cluster.typeFactory.createProjectType(
+            return cluster.typeFactory.createStructType(
                 new RelDataType [] {
                     cluster.typeFactory.createJavaType(Void.TYPE)
                 },

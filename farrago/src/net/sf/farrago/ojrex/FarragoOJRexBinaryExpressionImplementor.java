@@ -26,6 +26,8 @@ import openjava.ptree.*;
 
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
+import org.eigenbase.reltype.*;
+import org.eigenbase.sql.type.*;
 
 
 /**
@@ -70,7 +72,7 @@ public class FarragoOJRexBinaryExpressionImplementor
         }
 
         if (!call.getType().isNullable()) {
-            return implementNotNull(call, valueOperands);
+            return implementNotNull(translator, call, valueOperands);
         }
 
         Variable varResult = translator.createScratchVariable(call.getType());
@@ -89,7 +91,7 @@ public class FarragoOJRexBinaryExpressionImplementor
                     new FieldAccess(varResult,
                         NullablePrimitive.VALUE_FIELD_NAME),
                     AssignmentExpression.EQUALS,
-                    implementNotNull(call, valueOperands)));
+                    implementNotNull(translator, call, valueOperands)));
 
         Statement ifStatement =
             new IfStatement(nullTest,
@@ -105,21 +107,20 @@ public class FarragoOJRexBinaryExpressionImplementor
     }
 
     private Expression implementNotNull(
+        FarragoRexToOJTranslator translator,
         RexCall call,
         Expression [] operands)
     {
         // REVIEW:  heterogeneous operands?
-        assert (call.operands[0].getType() instanceof FarragoAtomicType);
-        FarragoAtomicType type =
-            (FarragoAtomicType) call.operands[0].getType();
+        RelDataType type = call.operands[0].getType();
 
-        if (type.hasClassForPrimitive()) {
+        FarragoTypeFactory factory = translator.getFarragoTypeFactory();
+        if (factory.getClassForPrimitive(type) != null) {
             return new BinaryExpression(operands[0],
                 ojBinaryExpressionOrdinal, operands[1]);
         }
         Expression comparisonResultExp;
-        assert (type instanceof FarragoPrecisionType);
-        if (type.isCharType()) {
+        if (SqlTypeUtil.inCharFamily(type)) {
             // TODO:  collation sequences, operators other than
             // comparison, etc.
             comparisonResultExp =

@@ -54,7 +54,8 @@ public class IteratorToResultSetConvertlet extends JavaConvertlet
         Object o =
             implementor.visitJavaChild(converter, 0, (JavaRel) converter.child);
         final RelDataType rowType = converter.getRowType();
-        OJClass rowClass = OJUtil.typeToOJClass(rowType);
+        OJClass rowClass = OJUtil.typeToOJClass(
+            rowType, implementor.getTypeFactory());
         Expression getter;
         if (true) {
             getter =
@@ -65,7 +66,7 @@ public class IteratorToResultSetConvertlet extends JavaConvertlet
                         new FieldAccess(
                             TypeName.forOJClass(rowClass),
                             "class")));
-        } else if (rowType.isProject() && (rowType.getFieldCount() == 1)) {
+        } else if (rowType.isStruct() && (rowType.getFieldList().size() == 1)) {
             getter =
                 new AllocationExpression(
                     TypeName.forOJClass(

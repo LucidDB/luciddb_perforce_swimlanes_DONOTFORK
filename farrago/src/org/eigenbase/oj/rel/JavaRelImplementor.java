@@ -21,9 +21,7 @@
 
 package org.eigenbase.oj.rel;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,15 +30,11 @@ import openjava.ptree.*;
 
 import org.eigenbase.oj.rex.*;
 import org.eigenbase.oj.util.OJUtil;
-import org.eigenbase.rel.JoinRel;
-import org.eigenbase.rel.ProjectRelBase;
-import org.eigenbase.rel.RelNode;
+import org.eigenbase.rel.*;
 import org.eigenbase.relopt.CallingConvention;
 import org.eigenbase.relopt.RelImplementor;
-import org.eigenbase.reltype.RelDataType;
-import org.eigenbase.reltype.RelDataTypeField;
+import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
-import org.eigenbase.sql.*;
 import org.eigenbase.trace.EigenbaseTrace;
 import org.eigenbase.util.SaffronProperties;
 import org.eigenbase.util.Util;
@@ -92,6 +86,7 @@ public class JavaRelImplementor implements RelImplementor
     Statement exitStatement;
     private final RexBuilder rexBuilder;
     private int nextVariableId;
+    protected final OJRexImplementorTable implementorTable = null; // TODO:
 
     //~ Constructors ----------------------------------------------------------
 
@@ -121,6 +116,11 @@ public class JavaRelImplementor implements RelImplementor
     public RexBuilder getRexBuilder()
     {
         return rexBuilder;
+    }
+
+    public RelDataTypeFactory getTypeFactory()
+    {
+        return rexBuilder.getTypeFactory();
     }
 
     /**
@@ -157,7 +157,7 @@ public class JavaRelImplementor implements RelImplementor
         Variable variable = newVariable();
         LazyBind bind =
             new LazyBind(variable, statementList,
-                rel.getRowType(), thunk);
+                getTypeFactory(), rel.getRowType(), thunk);
         bind(rel, bind);
         return bind.getVariable();
     }
@@ -294,6 +294,7 @@ public class JavaRelImplementor implements RelImplementor
                 new LazyBind(
                     newVariable(),
                     statementList,
+                    getTypeFactory(), 
                     rel.getRowType(),
                     new VariableInitializerThunk() {
                         public VariableInitializer getInitializer()
@@ -615,7 +616,7 @@ public class JavaRelImplementor implements RelImplementor
         final RelNode [] inputs = rel.getInputs();
         for (int i = 0; i < ordinal; i++) {
             RelNode input = inputs[i];
-            fieldOffset += input.getRowType().getFieldCount();
+            fieldOffset += input.getRowType().getFieldList().size();
         }
         return fieldOffset;
     }
@@ -638,7 +639,7 @@ public class JavaRelImplementor implements RelImplementor
         assert ordinal >= 0;
         assert ordinal < rel.getInputs().length;
         assert fieldOrdinal >= 0;
-        assert fieldOrdinal < rel.getInput(ordinal).getRowType().getFieldCount();
+        assert fieldOrdinal < rel.getInput(ordinal).getRowType().getFieldList().size();
         RelDataType rowType = rel.getRowType();
         final RelDataTypeField [] fields = rowType.getFields();
         final int fieldIndex = computeFieldOffset(rel, ordinal) + fieldOrdinal;
@@ -723,6 +724,48 @@ public class JavaRelImplementor implements RelImplementor
                 return null;
             }
         }
+    }
+
+    public Expression implementStart(
+        AggregateRel.Call call,
+        JavaRel rel)
+    {
+        OJAggImplementor aggImplementor =
+            implementorTable.get(call.aggregation);
+        return aggImplementor.implementStart(this, rel, call);
+    }
+
+    public Expression implementStartAndNext(
+        AggregateRel.Call call,
+        JavaRel rel)
+    {
+        OJAggImplementor aggImplementor =
+            implementorTable.get(call.aggregation);
+        return aggImplementor.implementStartAndNext(this, rel, call);
+    }
+
+    public void implementNext(
+        AggregateRel.Call call,
+        JavaRel rel,
+        Expression accumulator)
+    {
+        OJAggImplementor aggImplementor =
+            implementorTable.get(call.aggregation);
+        aggImplementor.implementNext(this, rel, accumulator, call);
+    }
+
+
+    /**
+     * Generates the expression to retrieve the result of this
+     * aggregation.
+     */
+    public Expression implementResult(
+        AggregateRel.Call call,
+        Expression accumulator)
+    {
+        OJAggImplementor aggImplementor =
+            implementorTable.get(call.aggregation);
+        return aggImplementor.implementResult(this, accumulator, call);
     }
 
     //~ Inner Interfaces ------------------------------------------------------
@@ -843,6 +886,7 @@ public class JavaRelImplementor implements RelImplementor
 
     private static class LazyBind implements Bind
     {
+        final RelDataTypeFactory typeFactory;
         final RelDataType type;
         final Statement after;
         StatementList statementList;
@@ -853,6 +897,7 @@ public class JavaRelImplementor implements RelImplementor
         LazyBind(
             Variable variable,
             StatementList statementList,
+            RelDataTypeFactory typeFactory, 
             RelDataType type,
             VariableInitializerThunk thunk)
         {
@@ -862,6 +907,7 @@ public class JavaRelImplementor implements RelImplementor
                 (statementList.size() == 0) ? null
                 : statementList.get(statementList.size() - 1);
             this.type = type;
+            this.typeFactory = typeFactory;
             this.thunk = thunk;
         }
 
@@ -872,7 +918,7 @@ public class JavaRelImplementor implements RelImplementor
                 int position = find(statementList, after);
                 VariableDeclaration varDecl =
                     new VariableDeclaration(
-                        OJUtil.toTypeName(type),
+                        OJUtil.toTypeName(type, typeFactory),
                         variable.toString(),
                         null);
                 statementList.insertElementAt(varDecl, position);
@@ -906,8 +952,8 @@ public class JavaRelImplementor implements RelImplementor
     }
 
     /**
-     * Similar to {@link org.eigenbase.oj.rel.RexToJavaTranslator}, but instead of translating, merely tests
-     * whether an expression can be translated.
+     * Similar to {@link RexToOJTranslator}, but instead of translating, merely
+     * tests whether an expression can be translated.
      */
     public static class TranslationTester
     {

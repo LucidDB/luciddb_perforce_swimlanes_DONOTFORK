@@ -134,7 +134,7 @@ public class FarragoCalcSystemTest extends FarragoTestCase
         exclude.add(opTab.trimFunc);
         exclude.add(opTab.isDistinctFromOperator);
         exclude.add(opTab.descendingOperator);
-        exclude.add(opTab.litChainOperator);
+        exclude.add(opTab.literalChainOperator);
         exclude.add(opTab.escapeOperator);
         exclude.add(opTab.localTimeFunc);
         exclude.add(opTab.localTimestampFunc);
@@ -230,9 +230,13 @@ public class FarragoCalcSystemTest extends FarragoTestCase
                     typeName = SqlTypeName.Boolean;
                 }
 
-                SqlDataType dt =
-                    new SqlDataType(new SqlIdentifier(typeName.name, null),
-                        0,
+                int precision = 0;
+                if (typeName.allowsPrecNoScale()) {
+                    precision = 1;
+                }
+                SqlDataTypeSpec dt =
+                    new SqlDataTypeSpec(new SqlIdentifier(typeName.name, null),
+                        precision,
                         0,
                         null,
                         null);

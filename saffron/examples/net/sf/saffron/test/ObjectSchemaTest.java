@@ -39,6 +39,7 @@ import org.eigenbase.rel.RelNode;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.Util;
 
 
@@ -205,7 +206,7 @@ public class ObjectSchemaTest extends SaffronTestCase
             ExtentRel extent = (ExtentRel) call.rels[2];
             Util.discard(extent);
             final RexBuilder rexBuilder = join.getCluster().rexBuilder;
-            int fieldIndex = rel.getRowType().getFieldCount();
+            int fieldIndex = rel.getRowType().getFieldList().size();
             final EqualsPattern equalsPattern =
                 new EqualsPattern(
                     rexBuilder.makeInputRef(
@@ -276,7 +277,7 @@ public class ObjectSchemaTest extends SaffronTestCase
     public static class JavaReflectSchema extends ReflectSchema
     {
         public final RelDataTypeFactory typeFactory =
-            new RelDataTypeFactoryImpl();
+            new SqlTypeFactoryImpl();
         public RelOptTable classes =
             new ExtentTable(this, "classes",
                 typeFactory.createJavaType(Class.class));

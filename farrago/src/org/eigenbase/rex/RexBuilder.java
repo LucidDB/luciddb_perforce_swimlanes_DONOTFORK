@@ -30,7 +30,7 @@ import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.reltype.RelDataTypeField;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.fun.SqlStdOperatorTable;
-import org.eigenbase.sql.type.SqlTypeName;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.BitString;
 import org.eigenbase.util.NlsString;
 import org.eigenbase.util.Util;
@@ -244,6 +244,21 @@ public class RexBuilder
     }
 
     /**
+     * Creates a call to a windowed agg.
+     */
+    public RexNode makeOver(RelDataType type,
+        SqlOperator operator,
+        RexNode[] exprs,
+        SqlWindow window,
+        SqlNode lowerBound,
+        SqlNode upperBound,
+        boolean physical)
+    {
+        return new RexOver(type, operator, exprs, window, lowerBound,
+            upperBound, physical);
+    }
+
+    /**
      * Creates a constant for the SQL <code>NULL</code> value.
      */
     public RexLiteral constantNull()
@@ -306,7 +321,7 @@ public class RexBuilder
         RelDataType type,
         int i)
     {
-        if (type.isCharType()) {
+        if (SqlTypeUtil.inCharFamily(type)) {
             Charset charset =
                 (type.getCharset() == null) ? Util.getDefaultCharset()
                 : type.getCharset();

@@ -88,7 +88,6 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     private final FarragoSessionStmtValidator stmtValidator;
     private boolean needRestore;
     private SqlToRelConverter sqlToRelConverter;
-    private RelDataTypeFactory savedTypeFactory;
     private Object savedDeclarer;
     private FarragoAllocation javaCodeDir;
     private FarragoSqlValidator sqlValidator;
@@ -145,10 +144,8 @@ public class FarragoPreparingStmt extends OJPreparingStmt
 
         // Save some global state for reentrancy
         needRestore = true;
-        savedTypeFactory = RelDataTypeFactoryImpl.threadInstance();
         savedDeclarer = OJUtil.threadDeclarers.get();
 
-        RelDataTypeFactoryImpl.setThreadInstance(getFarragoTypeFactory());
         planner = getSession().newPlanner(this,true);
     }
 
@@ -273,7 +270,8 @@ public class FarragoPreparingStmt extends OJPreparingStmt
             PreparedExecution preparedExecution =
                 (PreparedExecution) preparedResult;
             RelDataType rowType = preparedExecution.getRowType();
-            OJClass ojRowClass = OJUtil.typeToOJClass(rowType);
+            OJClass ojRowClass =
+                OJUtil.typeToOJClass(rowType, getFarragoTypeFactory());
             Class rowClass;
             try {
                 String ojRowClassName = ojRowClass.getName();
@@ -319,7 +317,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
             assert (preparedResult instanceof PreparedExplanation);
             executableStmt =
                 new FarragoExecutableExplainStmt(
-                    getFarragoTypeFactory().createProjectType(
+                    getFarragoTypeFactory().createStructType(
                         new RelDataType[0],
                         new String[0]),
                     preparedResult.getCode());
@@ -373,7 +371,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
 
     private RelDataType getParamRowType()
     {
-        return getFarragoTypeFactory().createProjectType(
+        return getFarragoTypeFactory().createStructType(
             new RelDataTypeFactory.FieldInfo() {
                 public int getFieldCount()
                 {
@@ -399,7 +397,6 @@ public class FarragoPreparingStmt extends OJPreparingStmt
             // already closed or else never opened
             return;
         }
-        RelDataTypeFactoryImpl.setThreadInstance(savedTypeFactory);
         OJUtil.threadDeclarers.set(savedDeclarer);
 
         // TODO:  obtain locks to ensure that objects we intend to operate
@@ -530,15 +527,12 @@ public class FarragoPreparingStmt extends OJPreparingStmt
         RelOptTable relOptTable;
         if (columnSet instanceof FemBaseColumnSet) {
             FemBaseColumnSet table = (FemBaseColumnSet) columnSet;
-            FemDataServerImpl femServer =
-                (FemDataServerImpl) table.getServer();
+            FemDataServer femServer = table.getServer();
             loadDataServerFromCache(femServer);
             relOptTable =
-                femServer.loadColumnSetFromCache(
-                    stmtValidator.getDataWrapperCache(),
-                    getRepos(),
-                    getFarragoTypeFactory(),
-                    table);
+                stmtValidator.getDataWrapperCache().loadColumnSetFromCatalog(
+                    table,
+                    getFarragoTypeFactory());
         } else if (columnSet instanceof CwmView) {
             RelDataType rowType =
                 getFarragoTypeFactory().createColumnSetType(columnSet);
@@ -569,8 +563,8 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     private FarragoMedColumnSet getForeignTableFromNamespace(
         FarragoSessionResolvedObject resolved)
     {
-        FemDataServerImpl femServer =
-            (FemDataServerImpl) getRepos().getModelElement(
+        FemDataServer femServer =
+            (FemDataServer) getRepos().getModelElement(
                 getRepos().medPackage.getFemDataServer().refAllOfType(),
                 resolved.catalogName);
         if (femServer == null) {
@@ -609,15 +603,16 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     }
 
     private FarragoMedDataServer loadDataServerFromCache(
-        FemDataServerImpl femServer)
+        FemDataServer femServer)
     {
         FarragoMedDataServer server =
-            femServer.loadFromCache(stmtValidator.getDataWrapperCache());
+            stmtValidator.getDataWrapperCache().loadServerFromCatalog(
+                femServer);
         if (loadedServerClassNameSet.add(server.getClass().getName())) {
             // This is the first time we've seen this server class, so give it
             // a chance to register any planner info such as calling
             // conventions and rules.  REVIEW: the discrimination is based on
-            // class name, on the assumption that it should unique regardless
+            // class name, on the assumption that it should be unique regardless
             // of classloader, JAR, etc.  Is that correct?
             server.registerRules(planner);
         }
@@ -633,7 +628,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     // implement RelOptSchema
     public RelDataTypeFactory getTypeFactory()
     {
-        return RelDataTypeFactoryImpl.threadInstance();
+        return getFarragoTypeFactory();
     }
 
     // implement RelOptSchema
@@ -836,7 +831,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
                 // always succeed
                 throw Util.newInternal(ex);
             }
-            RexNode exp = sqlToRelConverter.convertExpression(null, sqlNode);
+            RexNode exp = sqlToRelConverter.convertExpression(sqlNode);
 
             // TODO:  better memory usage estimate
             entry.initialize(exp,

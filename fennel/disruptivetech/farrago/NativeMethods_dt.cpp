@@ -21,11 +21,14 @@
 #include "fennel/common/CommonPreamble.h"
 #include "fennel/farrago/ExecStreamFactory.h"
 #include "fennel/disruptivetech/xo/CalcExecStream.h"
+#include "fennel/disruptivetech/xo/CollectExecStream.h"
+#include "fennel/disruptivetech/xo/UncollectExecStream.h"
 #include "fennel/exec/ExecStreamEmbryo.h"
 
 // DEPRECATED
 #include "fennel/farrago/ExecutionStreamFactory.h"
 #include "fennel/disruptivetech/xo/CalcTupleStream.h"
+
 
 #ifdef __MINGW32__
 #include <windows.h>
@@ -36,7 +39,7 @@ FENNEL_BEGIN_CPPFILE("$Id$");
 class ExecStreamSubFactory_dt
     : public ExecutionStreamSubFactory, // DEPRECATED
         public ExecStreamSubFactory,
-        virtual public FemVisitor
+        public FemVisitor
 {
     ExecStreamFactory *pExecStreamFactory;
     ExecStreamEmbryo *pEmbryo;
@@ -68,6 +71,21 @@ class ExecStreamSubFactory_dt
         }
     }
 
+    virtual void visit(ProxyCollectTupleStreamDef &streamDef) 
+    {
+        CollectExecStreamParams params;
+        pExecStreamFactory->readTupleStreamParams(params, streamDef);
+        pEmbryo->init(new CollectExecStream(), params);
+    }
+
+    virtual void visit(ProxyUncollectTupleStreamDef &streamDef) 
+    {
+        UncollectExecStreamParams params;
+        pExecStreamFactory->readTupleStreamParams(params, streamDef);
+        pEmbryo->init(new UncollectExecStream(), params);
+    }
+
+
     // implement JniProxyVisitor
     virtual void unhandledVisit()
     {
@@ -75,18 +93,6 @@ class ExecStreamSubFactory_dt
         created = false;
     }
 
-    // implement JniProxyVisitor
-    virtual void *getLeafPtr()
-    {
-        return static_cast<FemVisitor *>(this);
-    }
-    
-    // implement JniProxyVisitor
-    virtual const char *getLeafTypeName()
-    {
-        return "FemVisitor";
-    }
-    
     // DEPRECATED
     // implement ExecutionStreamSubFactory
     virtual bool createStream(

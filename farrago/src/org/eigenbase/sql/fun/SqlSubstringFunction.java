@@ -25,10 +25,7 @@ import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.test.SqlOperatorTests;
 import org.eigenbase.sql.test.SqlTester;
-import org.eigenbase.sql.type.OperandsTypeChecking;
-import org.eigenbase.sql.type.ReturnTypeInference;
-import org.eigenbase.sql.type.SqlTypeName;
-import org.eigenbase.sql.type.TypeUtil;
+import org.eigenbase.sql.type.*;
 
 import java.util.ArrayList;
 
@@ -43,7 +40,7 @@ public class SqlSubstringFunction extends SqlFunction {
 
     SqlSubstringFunction() {
         super("SUBSTRING", SqlKind.Function,
-            ReturnTypeInference.useNullableVaryingFirstArgType, null, null,
+            ReturnTypeInferenceImpl.useNullableVaryingFirstArgType, null, null,
             SqlFunction.SqlFuncTypeName.String);
     }
 
@@ -102,7 +99,7 @@ public class SqlSubstringFunction extends SqlFunction {
             RelDataType t2 =
                 validator.deriveType(scope, call.operands[2]);
 
-            if (t1.isCharType()) {
+            if (SqlTypeUtil.inCharFamily(t1)) {
                 if (!OperandsTypeChecking.typeNullableString.check(call, validator,
                     scope, call.operands[1], 0, throwOnFailure)) {
                     return false;
@@ -112,7 +109,7 @@ public class SqlSubstringFunction extends SqlFunction {
                     return false;
                 }
 
-                if (!TypeUtil.isCharTypeComparable(
+                if (!SqlTypeUtil.isCharTypeComparable(
                     validator, scope, call.operands, throwOnFailure)) {
                     return false;
                 }
@@ -127,7 +124,7 @@ public class SqlSubstringFunction extends SqlFunction {
                 }
             }
 
-            if (!t1.isSameTypeFamily(t2)) {
+            if (!SqlTypeUtil.inSameFamily(t1, t2)) {
                 if (throwOnFailure) {
                     throw call.newValidationSignatureError(validator, scope);
                 }

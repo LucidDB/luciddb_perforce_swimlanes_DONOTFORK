@@ -28,8 +28,9 @@ import org.eigenbase.sql.parser.ParserPosition;
 import org.eigenbase.sql.test.SqlOperatorTests;
 import org.eigenbase.sql.test.SqlTester;
 import org.eigenbase.sql.type.OperandsTypeChecking;
-import org.eigenbase.sql.type.TypeUtil;
+import org.eigenbase.sql.type.SqlTypeUtil;
 import org.eigenbase.sql.type.ReturnTypeInference;
+import org.eigenbase.sql.type.ReturnTypeInferenceImpl;
 
 /**
  * Definition of the "TRIM" builtin SQL function.
@@ -45,9 +46,9 @@ public class SqlTrimFunction extends SqlFunction
     public SqlTrimFunction()
     {
         super("TRIM", SqlKind.Trim,
-            new ReturnTypeInference.TransformCascade(
-                ReturnTypeInference.useThirdArgType,
-                ReturnTypeInference.toNullable
+            new ReturnTypeInferenceImpl.TransformCascade(
+                ReturnTypeInferenceImpl.useThirdArgType,
+                ReturnTypeInferenceImpl.toNullable
             ),
             null,
             OperandsTypeChecking.typeNullableStringStringOfSameType,
@@ -126,7 +127,9 @@ public class SqlTrimFunction extends SqlFunction
             ops[i - 1] = call.operands[i];
         }
 
-        if (!TypeUtil.isCharTypeComparable(validator, scope, ops, throwOnFailure)) {
+        if (!SqlTypeUtil.isCharTypeComparable(
+                validator, scope, ops, throwOnFailure))
+        {
             return false;
         }
         return true;

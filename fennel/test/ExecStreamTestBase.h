@@ -56,6 +56,21 @@ protected:
         ExecStreamEmbryo &transformStreamEmbryo);
 
     /**
+     * Defines and prepares a graph consisting of one source stream
+     * and one or multiple transform streams.
+     *
+     * @param sourceStreamEmbryo embryonic source stream which produces tuples
+     *
+     * @param transformStreamEmbryo embryonic transforms streams which processes
+     * tuples produced by sourceStreamEmbryo or a child stream
+     *
+     * @return output buffer stream
+     */
+    SharedExecStream prepareTransformGraph(
+        ExecStreamEmbryo &sourceStreamEmbryo,
+        std::vector<ExecStreamEmbryo> &transforms);
+
+    /**
      * Defines and prepares a graph consisting of two source streams
      * and one confluence stream.
      *
@@ -102,6 +117,22 @@ protected:
         ExecStream &stream,
         uint nRowsExpected,
         MockProducerExecStreamGenerator &verifier);
+
+    /**
+     * Executes the prepared stream graph and verifies that all output tuples
+     * matche an expected and given one
+     *
+     * @param stream output stream from which to read
+     *
+     * @param expectedTuple
+     *
+     * @param nRowsExpected
+     */
+    void verifyConstantOutput(
+        ExecStream &stream, 
+        const TupleData  &expectedTuple,
+        uint nRowsExpected);
+
     
 public:
     // override TestBase
@@ -114,10 +145,20 @@ public:
  */
 class RampExecStreamGenerator : public MockProducerExecStreamGenerator
 {
+protected:
+    int offset;
 public:
+    RampExecStreamGenerator(int offset_) {
+        offset = offset_;
+    }
+
+    RampExecStreamGenerator() {
+        offset = 0;
+    }
+
     virtual int64_t generateValue(uint iRow)
     {
-        return iRow;
+        return iRow + offset;
     }
 };
 

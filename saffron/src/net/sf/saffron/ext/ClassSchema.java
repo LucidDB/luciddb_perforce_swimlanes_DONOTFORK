@@ -21,13 +21,14 @@ package net.sf.saffron.ext;
 
 import java.lang.reflect.Field;
 
-import net.sf.saffron.oj.OJConnectionRegistry;
+import net.sf.saffron.oj.*;
 import net.sf.saffron.oj.rel.ExpressionReaderRel;
 
 import openjava.ptree.Expression;
 import openjava.ptree.FieldAccess;
 
-import org.eigenbase.oj.util.JavaRexBuilder;
+import org.eigenbase.oj.*;
+import org.eigenbase.oj.util.*;
 import org.eigenbase.rel.ProjectRel;
 import org.eigenbase.rel.RelNode;
 import org.eigenbase.relopt.*;
@@ -118,7 +119,7 @@ public class ClassSchema implements RelOptSchema
 
     public RelDataTypeFactory getTypeFactory()
     {
-        return RelDataTypeFactoryImpl.threadInstance();
+        return OJUtil.threadTypeFactory();
     }
 
     public void registerRules(RelOptPlanner planner)

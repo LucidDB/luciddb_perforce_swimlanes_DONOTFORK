@@ -5,4 +5,6 @@ libxo_la_SOURCES=\
 CalcExcn.cpp \
 CalcExecStream.cpp \
 CalcExecutionStream.cpp \
-CalcTupleStream.cpp
+CalcTupleStream.cpp \
+CollectExecStream.cpp \
+UncollectExecStream.cpp

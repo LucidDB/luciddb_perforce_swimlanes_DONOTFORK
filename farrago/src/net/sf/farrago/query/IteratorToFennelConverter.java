@@ -40,6 +40,7 @@ import org.eigenbase.rel.*;
 import org.eigenbase.rel.convert.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.*;
 
 
@@ -102,7 +103,9 @@ public class IteratorToFennelConverter extends ConverterRel
         JavaRelImplementor implementor,
         RelDataType rowType)
     {
-        OJClass ojClass = OJUtil.typeToOJClass(rowType);
+        FarragoTypeFactory factory = stmt.getFarragoTypeFactory();
+        
+        OJClass ojClass = OJUtil.typeToOJClass(rowType, factory);
 
         FemTupleDescriptor tupleDesc =
             FennelRelUtil.createTupleDescriptorFromRowType(
@@ -154,26 +157,21 @@ public class IteratorToFennelConverter extends ConverterRel
                 continue;
             }
             RelDataTypeField field = fields[i];
-            FarragoAtomicType type = (FarragoAtomicType) field.getType();
+            RelDataType type = field.getType();
             Expression fieldExp =
                 new FieldAccess(varTuple,
                     Util.toJavaId(
                         field.getName(),
                         i));
-            if (type.hasClassForPrimitive()) {
-                Class primitiveClass = type.getClassForPrimitive();
+            Class primitiveClass = factory.getClassForPrimitive(type);
+            if (primitiveClass != null) {
                 Method method =
                     ReflectUtil.getByteBufferWriteMethod(primitiveClass);
                 String byteBufferAccessorName = method.getName();
 
                 // this field is marshalled to a fixed offset relative
                 // to the sliceBuffer start
-                if (type.requiresValueAccess()) {
-                    // extra dereference for NullablePrimitives
-                    fieldExp =
-                        new FieldAccess(fieldExp,
-                            NullablePrimitive.VALUE_FIELD_NAME);
-                }
+                fieldExp = factory.getValueAccessExpression(type, fieldExp);
 
                 // REVIEW:  skip write if field is null?
                 methodBody.add(
@@ -185,7 +183,7 @@ public class IteratorToFennelConverter extends ConverterRel
                                 Literal.makeLiteral(
                                     attrAccessor.getFixedOffset()),
                                 fieldExp))));
-            } else if (type.isBoundedVariableWidth()) {
+            } else if (SqlTypeUtil.isBoundedVariableWidth(type)) {
                 variableWidth = true;
                 if (attrAccessor.getFixedOffset() != -1) {
                     // first variable-width field:  position to the start of the

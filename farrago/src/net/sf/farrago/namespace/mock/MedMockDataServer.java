@@ -86,11 +86,10 @@ class MedMockDataServer extends MedAbstractDataServer
         Map columnPropMap)
         throws SQLException
     {
-        assert (rowType.getFieldCount() == 1);
-        FarragoAtomicType type =
-            (FarragoAtomicType) rowType.getFields()[0].getType();
+        assert (rowType.getFieldList().size() == 1);
+        RelDataType type = rowType.getFields()[0].getType();
         assert (!type.isNullable());
-        assert (type.hasClassForPrimitive());
+        assert (typeFactory.getClassForPrimitive(type) != null);
         long nRows = getLongProperty(tableProps, PROP_ROW_COUNT, 10);
         String executorImpl =
             tableProps.getProperty(PROP_EXECUTOR_IMPL, PROPVAL_JAVA);

@@ -35,7 +35,7 @@ public interface SqlVisitor {
     void visit(SqlCall call);
     void visit(SqlNodeList nodeList);
     void visit(SqlIdentifier id);
-    void visit(SqlDataType type);
+    void visit(SqlDataTypeSpec type);
     void visit(SqlDynamicParam param);
     void visit(SqlIntervalQualifier intervalQualifier);
 }
