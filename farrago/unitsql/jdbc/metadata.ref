@@ -18,13 +18,14 @@
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- test getSchemas
 0: jdbc:farrago:> !metadata getSchemas
-+----------------+----------------+
-|  TABLE_SCHEM   | TABLE_CATALOG  |
-+----------------+----------------+
-| JDBC_METADATA  | SYS_BOOT       |
-| SALES          | LOCALDB        |
-| SQLJ           | LOCALDB        |
-+----------------+----------------+
++---------------------+----------------+
+|     TABLE_SCHEM     | TABLE_CATALOG  |
++---------------------+----------------+
+| INFORMATION_SCHEMA  | LOCALDB        |
+| JDBC_METADATA       | SYS_BOOT       |
+| SALES               | LOCALDB        |
+| SQLJ                | LOCALDB        |
++---------------------+----------------+
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- test getTableTypes
 0: jdbc:farrago:> !metadata getTableTypes
@@ -104,6 +105,7 @@
 +-----------------------+----------------+
 |      TABLE_SCHEM      | TABLE_CATALOG  |
 +-----------------------+----------------+
+| INFORMATION_SCHEMA    | LOCALDB        |
 | JDBC_METADATA         | SYS_BOOT       |
 | METADATA_TEST_SCHEMA  | LOCALDB        |
 | SALES                 | LOCALDB        |
@@ -159,13 +161,14 @@
 0: jdbc:farrago:> 
 0: jdbc:farrago:> drop schema metadata_test_schema;
 0: jdbc:farrago:> !metadata getSchemas
-+----------------+----------------+
-|  TABLE_SCHEM   | TABLE_CATALOG  |
-+----------------+----------------+
-| JDBC_METADATA  | SYS_BOOT       |
-| SALES          | LOCALDB        |
-| SQLJ           | LOCALDB        |
-+----------------+----------------+
++---------------------+----------------+
+|     TABLE_SCHEM     | TABLE_CATALOG  |
++---------------------+----------------+
+| INFORMATION_SCHEMA  | LOCALDB        |
+| JDBC_METADATA       | SYS_BOOT       |
+| SALES               | LOCALDB        |
+| SQLJ                | LOCALDB        |
++---------------------+----------------+
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- test misc calls
 0: jdbc:farrago:> !dbinfo
@@ -205,14 +208,14 @@ getMaxStatements                                  0
 getMaxTableNameLength                             128
 getMaxTablesInSelect                              0
 getMaxUserNameLength                              128
-getNumericFunctions                               SUM,COUNT,MIN,MAX,POSITION,CHAR_LENGTH,CHARACTER_LENGTH,POW,MOD,LN,LOG,ABS
+getNumericFunctions                               ABS,LOG,LOG10,MOD,POWER
 getProcedureTerm                                  
 getSchemaTerm                                     schema
 getSearchStringEscape                             \
-getSQLKeywords                                    checkpoint,clustered,function,inout,out,release,routine,savepoint,system,truncate,type,CAST,EXTRACT,POSITION,CONVERT,TRANSLATE,OVERLAY,SUBSTRING,TRIM,a,asymmetric,bigint,binary,boolean,call,collect,descending,explain,following,member,multiset,nulls,over,partition,placing,preceding,range,row,similar,submultiset,symmetric,tinyint,unbounded,unnest,varbinary,window,without
-getStringFunctions                                SUBSTRING,CONVERT,TRANSLATE,OVERLAY,TRIM,UPPER,LOWER,INITCAP
-getSystemFunctions                                NULLIF,COALESCE,USER,CURRENT_USER,SESSION_USER,SYSTEM_USER,CURRENT_PATH,CURRENT_ROLE,CAST,EXTRACT,ELEMENT,CARDINALITY
-getTimeDateFunctions                              LOCALTIME,LOCALTIMESTAMP,CURRENT_TIME,CURRENT_TIMESTAMP,CURRENT_DATE
+getSQLKeywords                                    CHECKPOINT,CLUSTERED,TRUNCATE,ABS,ARRAY,ASENSITIVE,ASYMMETRIC,ATOMIC,BIGINT,BINARY,BLOB,BOOLEAN,CALL,CALLED,CARDINALITY,CEIL,CEILING,CLOB,COLAESCE,COLLECT,CONDITION,CORR,COVAR_POP,COVAR_SAMP,CUBE,CUME_DIST,CURRENT_DEFAULT_TRANSFORM_GROUP,CURRENT_PATH,CURRENT_ROLE,CURRENT_TRANSFORM_GROUP_FOR_TYPE,CYCLE,DENSE_RANK,DEREF,DETERMINISTIC,DYNAMIC,EACH,ELEMENT,EVERY,EXP,EXPLAIN,FILTER,FLOOR,FREE,FUNCTION,FUSION,GROUPING,HOLD,INOUT,INTERSECTION,LARGE,LATERAL,LN,LOCALTIME,LOCALTIMESTAMP,MEMBER,MERGE,METHOD,MOD,MODIFIES,MULTISET,NCLOB,NEW,NONE,NORMALIZE,OLD,OUT,OVER,OVERLAY,PARAMETER,PARTITION,PERCENT_RANK,PERCENTILE_CONT,PERCENTILE_DISC,POWER,RANGE,RANK,READS,RECURSIVE,REF,REFERENCING,REGR_AVGX,REGR_AVGY,REGR_COUNT,REGR_INTERCEPT,REGR_R2,REGR_SLOPE,REGR_SXX,REGR_SXY,RELEASE,RESULT,RETURN,RETURNS,ROLLUP,ROW,ROW_NUMBER,SAVEPOINT,SCOPE,SEARCH,SENSITIVE,SIMILAR,SPECIFIC,SPECIFICTYPE,SQLEXCEPTION,SQLWARNING,SQRT,START,STATIC,STDDEV_POP,STDDEV_SAMP,SUBMULTISET,SYMMETRIC,SYSTEM,TABLESAMPLE,TINYINT,TREAT,TRIGGER,UESCAPE,UNNEST,VAR_POP,VAR_SAMP,VARBINARY,WIDTH_BUCKET,WINDOW,WITHIN,WITHOUT
+getStringFunctions                                CONCAT,INSERT,LCASE,LENGTH,LOCATE,LTRIM,RTRIM,SUBSTRING,UCASE
+getSystemFunctions                                
+getTimeDateFunctions                              CURDATE,CURTIME,NOW
 getURL                                            jdbc:farrago:
 getUserName                                       jackalope
 isCatalogAtStart                                  true

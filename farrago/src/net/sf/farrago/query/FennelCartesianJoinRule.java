@@ -64,7 +64,8 @@ public class FennelCartesianJoinRule extends RelOptRule
         RelNode leftRel = call.rels[1];
         RelNode rightRel = call.rels[2];
 
-        if (joinRel.getJoinType() != JoinRel.JoinType.INNER) {
+        if ((joinRel.getJoinType() != JoinRel.JoinType.INNER) &&
+            (joinRel.getJoinType() != JoinRel.JoinType.LEFT)) {
             return;
         }
 
@@ -95,11 +96,17 @@ public class FennelCartesianJoinRule extends RelOptRule
             new FennelCartesianProductRel(
                 joinRel.getCluster(),
                 fennelLeft,
-                fennelRight);
+                fennelRight,
+                joinRel.getJoinType());
         call.transformTo(productRel);
 
-        // TODO:  supply a variant which uses a buffer, and let the optimizer
-        // decide which to use based on cost
+        // TODO jvs 15-Feb-2005: In most cases, buffering the
+        // right-hand input is good for performance; it allows us to only
+        // compute the right-hand side once, and since we store only
+        // what we need, we may save I/O.  However, there are counterexamples;
+        // if the right-hand side is a table scan with no filtering or
+        // projection, there's no point buffering it.  So we should produce
+        // plan variants with and without buffering and use cost to decide.
     }
 }
 

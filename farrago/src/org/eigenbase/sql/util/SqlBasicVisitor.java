@@ -19,7 +19,6 @@
 */
 package org.eigenbase.sql.util;
 
-import org.eigenbase.sql.util.SqlVisitor;
 import org.eigenbase.sql.*;
 
 /**
@@ -35,26 +34,38 @@ import org.eigenbase.sql.*;
  */
 public class SqlBasicVisitor implements SqlVisitor
  {
+    /**
+     * Used to keep track of the current SqlNode parent of a visiting node.
+     * A value of null mean no parent.
+     * NOTE: In case of extending SqlBasicVisitor, remember that
+     * parent value might not be set depending on if and how
+     * visit(SqlCall) and visit(SqlNodeList) is implemented.
+     */
+    public SqlNode currentParent = null;
+    /**
+     *  Only valid if currentParrent is a SqlCall or SqlNodeList
+     *  Describes the offset within the parent
+     */
+    public Integer currentOffset = null;
+
     public void visit(SqlLiteral literal)
     {
     }
 
     public void visit(SqlCall call)
     {
-        for (int i = 0; i < call.operands.length; i++) {
-            SqlNode operand = call.operands[i];
-            if (operand != null) {
-                operand.accept(this);
-            }
-        }
+        call.operator.acceptCall(this, call);
     }
 
     public void visit(SqlNodeList nodeList)
     {
         for (int i = 0; i < nodeList.size(); i++) {
+            currentParent = nodeList;
+            currentOffset = new Integer(i);
             SqlNode node = nodeList.get(i);
             node.accept(this);
         }
+        currentParent = null;
     }
 
     public void visit(SqlIdentifier id)
@@ -71,6 +82,14 @@ public class SqlBasicVisitor implements SqlVisitor
 
     public void visit(SqlIntervalQualifier intervalQualifier)
     {
+    }
+
+    public void visitChild(SqlNode parent, int ordinal, SqlNode child)
+    {
+        currentParent = parent;
+        currentOffset = new Integer(ordinal);
+        child.accept(this);
+        currentParent = null;
     }
 }
 

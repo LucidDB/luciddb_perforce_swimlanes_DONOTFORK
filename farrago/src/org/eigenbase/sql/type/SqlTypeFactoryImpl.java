@@ -163,6 +163,8 @@ public class SqlTypeFactoryImpl extends RelDataTypeFactoryImpl
             newType = copyMultisetType(type, nullable);
         } else if (type instanceof IntervalSqlType) {
             newType = copyIntervalType(type, nullable);
+        } else if (type instanceof ObjectSqlType) {
+            newType = copyObjectType(type, nullable);
         } else {
             return super.createTypeWithNullability(type, nullable);
         }
@@ -242,7 +244,7 @@ public class SqlTypeFactoryImpl extends RelDataTypeFactoryImpl
                             }
                         } else {
                             // TODO:  the real thing for numerics;
-                            // for now we let leastRestrictiveGenericType
+                            // for now we let leastRestrictiveByCast
                             // handle it
                             return null;
                         }
@@ -260,7 +262,7 @@ public class SqlTypeFactoryImpl extends RelDataTypeFactoryImpl
                 }
             } else {
                 // TODO:  datetime precision details; for now we let
-                // leastRestrictiveGenericType handle it
+                // leastRestrictiveByCast handle it
                 return null;
             }
         }
@@ -286,6 +288,33 @@ public class SqlTypeFactoryImpl extends RelDataTypeFactoryImpl
     private RelDataType copyIntervalType(RelDataType type, boolean nullable)
     {
         return new IntervalSqlType(type.getIntervalQualifier(), nullable);
+    }
+
+    private RelDataType copyObjectType(RelDataType type, boolean nullable)
+    {
+        return new ObjectSqlType(
+            type.getSqlTypeName(),
+            type.getSqlIdentifier(),
+            nullable,
+            type.getFields());
+    }
+    
+    // override RelDataTypeFactoryImpl
+    protected RelDataType canonize(RelDataType type)
+    {
+        type = super.canonize(type);
+        if (!(type instanceof ObjectSqlType)) {
+            return type;
+        }
+        ObjectSqlType objectType = (ObjectSqlType) type;
+        if (!objectType.isNullable()) {
+            objectType.setFamily(objectType);
+        } else {
+            objectType.setFamily(
+                (RelDataTypeFamily) createTypeWithNullability(
+                    objectType, false));
+        }
+        return type;
     }
 }
 

@@ -23,24 +23,16 @@ package org.eigenbase.sql.fun;
 
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
-import org.eigenbase.reltype.RelDataTypeFactoryImpl;
 import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.util.*;
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.sql.test.SqlOperatorTests;
 import org.eigenbase.sql.test.SqlTester;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.util.*;
 
 import java.util.ArrayList;
-
-// REVIEW jvs 1-Jan-2005:  the categorization of functions in this table
-// is used to implement the JDBC DatabaseMetaData calls (such as
-// getSystemFunctions) in a way which I believe is incorrect.  Please
-// see http://java.sun.com/products/jdbc/driverdevs.html, section A.1.4.
-// The metadata calls are only supposed to return entries
-// from predefined lists.  So we need to refine the categorizations.
 
 /**
  * Implementation of {@link org.eigenbase.sql.SqlOperatorTable} containing the
@@ -271,6 +263,11 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
                         EigenbaseResource.instance()
                         .newAliasMustBeSimpleIdentifier());
                 }
+            }
+
+            public void acceptCall(SqlVisitor visitor, SqlCall call) {
+                // Do not visit operands[1] -- it is not an expression.
+                visitor.visitChild(call, 0, call.operands[0]);
             }
         };
 
@@ -763,7 +760,7 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
     public final SqlSpecialOperator unnestOperator =
         new SqlSpecialOperator ("UNNEST", SqlKind.Unnest,
             100, true, null, null,
-            OperandsTypeChecking.typeNullableMultiset) {
+            OperandsTypeChecking.typeNullableMultisetOrRecordTypeMultiset) {
 
             protected RelDataType getType(
                 SqlValidator validator,
@@ -771,9 +768,32 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
                 RelDataTypeFactory typeFactory,
                 CallOperands callOperands)
             {
-                MultisetSqlType t = (MultisetSqlType) callOperands.getType(0);
+                RelDataType type = callOperands.getType(0);
+                if (type.isStruct()) {
+                    type = type.getFields()[0].getType();
+                }
+                MultisetSqlType t = (MultisetSqlType) type;
                 return t.getComponentType();
             }
+
+            public void unparse(
+                SqlWriter writer,
+                SqlNode[] operands,
+                int leftPrec,
+                int rightPrec) {
+                writer.print(name);
+                writer.print("(");
+                operands[0].unparse(writer,0,0);
+                writer.print(")");
+            }
+        };
+
+    public final SqlSpecialOperator lateralOperator =
+        new SqlSpecialOperator ("LATERAL", SqlKind.Lateral,
+            100, true,
+            ReturnTypeInferenceImpl.useFirstArgType,
+            null,
+            OperandsTypeChecking.typeAny) {
 
             public void unparse(
                 SqlWriter writer,
@@ -818,19 +838,19 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
         new SqlLiteralChainOperator();
     public final SqlBetweenOperator betweenOperator =
         new SqlBetweenOperator(
-            SqlBetweenOperator.Flag.createAsymmetric(ParserPosition.ZERO),
+            SqlBetweenOperator.Flag.createAsymmetric(SqlParserPos.ZERO),
             false);
     public final SqlBetweenOperator symmetricBetweenOperator =
         new SqlBetweenOperator(
-            SqlBetweenOperator.Flag.createSymmetric(ParserPosition.ZERO),
+            SqlBetweenOperator.Flag.createSymmetric(SqlParserPos.ZERO),
             false);
     public final SqlBetweenOperator notBetweenOperator =
         new SqlBetweenOperator(
-            SqlBetweenOperator.Flag.createAsymmetric(ParserPosition.ZERO),
+            SqlBetweenOperator.Flag.createAsymmetric(SqlParserPos.ZERO),
             true);
     public final SqlBetweenOperator symmetricNotBetweenOperator =
         new SqlBetweenOperator(
-            SqlBetweenOperator.Flag.createSymmetric(ParserPosition.ZERO),
+            SqlBetweenOperator.Flag.createSymmetric(SqlParserPos.ZERO),
             true);
     public final SqlSpecialOperator notLikeOperator =
         new SqlLikeOperator("NOT LIKE", SqlKind.Like, true) {
@@ -896,6 +916,8 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
 
     public final SqlOperator procedureCallOperator =
         new SqlProcedureCallOperator();
+
+    public final SqlOperator newOperator = new SqlNewOperator();
 
     /**
      * The WINDOW clause of a SELECT statment.
@@ -1266,21 +1288,21 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
             SqlFunction.SqlFuncTypeName.System)
         {
             // override SqlOperator
-            public SqlCall rewriteCall(SqlCall call)
+            public SqlNode rewriteCall(SqlCall call)
             {
                 SqlNode [] operands = call.getOperands();
-                ParserPosition pos = call.getParserPosition();
-                
+                SqlParserPos pos = call.getParserPosition();
+
                 if (2 != operands.length) {
                     //todo put this in the validator
                     throw EigenbaseResource.instance().newValidatorContext(
-                        new Integer(pos.getBeginLine()),
-                        new Integer(pos.getBeginColumn()),
+                        new Integer(pos.getLineNum()),
+                        new Integer(pos.getColumnNum()),
                         EigenbaseResource.instance().newInvalidArgCount(
                             name,
                             new Integer(2)));
                 }
-                
+
                 SqlNodeList whenList = new SqlNodeList(pos);
                 SqlNodeList thenList = new SqlNodeList(pos);
                 whenList.add(operands[1]);
@@ -1288,7 +1310,7 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
                 return caseOperator.createCall(operands[0], whenList,
                     thenList, operands[0], pos);
             }
-            
+
             public SqlOperator.OperandsCountDescriptor getOperandsCountDescriptor()
             {
                 return new OperandsCountDescriptor(2);
@@ -1308,11 +1330,11 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
             SqlFunction.SqlFuncTypeName.System)
         {
             // override SqlOperator
-            public SqlCall rewriteCall(SqlCall call)
+            public SqlNode rewriteCall(SqlCall call)
             {
                 SqlNode [] operands = call.getOperands();
-                ParserPosition pos = call.getParserPosition();
-                
+                SqlParserPos pos = call.getParserPosition();
+
                 SqlNodeList whenList = new SqlNodeList(pos);
                 SqlNodeList thenList = new SqlNodeList(pos);
 

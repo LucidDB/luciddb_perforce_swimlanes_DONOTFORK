@@ -141,8 +141,24 @@ class RelSet
         if (subset == null) {
             subset = new RelSubset(cluster, this, convention);
             subsets.add(subset);
+
+            VolcanoPlanner planner = (VolcanoPlanner) cluster.planner;
+            if (planner.listener != null) {
+                postEquivalenceEvent(planner, subset);
+            }
         }
         return subset;
+    }
+
+    private void postEquivalenceEvent(VolcanoPlanner planner, RelNode rel)
+    {
+        RelOptListener.RelEquivalenceEvent event =
+            new RelOptListener.RelEquivalenceEvent(
+                planner,
+                rel,
+                "equivalence class " + id,
+                false);
+        planner.listener.relEquivalenceFound(event);
     }
 
     /**
@@ -154,6 +170,11 @@ class RelSet
     {
         if (!rels.contains(rel)) {
             rels.add(rel);
+
+            VolcanoPlanner planner = (VolcanoPlanner) rel.getCluster().planner;
+            if (planner.listener != null) {
+                postEquivalenceEvent(planner, rel);
+            }
         }
         if (this.rel == null) {
             this.rel = rel;
@@ -211,6 +232,23 @@ class RelSet
         for (Iterator parentRels = otherSet.getParentRels().iterator();
                 parentRels.hasNext();) {
             planner.rename((RelNode) parentRels.next());
+        }
+
+        // Make sure the cost changes as a result of merging are propagated.
+        for (Iterator relSubsets = subsets.iterator();
+                relSubsets.hasNext(); ) {
+            RelSubset relSubset = (RelSubset)relSubsets.next();
+            for (Iterator parentSubsets =
+                        relSubset.getParentSubsets().iterator();
+                    parentSubsets.hasNext(); ) {
+                RelSubset parentSubset = (RelSubset)parentSubsets.next();
+
+                for (Iterator parentRels = parentSubset.rels.iterator();
+                        parentRels.hasNext(); ) {
+                    parentSubset.propagateCostImprovements(
+                        planner, (RelNode) parentRels.next());
+                }
+            }
         }
 
         // Each of the relations in the old set now has new parents, so

@@ -1,7 +1,7 @@
 /*
 // $Id$
 // Farrago is a relational database management system.
-// Copyright (C) 2002-2004 Disruptive Tech
+// Copyright (C) 2002-2005 Disruptive Tech
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 package com.disruptivetech.farrago.calc;
 
 import java.util.HashMap;
+import java.util.List;
 
 import net.sf.farrago.resource.*;
 
@@ -33,6 +34,8 @@ import org.eigenbase.sql.fun.SqlStdOperatorTable;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.util.SaffronProperties;
 import org.eigenbase.util.Util;
+import org.eigenbase.relopt.RelOptQuery;
+import org.eigenbase.rel.CorrelatorRel;
 
 
 /**
@@ -67,6 +70,10 @@ public class RexToCalcTranslator implements RexVisitor
      **/
     private HashMap results = new HashMap();
     protected final RexBuilder rexBuilder;
+    /**
+     * Tells the code generator to short circuit logical operators.<br>
+     * The default valude is <emp>false</emp>.
+     */
     protected boolean generateShortCircuit = false;
     protected int labelOrdinal = 0;
 
@@ -84,9 +91,9 @@ public class RexToCalcTranslator implements RexVisitor
         RexNode [] projectExps,
         RexNode conditionExp)
     {
+        this.rexBuilder = rexBuilder;
         this.projectExps = projectExps;
         this.conditionExp = conditionExp;
-        this.rexBuilder = rexBuilder;
 
         setGenerateComments(
             SaffronProperties.instance().generateCalcProgramComments.get());
@@ -118,15 +125,12 @@ public class RexToCalcTranslator implements RexVisitor
                     fac.createSqlType(SqlTypeName.Varbinary, 0),
                     CalcProgramBuilder.OpType.Varbinary),
                 new TypePair(
-                    fac.createSqlType(SqlTypeName.Bit, 0),
-                    CalcProgramBuilder.OpType.Varbinary),
-                new TypePair(
                     fac.createSqlType(SqlTypeName.Varchar, 0),
                     CalcProgramBuilder.OpType.Varchar),
                 new TypePair(
                     fac.createSqlType(SqlTypeName.Boolean),
                     CalcProgramBuilder.OpType.Bool),
-                
+
 
                 // FIXME: not right for T/w TZ.
                 new TypePair(
@@ -138,7 +142,7 @@ public class RexToCalcTranslator implements RexVisitor
                 new TypePair(
                     fac.createSqlType(SqlTypeName.Timestamp),
                     CalcProgramBuilder.OpType.Int8),
-                
+
                 new TypePair(
                     fac.createJavaType(Byte.class),
                     CalcProgramBuilder.OpType.Int1),
@@ -232,9 +236,12 @@ public class RexToCalcTranslator implements RexVisitor
         CalcProgramBuilder.OpType calcType = null;
         if (typeDigest.startsWith("CHAR")) {
             calcType = CalcProgramBuilder.OpType.Char;
-        }
-        if (typeDigest.startsWith("BINARY")) {
+        } else if (typeDigest.startsWith("BINARY")) {
             calcType = CalcProgramBuilder.OpType.Binary;
+        } else if (typeDigest.endsWith("MULTISET")) {
+             // hack for now
+             return new CalcProgramBuilder.RegisterDescriptor(
+                 CalcProgramBuilder.OpType.Varbinary, 4096);
         }
         for (int i = 0; i < knownTypes.length; i++) {
             TypePair knownType = knownTypes[i];
@@ -282,10 +289,12 @@ public class RexToCalcTranslator implements RexVisitor
             register);
     }
 
-    /** Gets the result in form of a reference to register for the given rex node. If
-     * node hasn't been implmented no result will be found and this function asserts.
-     * Therefore don't use this function to check if result exists, see {@link #containsResult}
-     * for that.
+    /**
+     * Gets the result in form of a reference to register for the given rex node.
+     * If node hasn't been implmented no result will be found and this function
+     * asserts.
+     * Therefore don't use this function to check if result exists,
+     * see {@link #containsResult} for that.
      * @param node
      * @return
      */
@@ -315,7 +324,7 @@ public class RexToCalcTranslator implements RexVisitor
     public String getProgram(RelDataType inputRowType)
     {
         // Step 0. Create input fields.
-        // Create an calculator input for each field in the input relation,
+        // Create a calculator input for each field in the input relation,
         // regardless of whether the calcualtor program uses them.
         if (inputRowType != null) {
             final RelDataTypeField [] fields = inputRowType.getFields();
@@ -457,6 +466,11 @@ public class RexToCalcTranslator implements RexVisitor
 
     public void visitFieldAccess(RexFieldAccess fieldAccess)
     {
+        final RexNode expr = fieldAccess.getReferenceExpr();
+        if (expr instanceof RexCorrelVariable) {
+            implementNode(fieldAccess);
+            return;
+        }
         throw FarragoResource.instance().newProgramImplementationError("Don't know how to implement rex node="
             + fieldAccess);
     }
@@ -632,7 +646,6 @@ public class RexToCalcTranslator implements RexVisitor
     private static boolean isOctetString(RelDataType t)
     {
         switch (t.getSqlTypeName().ordinal) {
-        case SqlTypeName.Bit_ordinal:
         case SqlTypeName.Varbinary_ordinal:
         case SqlTypeName.Binary_ordinal:
             return true;
@@ -723,6 +736,32 @@ public class RexToCalcTranslator implements RexVisitor
             builder.newInput(getCalcRegisterDescriptor(node)));
     }
 
+    private void implementNode(RexFieldAccess node)
+    {
+        if (containsResult(node)) {
+            throw new AssertionError("Shouldn't call this function directly;"
+                + " use implementNode(RexFieldAccess) instead");
+        }
+
+        final RexNode accessedNode = node.getReferenceExpr();
+        assert(accessedNode instanceof RexCorrelVariable);
+        final RexCorrelVariable correlNode = (RexCorrelVariable) accessedNode;
+        final int id = RelOptQuery.getCorrelOrdinal(correlNode.getName());
+        CalcProgramBuilder.Register idReg = builder.newInt4Literal(id);
+        CalcProgramBuilder.Register result =
+            builder.newLocal(getCalcRegisterDescriptor(node));
+        ExtInstructionDefTable.dynamicVariable.add(
+            builder,
+            new CalcProgramBuilder.Register [] { result, idReg});
+        setResult(node, result);
+    }
+
+
+    /**
+     * @param generateShortCircuit If true, tells the code generator
+     * to short circuit logical operators<br>
+     * The default valude is <emp>false</emp>
+     */
     public void setGenerateShortCircuit(boolean generateShortCircuit)
     {
         this.generateShortCircuit = generateShortCircuit;
@@ -813,8 +852,6 @@ public class RexToCalcTranslator implements RexVisitor
 
         public void visitCorrelVariable(RexCorrelVariable correlVariable)
         {
-            // Matches RexToCalcTranslator.visitCorrelVariable()
-            throw new TranslationException();
         }
 
         public void visitDynamicParam(RexDynamicParam dynamicParam)

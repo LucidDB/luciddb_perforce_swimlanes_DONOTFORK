@@ -174,6 +174,16 @@ public abstract class RelDataTypeImpl
     }
 
     // implement RelDataType
+    public SqlIdentifier getSqlIdentifier()
+    {
+        SqlTypeName typeName = getSqlTypeName();
+        if (typeName == null) {
+            return null;
+        }
+        return new SqlIdentifier(typeName.getName(), null);
+    }
+
+    // implement RelDataType
     public RelDataTypeFamily getFamily()
     {
         // by default, put each type into its own family
@@ -183,7 +193,7 @@ public abstract class RelDataTypeImpl
     /**
      * Generates a string representation of this type.
      *
-     * @param StringBuffer into which to generate the string
+     * @param sb StringBuffer into which to generate the string
      *
      * @param withDetail when true, all detail information needed to
      * compute a unique digest (and return from getFullTypeString)
@@ -214,6 +224,28 @@ public abstract class RelDataTypeImpl
         StringBuffer sb = new StringBuffer();
         generateTypeString(sb, false);
         return sb.toString();
+    }
+    
+    // implement RelDataType
+    public RelDataTypePrecedenceList getPrecedenceList()
+    {
+        // by default, make each type have a precedence list containing
+        // only other types in the same family
+        return new RelDataTypePrecedenceList() 
+            {
+                public boolean containsType(RelDataType type)
+                {
+                    return getFamily() == type.getFamily();
+                }
+                
+                public int compareTypePrecedence(
+                    RelDataType type1, RelDataType type2)
+                {
+                    assert(containsType(type1));
+                    assert(containsType(type2));
+                    return 0;
+                }
+            };
     }
 }
 

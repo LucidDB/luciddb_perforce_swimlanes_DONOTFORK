@@ -20,6 +20,7 @@ CalcExtContextTest \
 CalcExtDateTimeTest \
 CalcExtMathTest \
 CalcExtCastTest \
+CalcExtDynamicVariableTest \
 SqlDateTest \
 SqlRegExpTest \
 SqlStringTest \
@@ -28,7 +29,11 @@ CorrelationJoinExecStreamTest
 
 TESTS = $(noinst_PROGRAMS)
 
-CollectExecStreamTest_SOURCES=CollectExecStreamTest.cpp
+CalcExecStreamTest_SOURCES=CalcExecStreamTest.cpp CalcExecStreamTestSuite.cpp
+
+CollectExecStreamTest_SOURCES=CollectExecStreamTest.cpp CollectExecStreamTestSuite.cpp
+
+CorrelationJoinExecStreamTest_SOURCES=CorrelationJoinExecStreamTest.cpp CorrelationJoinExecStreamTestSuite.cpp
 
 CalcAssemblerTest_SOURCES=CalcAssemblerTest.cpp
 
@@ -37,8 +42,6 @@ CalcInstFactoryTest_SOURCES=CalcInstFactoryTest.cpp
 CalcCastTest_SOURCES=CalcCastTest.cpp
 
 CalcMiscTest_SOURCES=CalcMiscTest.cpp
-
-CalcExecStreamTest_SOURCES=CalcExecStreamTest.cpp
 
 CalcExtRegExpTest_SOURCES=CalcExtRegExpTest.cpp
 
@@ -52,6 +55,8 @@ CalcExtMathTest_SOURCES=CalcExtMathTest.cpp
 
 CalcExtCastTest_SOURCES=CalcExtCastTest.cpp
 
+CalcExtDynamicVariableTest_SOURCES=CalcExtDynamicVariableTest.cpp
+
 SqlRegExpTest_SOURCES=SqlStringBuffer.cpp SqlRegExpTest.cpp 
 
 SqlStringTest_SOURCES=SqlStringBuffer.cpp SqlStringTest.cpp 
@@ -59,8 +64,6 @@ SqlStringTest_SOURCES=SqlStringBuffer.cpp SqlStringTest.cpp
 SqlDateTest_SOURCES=SqlStringBuffer.cpp SqlDateTest.cpp 
 
 SqlStringAsciiTest_SOURCES=SqlStringBuffer.cpp SqlStringAsciiTest.cpp 
-
-CorrelationJoinExecStreamTest_SOURCES=CorrelationJoinExecStreamTest.cpp
 
 # NOTE:  have to repeat $(EXTRA_LDFLAGS) on mingw due to stupid linker.
 

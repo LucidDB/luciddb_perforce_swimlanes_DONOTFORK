@@ -21,7 +21,7 @@
 
 package org.eigenbase.sql;
 
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.sql.util.SqlVisitor;
 import org.eigenbase.util.*;
 
@@ -42,13 +42,13 @@ public abstract class SqlNode implements Cloneable
 {
     //~ Instance fields -------------------------------------------------------
 
-    private final ParserPosition pos;
+    private final SqlParserPos pos;
 
     public static final SqlNode[] emptyArray = new SqlNode[0];
 
     //~ Constructors ----------------------------------------------------------
 
-    SqlNode(ParserPosition pos)
+    SqlNode(SqlParserPos pos)
     {
         this.pos = pos;
     }
@@ -158,7 +158,7 @@ public abstract class SqlNode implements Cloneable
         int leftPrec,
         int rightPrec);
 
-    public ParserPosition getParserPosition()
+    public SqlParserPos getParserPosition()
     {
         return pos;
     }
@@ -176,6 +176,38 @@ public abstract class SqlNode implements Cloneable
      */
     public abstract void validate(SqlValidator validator,
         SqlValidator.Scope scope);
+
+    /**
+     * Find out all the valid alternatives for this node if the parse position
+     * of the node matches that of pp.  Only implemented now for 
+     * SqlCall and SqlOperator
+     *
+     * @param validator Validator
+     * @param scope Validation scope
+     * @param pp SqlParserPos indicating the cursor position at which 
+     * competion hints are requested for
+     * @return a string array of valid options
+     */
+    public String[] findValidOptions(SqlValidator validator, 
+        SqlValidator.Scope scope,
+        SqlParserPos pp)
+    {
+        return Util.emptyStringArray;
+    }
+
+    /**
+     * Find out all the valid alternatives for this node.  Only implemented
+     * now for SqlIdentifier
+     *
+     * @param validator Validator
+     * @param scope Validation scope
+     * @return a string array of valid options
+     */
+    public String[] findValidOptions(SqlValidator validator, 
+        SqlValidator.Scope scope)
+    {
+        return Util.emptyStringArray;
+    }
 
     /**
      * Validates this node in an expression context.

@@ -51,6 +51,8 @@ class ExecStreamBufAccessor : public boost::noncopyable
     ExecStreamBufProvision provision;
 
     ExecStreamBufState state;
+   
+    bool pendingEOS;
 
     TupleDescriptor tupleDesc;
     
@@ -62,6 +64,9 @@ class ExecStreamBufAccessor : public boost::noncopyable
 
     uint cbBuffer;
     
+    /** sets state to EXECBUF_EOS */
+    inline void setEOS(); 
+
 public:
     inline explicit ExecStreamBufAccessor();
     
@@ -153,8 +158,8 @@ public:
     
     /**
      * Marks end of stream; called by producer when it knows it will not be
-     * producing any more data.  If buffer still contains data to be
-     * consumed, call is ignored; otherwise, state changes to EXECBUF_EOS.
+     * producing any more data. The state changes to EXECBUF_EOS as soon as
+     * there remains no more data to be consumed
      */
     inline void markEOS();
 
@@ -248,6 +253,12 @@ public:
     inline ExecStreamBufState getState() const;
 
     /**
+     * Retrieves the pending-end-of-stream flag.
+     * @return bool (true when EOS pending after remaining data consumed).
+     */
+    inline bool hasPendingEOS() const;
+
+    /**
      * Retrieves the buffer provision mode of this accessor.
      *
      * @return ExecStreamBufProvision
@@ -289,7 +300,7 @@ public:
 
     /**
      * Accesses a tuple from getConsumptionStart() but does not unmarshal it or
-     * consumer it.  Once this is called, it may not be called again until
+     * consume it.  Once this is called, it may not be called again until
      * consumeTuple has been called.
      *
      * @return same as getConsumptionTupleAccessor()
@@ -342,7 +353,7 @@ inline ExecStreamBufAccessor::ExecStreamBufAccessor()
 
 inline bool ExecStreamBufAccessor::isProductionPossible() const
 {
-    return (state != EXECBUF_EOS) && (state != EXECBUF_OVERFLOW);
+    return !pendingEOS && (state != EXECBUF_EOS) && (state != EXECBUF_OVERFLOW);
 }
 
 inline bool ExecStreamBufAccessor::isConsumptionPossible() const
@@ -375,6 +386,7 @@ inline void ExecStreamBufAccessor::clear()
     pConsumer = NULL;
     cbBuffer = 0;
     state = EXECBUF_EMPTY;
+    pendingEOS = false;
     tupleProductionAccessor.resetCurrentTupleBuf();
     tupleConsumptionAccessor.resetCurrentTupleBuf();
 }
@@ -417,7 +429,7 @@ inline void ExecStreamBufAccessor::provideBufferForConsumption(
 
 inline void ExecStreamBufAccessor::requestProduction()
 {
-    assert(state == EXECBUF_EMPTY);
+    assert((state == EXECBUF_UNDERFLOW) || (state == EXECBUF_EMPTY));
     state = EXECBUF_UNDERFLOW;
     pProducer = pBufStart;
     pConsumer = pBufStart;
@@ -425,7 +437,7 @@ inline void ExecStreamBufAccessor::requestProduction()
 
 inline void ExecStreamBufAccessor::requestConsumption()
 {
-    assert(state == EXECBUF_NONEMPTY);
+    assert((state == EXECBUF_OVERFLOW) || (state == EXECBUF_NONEMPTY));
     state = EXECBUF_OVERFLOW;
     pBufEnd = pProducer;
 }
@@ -433,8 +445,14 @@ inline void ExecStreamBufAccessor::requestConsumption()
 inline void ExecStreamBufAccessor::markEOS()
 {
     if (isConsumptionPossible()) {
+        pendingEOS = true;
         return;
     }
+    setEOS();
+}
+
+inline void ExecStreamBufAccessor::setEOS()
+{
     assert(pProducer == pConsumer);
     clear();
     state = EXECBUF_EOS;
@@ -475,6 +493,11 @@ inline ExecStreamBufState ExecStreamBufAccessor::getState() const
     return state;
 }
 
+inline bool  ExecStreamBufAccessor::hasPendingEOS() const
+{
+    return pendingEOS;
+}
+
 inline ExecStreamBufProvision ExecStreamBufAccessor::getProvision() const
 {
     return provision;
@@ -506,7 +529,10 @@ inline void ExecStreamBufAccessor::consumeData(PConstBuffer pEnd)
     assert(pEnd <= getConsumptionEnd());
     pConsumer = const_cast<PBuffer>(pEnd);
     if (pConsumer == getConsumptionEnd()) {
-        state = EXECBUF_EMPTY;
+        if (pendingEOS)
+            setEOS();
+        else
+            state = EXECBUF_EMPTY;
     } else {
         // NOTE jvs 9-Nov-2004:  this is misleading until circular buffering
         // gets implemented, but it isn't incorrect either
@@ -526,6 +552,7 @@ inline void ExecStreamBufAccessor::validateTupleSize(
 inline bool ExecStreamBufAccessor::produceTuple(TupleData const &tupleData)
 {
     assert(getState() != EXECBUF_EOS);
+    assert(!pendingEOS);
 
     if (tupleProductionAccessor.isBufferSufficient(
             tupleData, getProductionAvailable()))

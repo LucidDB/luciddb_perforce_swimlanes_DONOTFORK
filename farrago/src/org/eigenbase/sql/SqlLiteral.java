@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2002-2004 Disruptive Tech
-// Copyright (C) 2003-2004 John V. Sichi
+// Copyright (C) 2002-2005 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ package org.eigenbase.sql;
 
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
-import org.eigenbase.sql.parser.ParserPosition;
-import org.eigenbase.sql.parser.ParserUtil;
+import org.eigenbase.sql.parser.SqlParserPos;
+import org.eigenbase.sql.parser.SqlParserUtil;
 import org.eigenbase.sql.type.SqlTypeName;
 import org.eigenbase.sql.util.SqlVisitor;
 import org.eigenbase.util.BitString;
@@ -107,11 +107,6 @@ import java.util.Calendar;
  *   <td>{@link NlsString}</td>
  * </tr>
  * <tr>
- *   <td>{@link SqlTypeName#Bit}</td>
- *   <td>Bit string, for example <code>B'101011'</code>.</td>
- *   <td>{@link BitString}</td>
- * </tr>
- * <tr>
  *   <td>{@link SqlTypeName#Binary}</td>
  *   <td>Binary constant, for example <code>X'ABC'</code>, <code>X'7F'</code>.
  *       Note that strings with an odd number of hexits will later become
@@ -169,7 +164,7 @@ public class SqlLiteral extends SqlNode
     protected SqlLiteral(
         Object value,
         SqlTypeName typeName,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         super(pos);
         this.value = value;
@@ -214,11 +209,7 @@ public class SqlLiteral extends SqlNode
         case SqlTypeName.IntervalYearMonth_ordinal:
             return value instanceof SqlIntervalLiteral.IntervalValue;
         case SqlTypeName.Binary_ordinal:
-
-            // created from X'ABC' (odd length) or X'AB' (even length)
-            return value instanceof BitString; // created from B'0101'
-        case SqlTypeName.Bit_ordinal:
-            return value instanceof BitString; // created from B'0101'
+            return value instanceof BitString;
         case SqlTypeName.Char_ordinal:
             return value instanceof NlsString;
 
@@ -308,8 +299,12 @@ public class SqlLiteral extends SqlNode
 
     /**
      * Creates a NULL literal.
+     *
+     * <p>There's no singleton constant for a NULL literal.
+     * Instead, nulls must be instantiated via createNull(), because
+     * different instances have different context-dependent types.
      */
-    public static SqlLiteral createNull(ParserPosition pos)
+    public static SqlLiteral createNull(SqlParserPos pos)
     {
         return new SqlLiteral(null, SqlTypeName.Null, pos);
     }
@@ -319,14 +314,14 @@ public class SqlLiteral extends SqlNode
      */
     public static SqlLiteral createBoolean(
         boolean b,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return b
         ? new SqlLiteral(Boolean.TRUE, SqlTypeName.Boolean, pos)
         : new SqlLiteral(Boolean.FALSE, SqlTypeName.Boolean, pos);
     }
 
-    public static SqlLiteral createUnknown(ParserPosition pos)
+    public static SqlLiteral createUnknown(SqlParserPos pos)
     {
         return new SqlLiteral(null, SqlTypeName.Boolean, pos);
     }
@@ -339,7 +334,7 @@ public class SqlLiteral extends SqlNode
      */
     public static SqlLiteral createFlag(
         EnumeratedValues.Value o,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return new SqlLiteral(o, SqlTypeName.Symbol, pos);
     }
@@ -392,7 +387,6 @@ public class SqlLiteral extends SqlNode
         case SqlTypeName.Decimal_ordinal:
         case SqlTypeName.Double_ordinal:
         case SqlTypeName.Binary_ordinal:
-        case SqlTypeName.Bit_ordinal:
 
             // should be handled in subtype
             throw typeName.unexpected();
@@ -411,22 +405,11 @@ public class SqlLiteral extends SqlNode
             ret = typeFactory.createTypeWithNullability(ret, null == value);
             return ret;
         case SqlTypeName.Binary_ordinal:
-
-            // REVIEW: should this be Binary, not Varbinary?
             bitString = (BitString) value;
             int bitCount = bitString.getBitCount();
-            if ((bitCount % 8) == 0) {
-                return typeFactory.createSqlType(SqlTypeName.Varbinary,
+            Util.permAssert(bitCount % 8 == 0, "incomplete octet");
+            return typeFactory.createSqlType(SqlTypeName.Binary,
                     bitCount / 8);
-            } else {
-                return typeFactory.createSqlType(SqlTypeName.Bit, bitCount);
-            }
-        case SqlTypeName.Bit_ordinal:
-            assert value instanceof BitString;
-            bitString = (BitString) value;
-            return typeFactory.createSqlType(
-                SqlTypeName.Bit,
-                bitString.getBitCount());
         case SqlTypeName.Char_ordinal:
             NlsString string = (NlsString) value;
             if (null == string.getCharset()) {
@@ -438,7 +421,7 @@ public class SqlLiteral extends SqlNode
             }
             RelDataType type =
                 typeFactory.createSqlType(
-                    SqlTypeName.Varchar,
+                    SqlTypeName.Char,
                     string.getValue().length());
             type =
                 typeFactory.createTypeWithCharsetAndCollation(
@@ -470,7 +453,7 @@ public class SqlLiteral extends SqlNode
 
     public static SqlDateLiteral createDate(
         Calendar calendar,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return new SqlDateLiteral(calendar, pos);
     }
@@ -478,7 +461,7 @@ public class SqlLiteral extends SqlNode
     public static SqlTimestampLiteral createTimestamp(
         Calendar calendar,
         int precision,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return new SqlTimestampLiteral(calendar, precision, false, pos);
     }
@@ -486,7 +469,7 @@ public class SqlLiteral extends SqlNode
     public static SqlTimeLiteral createTime(
         Calendar calendar,
         int precision,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return new SqlTimeLiteral(calendar, precision, false, pos);
     }
@@ -499,7 +482,7 @@ public class SqlLiteral extends SqlNode
      * @param pos               Parser position
      */
     public static SqlIntervalLiteral createInterval(int[] values,
-        SqlIntervalQualifier intervalQualifier, ParserPosition pos)
+        SqlIntervalQualifier intervalQualifier, SqlParserPos pos)
     {
         SqlTypeName typeName = intervalQualifier.isYearMonth() ?
             SqlTypeName.IntervalYearMonth :
@@ -510,7 +493,7 @@ public class SqlLiteral extends SqlNode
 
     public static SqlNumericLiteral createExactNumeric(
         String s,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         BigDecimal value;
         int prec;
@@ -518,16 +501,16 @@ public class SqlLiteral extends SqlNode
 
         int i = s.indexOf('.');
         if ((i >= 0) && ((s.length() - 1) != i)) {
-            value = ParserUtil.parseDecimal(s);
+            value = SqlParserUtil.parseDecimal(s);
             scale = s.length() - i - 1;
             assert scale == value.scale() : s;
             prec = s.length() - 1;
         } else if ((i >= 0) && ((s.length() - 1) == i)) {
-            value = ParserUtil.parseInteger(s.substring(0, i));
+            value = SqlParserUtil.parseInteger(s.substring(0, i));
             scale = 0;
             prec = s.length() - 1;
         } else {
-            value = ParserUtil.parseInteger(s);
+            value = SqlParserUtil.parseInteger(s);
             scale = 0;
             prec = s.length();
         }
@@ -541,9 +524,9 @@ public class SqlLiteral extends SqlNode
 
     public static SqlNumericLiteral createApproxNumeric(
         String s,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
-        BigDecimal value = ParserUtil.parseDecimal(s);
+        BigDecimal value = SqlParserUtil.parseDecimal(s);
         return new SqlNumericLiteral(value, null, null, false, pos);
     }
 
@@ -554,7 +537,7 @@ public class SqlLiteral extends SqlNode
      */
     public static SqlBinaryStringLiteral createBinaryString(
         String s,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         BitString bits = BitString.createFromHexString(s);
         return new SqlBinaryStringLiteral(bits, pos);
@@ -566,7 +549,7 @@ public class SqlLiteral extends SqlNode
      */
     public static SqlCharStringLiteral createCharString(
         String s,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return createCharString(s, null, pos);
     }
@@ -580,74 +563,11 @@ public class SqlLiteral extends SqlNode
     public static SqlCharStringLiteral createCharString(
         String s,
         String charSet,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         NlsString slit = new NlsString(s, charSet, null);
         return new SqlCharStringLiteral(slit, pos);
     }
-
-    //~ Inner Classes ---------------------------------------------------------
-
-    // NOTE jvs 26-Jan-2004:  There's no singleton constant for a NULL literal.
-    // Instead, nulls must be instantiated via createNull(), because
-    // different instances have different context-dependent types.
-
-    /**
-     * A bit string literal.
-     *
-     * {@link #value} is a {@link BitString} and {@link #typeName} is
-     * {@link SqlTypeName#Bit}.
-     *
-     * @deprecated Bit strings are no longer in the SQL standard, and this
-     *    class will be removed shortly
-     */
-    public static class BitStringLiteral extends SqlAbstractStringLiteral
-    {
-        protected BitStringLiteral(
-            BitString val,
-            ParserPosition pos)
-        {
-            super(val, SqlTypeName.Bit, pos);
-        }
-
-        /** @return the underlying BitString */
-        public BitString getBitString()
-        {
-            return (BitString) value;
-        }
-
-        /* Creates a literal like B'0101' */
-        public static BitStringLiteral create(
-            String s,
-            ParserPosition pos)
-        {
-            BitString bits = BitString.createFromBitString(s);
-            return new BitStringLiteral(bits, pos);
-        }
-
-        public void unparse(
-            SqlWriter writer,
-            int leftPrec,
-            int rightPrec)
-        {
-            assert value instanceof BitString;
-            writer.print("B'");
-            writer.print(value.toString());
-            writer.print("'");
-        }
-
-        protected SqlAbstractStringLiteral concat1(SqlLiteral [] lits)
-        {
-            BitString [] args = new BitString[lits.length];
-            for (int i = 0; i < lits.length; i++) {
-                args[i] = ((BitStringLiteral) lits[i]).getBitString();
-            }
-            return new BitStringLiteral(
-                BitString.concat(args),
-                lits[0].getParserPosition());
-        }
-    }
-
 }
 
 

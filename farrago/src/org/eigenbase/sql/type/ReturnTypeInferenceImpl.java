@@ -406,7 +406,6 @@ public class ReturnTypeInferenceImpl
                 switch (typeToTransform.getSqlTypeName().ordinal) {
                 case SqlTypeName.Varchar_ordinal:
                 case SqlTypeName.Varbinary_ordinal:
-                case SqlTypeName.Varbit_ordinal:
                     return typeToTransform;
                 }
 
@@ -435,8 +434,6 @@ public class ReturnTypeInferenceImpl
                     return SqlTypeName.Varchar;
                 case SqlTypeName.Binary_ordinal:
                     return SqlTypeName.Varbinary;
-                case SqlTypeName.Bit_ordinal:
-                    return SqlTypeName.Varbit;
                 default:
                     throw sqlTypeName.unexpected();
                 }
@@ -576,7 +573,7 @@ public class ReturnTypeInferenceImpl
 
     /**
      * Type-inference strategy whereby the result type of a call is using its
-     * operands biggest type, using the SQL:1999 rules described in 
+     * operands biggest type, using the SQL:1999 rules described in
      * "Data types of results of aggregations".
      * These rules are used in union, except, intercept, case and other places.
      *
@@ -585,7 +582,7 @@ public class ReturnTypeInferenceImpl
      * <p>For example, the expression <code>(500000000000 + 3.0e-3)</code> has
      * the operands INTEGER and DOUBLE. Its biggest type is double.
      */
-    private static final ReturnTypeInference useLeastRestrictive =
+    public static final ReturnTypeInference useLeastRestrictive =
         new ReturnTypeInference() {
             public RelDataType getType(
                 SqlValidator validator,
@@ -773,7 +770,6 @@ public class ReturnTypeInferenceImpl
      */
     public static final ReturnTypeInference useNullableMultisetElementType =
         new TransformCascade(useMultiset, toMultisetElementType);
-
 }
 
 // End ReturnTypeInferenceImpl.java

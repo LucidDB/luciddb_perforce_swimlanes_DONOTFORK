@@ -1,6 +1,6 @@
 /*
 // Farrago is a relational database management system.
-// Copyright (C) 2003-2004 John V. Sichi.
+// Copyright (C) 2003-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -24,6 +24,7 @@ import net.sf.farrago.type.*;
 
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
+import org.eigenbase.reltype.RelDataType;
 
 
 /**
@@ -35,6 +36,7 @@ import org.eigenbase.relopt.*;
  */
 class FennelCartesianProductRel extends FennelPullDoubleRel
 {
+    int joinType;
     //~ Constructors ----------------------------------------------------------
 
     /**
@@ -47,9 +49,11 @@ class FennelCartesianProductRel extends FennelPullDoubleRel
     public FennelCartesianProductRel(
         RelOptCluster cluster,
         RelNode left,
-        RelNode right)
+        RelNode right,
+        int joinType)
     {
         super(cluster, left, right);
+        this.joinType = joinType;
     }
 
     //~ Methods ---------------------------------------------------------------
@@ -60,7 +64,8 @@ class FennelCartesianProductRel extends FennelPullDoubleRel
         return new FennelCartesianProductRel(
             cluster,
             RelOptUtil.clone(left),
-            RelOptUtil.clone(right));
+            RelOptUtil.clone(right),
+            joinType);
     }
 
     // implement RelNode
@@ -83,52 +88,36 @@ class FennelCartesianProductRel extends FennelPullDoubleRel
     {
         pw.explain(
             this,
-            new String [] { "left", "right" },
-            new Object [] {  });
+            new String [] { "left", "right", "leftouterjoin" },
+            new Object [] { new Boolean(isLeftOuter()) });
+    }
+
+    private boolean isLeftOuter()
+    {
+        return JoinRel.JoinType.LEFT == joinType;
+    }
+
+    // implement RelNode
+    protected RelDataType deriveRowType()
+    {
+        return JoinRel.deriveJoinRowType(
+            left, right, joinType, cluster.typeFactory);
     }
 
     // implement FennelRel
     public FemExecutionStreamDef toStreamDef(FennelRelImplementor implementor)
     {
+        FarragoRepos repos = FennelRelUtil.getRepos(this);
         FemCartesianProductStreamDef streamDef =
-            getRepos().newFemCartesianProductStreamDef();
+            repos.newFemCartesianProductStreamDef();
 
         FemExecutionStreamDef leftInput =
             implementor.visitFennelChild((FennelRel) left);
         streamDef.getInput().add(leftInput);
         FemExecutionStreamDef rightInput =
             implementor.visitFennelChild((FennelRel) right);
-
-        // TODO: For now we always buffer the right-hand input.  In most
-        // cases, this is good for performance; in some cases it is required
-        // for correctness.  The performance part is obvious: we only need to
-        // compute the right-hand side once, and since we store only what we
-        // need, we may save I/O.  However, there are counterexamples; if the
-        // right-hand side is a table scan with no filtering or projection,
-        // there's no point buffering it.  So we should produce plan variants
-        // with and without buffering and use cost to decide.  However, before
-        // we can do that, we have to fix the correctness part.  Namely,
-        // any Java implementation in the right-hand side is not restartable
-        // since JavaTupleStream doesn't support that yet.
-        boolean needBuffer = true;
-
-        if (needBuffer) {
-            FemBufferingTupleStreamDef buffer =
-                getRepos().newFemBufferingTupleStreamDef();
-            buffer.setInMemory(false);
-            buffer.setMultipass(true);
-            buffer.setOutputDesc(
-                FennelRelUtil.createTupleDescriptorFromRowType(
-                    getRepos(),
-                    right.getRowType()));
-
-            buffer.getInput().add(rightInput);
-
-            streamDef.getInput().add(buffer);
-        } else {
-            streamDef.getInput().add(rightInput);
-        }
-
+        streamDef.getInput().add(rightInput);
+        streamDef.setLeftOuter(isLeftOuter());
         return streamDef;
     }
 

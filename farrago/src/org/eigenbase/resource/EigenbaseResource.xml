@@ -7,7 +7,7 @@
 <!--
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2004-2004 Disruptive Tech
+// Copyright (C) 2004-2005 Disruptive Tech
 // You must accept the terms in LICENSE.html to use this software.
 //
 // This program is free software; you can redistribute it and/or
@@ -42,10 +42,6 @@
     <text>Illegal {0} literal {1} at {2}: {3}</text>
 </message>
 
-<message id="100020" name="InvalidBitLiteral">
-    <text>Invalid bit string {0} near {1}</text>
-</message>
-
 <message id="100030" name="BadFormat">
     <text>not in format ''{0}''</text>
 </message>
@@ -71,7 +67,7 @@
 <!-- Eigenbase Validator resources 121,000 - 130,000 -->
 <!-- ====================================================================== -->
 <exception id="120000" name="ValidatorUnknownFunction" className="org.eigenbase.sql.SqlValidatorException">
-    <text>Reference to unknown function ''{0}''</text>
+    <text>No match found for function signature {0}</text>
 </exception>
 
 <!-- 
@@ -110,6 +106,10 @@
 
 <exception id="120050" name="UnknownIdentifier" className="org.eigenbase.sql.SqlValidatorException">
     <text>Unknown identifier ''{0}''</text>
+</exception>
+
+<exception id="120055" name="UnknownField" className="org.eigenbase.sql.SqlValidatorException">
+    <text>Unknown field ''{0}''</text>
 </exception>
 
 <exception id="120060" name="UnknownTargetColumn" className="org.eigenbase.sql.SqlValidatorException">
@@ -248,6 +248,18 @@
 
 <exception id="120380" name="CannotOverrideWindowAttribute" className="org.eigenbase.sql.SqlValidatorException">
     <text>Cannot override window attribute</text>
+</exception>
+
+<exception id="120390" name="ColumnCountMismatchInSetop" className="org.eigenbase.sql.SqlValidatorException">
+    <text>Column count mismatch in {0}</text>
+</exception>
+
+<exception id="120400" name="ColumnTypeMismatchInSetop" className="org.eigenbase.sql.SqlValidatorException">
+    <text>Type mismatch in column {0,number} of {1}</text>
+</exception>
+
+<exception id="120410" name="BinaryLiteralOdd" className="org.eigenbase.sql.SqlValidatorException">
+    <text>Binary literal string must contain an even number of hexits</text>
 </exception>
 
 <!-- ====================================================================== -->

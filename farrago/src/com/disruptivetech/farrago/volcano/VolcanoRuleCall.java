@@ -20,6 +20,8 @@
 package com.disruptivetech.farrago.volcano;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -70,9 +72,34 @@ public class VolcanoRuleCall extends RelOptRuleCall
             if (rel instanceof RelSubset || planner.isRegistered(rel)) {
                 return;
             }
-            tracer.fine("Rule " + rule + " arguments "
-                + RelOptUtil.toString(rels) + " created " + rel);
+
+            if (tracer.isLoggable(Level.FINEST)) {
+                tracer.finest("Rule " + rule + " arguments "
+                    + RelOptUtil.toString(rels) + " created " + rel);
+            }
+
+            if (volcanoPlanner.listener != null) {
+                RelOptListener.RuleProductionEvent event =
+                    new RelOptListener.RuleProductionEvent(
+                        volcanoPlanner,
+                        rel,
+                        this,
+                        true);
+                volcanoPlanner.listener.ruleProductionSucceeded(event);
+            }
+            
             Util.discard(planner.register(rel, rels[0]));
+            
+            if (volcanoPlanner.listener != null) {
+                RelOptListener.RuleProductionEvent event =
+                    new RelOptListener.RuleProductionEvent(
+                        volcanoPlanner,
+                        rel,
+                        this,
+                        false);
+                volcanoPlanner.listener.ruleProductionSucceeded(event);
+            }
+            
         } catch (Throwable e) {
             throw Util.newInternal(e,
                 "Error occurred while applying rule " + rule);
@@ -85,11 +112,33 @@ public class VolcanoRuleCall extends RelOptRuleCall
     protected void onMatch()
     {
         try {
-            if (tracer.isLoggable(Level.FINE)) {
-                tracer.fine("Apply rule [" + rule + "] to ["
+            if (tracer.isLoggable(Level.FINEST)) {
+                tracer.finest("Apply rule [" + rule + "] to ["
                     + RelOptUtil.toString(rels) + "]");
             }
+            
+            if (volcanoPlanner.listener != null) {
+                RelOptListener.RuleAttemptedEvent event =
+                    new RelOptListener.RuleAttemptedEvent(
+                        volcanoPlanner,
+                        rels[0],
+                        this,
+                        true);
+                volcanoPlanner.listener.ruleAttempted(event);
+            }
+            
             rule.onMatch(this);
+            
+            if (volcanoPlanner.listener != null) {
+                RelOptListener.RuleAttemptedEvent event =
+                    new RelOptListener.RuleAttemptedEvent(
+                        volcanoPlanner,
+                        rels[0],
+                        this,
+                        false);
+                volcanoPlanner.listener.ruleAttempted(event);
+            }
+            
         } catch (Throwable e) {
             throw Util.newInternal(e, "Error while applying rule " + rule);
         }
@@ -130,7 +179,7 @@ public class VolcanoRuleCall extends RelOptRuleCall
                 rule.operands[previousOperandOrdinal];
             RelOptRuleOperand operand = rule.operands[operandOrdinal];
 
-            ArrayList successors;
+            List successors;
             if (ascending) {
                 assert (previousOperand.parent == operand);
                 final RelNode childRel = rels[previousOperandOrdinal];
@@ -140,8 +189,15 @@ public class VolcanoRuleCall extends RelOptRuleCall
                 int parentOrdinal = operand.parent.ordinalInRule;
                 RelNode parentRel = rels[parentOrdinal];
                 RelNode [] inputs = parentRel.getInputs();
-                RelSubset subset = (RelSubset) inputs[operand.ordinalInParent];
-                successors = subset.rels;
+                if (operand.ordinalInParent < inputs.length) {
+                    RelSubset subset =
+                        (RelSubset) inputs[operand.ordinalInParent];
+                    successors = subset.rels;
+                } else {
+                    // The operand expects parentRel to have a certain number
+                    // of inputs and it does not.
+                    successors = Collections.EMPTY_LIST;
+                }
             }
 
             for (int i = 0, n = successors.size(); i < n; i++) {

@@ -20,13 +20,12 @@
 */
 package org.eigenbase.sql.type;
 
-import org.eigenbase.sql.type.SqlTypeName;
-import org.eigenbase.sql.*;
-import org.eigenbase.util.Util;
-import org.eigenbase.util.EnumeratedValues;
 import org.eigenbase.reltype.RelDataType;
-import org.eigenbase.reltype.RelDataTypeFactoryImpl;
+import org.eigenbase.reltype.RelDataTypeField;
 import org.eigenbase.resource.EigenbaseResource;
+import org.eigenbase.sql.*;
+import org.eigenbase.util.EnumeratedValues;
+import org.eigenbase.util.Util;
 
 import java.util.ArrayList;
 
@@ -47,10 +46,9 @@ public abstract class OperandsTypeChecking
      * @param node
      * @param ruleOrdinal
      *
-     * Note that <code>ruleOrdinal</code> is <i>not</i> an index in any
-     * call.operands[] array. It's rather used to specify which
+     * Note that <code>ruleOrdinal</code> is <emp>not</emp> an index in any
+     * call.operands[] array. It's used to specify which
      * signature the node should correspond too.
-     *
      * <p>For example, if we have typeStringInt, a check can be made to see
      * if a <code>node</code> is of type int by calling
      * <code>typeStringInt.check(validator,scope,node,1);</code>
@@ -151,7 +149,7 @@ public abstract class OperandsTypeChecking
                         actualType = validator.deriveType(scope, node);
                     }
 
-                    if (actualType.getSqlTypeName().equals(expectedTypeName)) {
+                    if (expectedTypeName.equals(actualType.getSqlTypeName())) {
                         return true;
                     }
                 }
@@ -847,7 +845,7 @@ public abstract class OperandsTypeChecking
                     ret.append(op.getSignature(list));
 
                     if ((i + 1) < types[0].length) {
-                        ret.append(op.NL);
+                        ret.append(SqlOperator.NL);
                     }
                 }
                 return ret.toString();
@@ -902,7 +900,7 @@ public abstract class OperandsTypeChecking
                     ret.append(op.getSignature(list));
 
                     if ((i + 1) < types[0].length) {
-                        ret.append(op.NL);
+                        ret.append(SqlOperator.NL);
                     }
                 }
                 return ret.toString();
@@ -1297,6 +1295,65 @@ public abstract class OperandsTypeChecking
             SqlTypeName.multisetNullableType
         });
 
+    public static final OperandsTypeChecking typeNullableRecordMultiset =
+        new OperandsTypeChecking() {
+            public boolean check(
+                SqlCall call,
+                SqlValidator validator,
+                SqlValidator.Scope scope,
+                SqlNode node,
+                int ruleOrdinal,
+                boolean throwOnFailure)
+            {
+                assert(0 == ruleOrdinal);
+                RelDataType type = validator.deriveType(scope, node);
+                boolean validationError = false;
+                if (!type.isStruct()) {
+                    validationError = true;
+                } else if (type.getFieldList().size() != 1) {
+                    validationError = true;
+                } else if (!SqlTypeName.Multiset.equals(
+                    type.getFields()[0].getType().getSqlTypeName())) {
+                    validationError = true;
+                }
+
+                if (validationError && throwOnFailure) {
+                    throw call.newValidationSignatureError(validator, scope);
+                }
+                return !validationError;
+            }
+
+            public boolean check(
+                SqlValidator validator,
+                SqlValidator.Scope scope,
+                SqlCall call,
+                boolean throwOnFailure)
+            {
+                return check(call,
+                             validator,
+                             scope,
+                             call.operands[0],
+                             0,
+                             throwOnFailure);
+            }
+
+            public int getArgCount()
+            {
+                return 1;
+            }
+
+            public String getAllowedSignatures(SqlOperator op)
+            {
+                return "UNNEST(<MULTISET>)";
+            }
+        };
+
+    public static final OperandsTypeChecking
+        typeNullableMultisetOrRecordTypeMultiset =
+        new CompositeOrOperandsTypeChecking(
+            new OperandsTypeChecking[]{
+                typeNullableMultiset,typeNullableRecordMultiset});
+
     /**
      * Parameter type-checking strategy
      * types must be
@@ -1362,6 +1419,108 @@ public abstract class OperandsTypeChecking
             }
         };
 
+    /**
+     * Parameter type-checking strategy for a set operator (UNION, INTERSECT,
+     * EXCEPT).
+     */
+    public static final OperandsTypeChecking typeSetop =
+        new SetopTypeChecking();
+
+    /**
+     * Parameter type-checking strategy for a set operator (UNION, INTERSECT,
+     * EXCEPT).
+     *
+     * <p>Both arguments must be records with the same number
+     * of fields, and the fields must be union-compatible.
+     */
+    private static class SetopTypeChecking extends OperandsTypeChecking {
+        // todo: Since not many OperandsTypeChecking objects have multiple
+        // rules, provide implementation of this method in base class.
+        public boolean check(
+            SqlCall call,
+            SqlValidator validator,
+            SqlValidator.Scope scope,
+            SqlNode node,
+            int ruleOrdinal,
+            boolean throwOnFailure)
+        {
+            assert ruleOrdinal == 0;
+            return check(validator, scope, call, throwOnFailure);
+        }
+
+        public boolean check(
+            SqlValidator validator,
+            SqlValidator.Scope scope,
+            SqlCall call,
+            boolean throwOnFailure)
+        {
+            assert call.operands.length == 2 : "setops are binary (for now)";
+            RelDataType[] argTypes = new RelDataType[call.operands.length];
+            int colCount = -1;
+            for (int i = 0; i < argTypes.length; i++) {
+                final SqlNode operand = call.operands[i];
+                final RelDataType argType =
+                    argTypes[i] =
+                    validator.getValidatedNodeType(operand);
+                Util.permAssert(argType.isStruct(),
+                    "setop arg must be a struct");
+                if (i == 0) {
+                    colCount = argTypes[0].getFieldList().size();
+                    continue;
+                }
+                // Each operand must have the same number of columns.
+                final RelDataTypeField[] fields = argType.getFields();
+                if (fields.length != colCount) {
+                    if (throwOnFailure) {
+                        throw validator.newValidationError(
+                            operand,
+                            EigenbaseResource.instance()
+                            .newColumnCountMismatchInSetop(
+                                call.operator.name));
+                    } else {
+                        return false;
+                    }
+                }
+            }
+
+            // The columns must be pairwise union compatible. For each column
+            // ordinal, form a 'slice' containing the types of the ordinal'th
+            // column j.
+            RelDataType[] colTypes = new RelDataType[call.operands.length];
+            for (int i = 0; i < colCount; i++) {
+                for (int j = 0; j < argTypes.length; j++) {
+                    final RelDataTypeField field = argTypes[j].getFields()[i];
+                    colTypes[j] = field.getType();
+                }
+                final RelDataType type =
+                    validator.typeFactory.leastRestrictive(colTypes);
+                if (type == null) {
+                    if (throwOnFailure) {
+                        SqlNode field = SqlUtil.getSelectListItem(call.operands[0], i);
+                        throw validator.newValidationError(
+                            field,
+                            EigenbaseResource.instance()
+                            .newColumnTypeMismatchInSetop(
+                                new Integer(i + 1), // 1-based
+                                call.operator.name));
+                    } else {
+                        return false;
+                    }
+                }
+
+            }
+
+            return true;
+        }
+
+        public int getArgCount() {
+            return 2;
+        }
+
+        public String getAllowedSignatures(SqlOperator op) {
+            return "<UNION>"; // todo: Wael, please review.
+        }
+    }
 }
 
 // End OperandsTypeChecking.java

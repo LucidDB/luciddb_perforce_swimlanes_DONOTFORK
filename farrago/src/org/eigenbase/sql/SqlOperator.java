@@ -25,9 +25,10 @@ import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.rex.RexNode;
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.sql.test.SqlTester;
 import org.eigenbase.sql.type.*;
+import org.eigenbase.sql.util.SqlVisitor;
 import org.eigenbase.util.Util;
 
 import java.text.MessageFormat;
@@ -223,7 +224,7 @@ public abstract class SqlOperator
      */
     public SqlCall createCall(
         SqlNode [] operands,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return new SqlCall(this, operands, pos);
     }
@@ -231,7 +232,7 @@ public abstract class SqlOperator
     /**
      * Creates a call to this operand with no operands.
      */
-    public SqlCall createCall(ParserPosition pos)
+    public SqlCall createCall(SqlParserPos pos)
     {
         return createCall(SqlNode.emptyArray, pos);
     }
@@ -241,7 +242,7 @@ public abstract class SqlOperator
      */
     public SqlCall createCall(
         SqlNode operand,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return createCall(
             new SqlNode [] { operand },
@@ -254,7 +255,7 @@ public abstract class SqlOperator
     public SqlCall createCall(
         SqlNode operand1,
         SqlNode operand2,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return createCall(
             new SqlNode [] { operand1, operand2 },
@@ -268,7 +269,7 @@ public abstract class SqlOperator
         SqlNode operand1,
         SqlNode operand2,
         SqlNode operand3,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         return createCall(
             new SqlNode [] { operand1, operand2, operand3 },
@@ -288,7 +289,7 @@ public abstract class SqlOperator
      *
      * @return rewritten call
      */
-    public SqlCall rewriteCall(
+    public SqlNode rewriteCall(
         SqlCall call)
     {
         return call;
@@ -553,6 +554,22 @@ public abstract class SqlOperator
     public boolean isAggregator()
     {
         return "SUM".equals(name) || "COUNT".equals(name);
+    }
+
+    /**
+     * Accepts a {@link SqlVisitor}, and tells it to visit each child.
+     *
+     * @param visitor Visitor.
+     */
+    public void acceptCall(SqlVisitor visitor, SqlCall call)
+    {
+        for (int i = 0; i < call.operands.length; i++) {
+            SqlNode operand = call.operands[i];
+            if (operand == null) {
+                continue;
+            }
+            visitor.visitChild(call, i, operand);
+        }
     }
 
     //~ Inner Classes ---------------------------------------------------------

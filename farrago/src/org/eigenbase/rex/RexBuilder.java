@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2002-2004 Disruptive Tech
-// Copyright (C) 2003-2004 John V. Sichi
+// Copyright (C) 2002-2005 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ import org.eigenbase.sql.*;
 import org.eigenbase.sql.parser.*;
 import org.eigenbase.sql.fun.SqlStdOperatorTable;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.util.BitString;
 import org.eigenbase.util.NlsString;
 import org.eigenbase.util.Util;
 
@@ -235,10 +234,11 @@ public class RexBuilder
         RexNode [] args)
     {
         SqlFunction function =
-            SqlUtil.lookupFunction(
+            SqlUtil.lookupRoutine(
                 opTab,
                 new SqlIdentifier(kind.getName(), null),
-                getTypes(args));
+                getTypes(args),
+                false);
         if (function == null) {
             throw Util.newInternal("No operator for " + kind);
         }
@@ -273,6 +273,16 @@ public class RexBuilder
         String name)
     {
         return new RexCorrelVariable(name, type);
+    }
+
+    public RexNode makeNewInvocation(
+        RelDataType type,
+        RexNode [] exprs)
+    {
+        return new RexCall(
+            type,
+            opTab.newOperator,
+            exprs);
     }
 
     public RexNode makeCast(
@@ -426,21 +436,6 @@ public class RexBuilder
                     s.length()),
                 SqlTypeName.Char);
         }
-    }
-
-    /**
-     * Creates a Bit String literal
-     * @pre bitString != null
-     */
-    public RexLiteral makeBitLiteral(BitString bitString)
-    {
-        Util.pre(bitString != null, "bitString != null");
-        return makeLiteral(
-            bitString,
-            typeFactory.createSqlType(
-                SqlTypeName.Bit,
-                bitString.getBitCount()),
-            SqlTypeName.Bit);
     }
 
     /**

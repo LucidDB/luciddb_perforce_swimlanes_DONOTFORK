@@ -1,4 +1,4 @@
-0: jdbc:farrago:> -- $Id: //open/dt/dev/farrago/regressionsql/negative.sql#1 $
+0: jdbc:farrago:> -- $Id: //open/dt/dev/farrago/regressionsql/negative.sql#4 $
 0: jdbc:farrago:> -- Full vertical negative system testing
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- NOTE: This script is run twice. Once with the "calcVirtualMachine" set to use fennel
@@ -12,12 +12,12 @@
 0: jdbc:farrago:> -- =============================================
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- empty escape string forbidden
-0: jdbc:farrago:> select 'x' LIKE 'x' escape '' from values(1);
+0: jdbc:farrago:> values 'x' LIKE 'x' escape '';
 Error: could not calculate results for the following row:
 [ 0 ]
 Messages:
 [0]:PC=0 Code=22019 (state=,code=0)
-0: jdbc:farrago:> select 'x' similar to 'x' escape '' from values(1);
+0: jdbc:farrago:> values 'x' similar to 'x' escape '';
 Error: could not calculate results for the following row:
 [ 0 ]
 Messages:
@@ -37,28 +37,26 @@ Messages:
 0: jdbc:farrago:> values true and 1;
 Error: At line 1, column 17: Cannot apply 'AND' to arguments of type '<BOOLEAN> AND <INTEGER>'. Supported form(s): '<BOOLEAN> AND <BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> values false and '';
-Error: At line 1, column 18: Cannot apply 'AND' to arguments of type '<BOOLEAN> AND <VARCHAR(0)>'. Supported form(s): '<BOOLEAN> AND <BOOLEAN>' (state=,code=0)
+Error: At line 1, column 18: Cannot apply 'AND' to arguments of type '<BOOLEAN> AND <CHAR(0)>'. Supported form(s): '<BOOLEAN> AND <BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> values 1.2 and unknown;
 Error: At line 1, column 16: Cannot apply 'AND' to arguments of type '<DECIMAL(2, 1)> AND <BOOLEAN>'. Supported form(s): '<BOOLEAN> AND <BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> values unknown or 1;
 Error: At line 1, column 19: Cannot apply 'OR' to arguments of type '<BOOLEAN> OR <INTEGER>'. Supported form(s): '<BOOLEAN> OR <BOOLEAN>' (state=,code=0)
-0: jdbc:farrago:> values '' or b'';
-Error: At line 1, column 14: Cannot apply 'OR' to arguments of type '<VARCHAR(0)> OR <BIT(0)>'. Supported form(s): '<BOOLEAN> OR <BOOLEAN>' (state=,code=0)
+0: jdbc:farrago:> values '' or x'';
+Error: At line 1, column 14: Cannot apply 'OR' to arguments of type '<CHAR(0)> OR <BINARY(0)>'. Supported form(s): '<BOOLEAN> OR <BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> values not 1;
 Error: At line 1, column 8: Cannot apply 'NOT' to arguments of type 'NOT<INTEGER>'. Supported form(s): 'NOT<BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> values not '';
-Error: At line 1, column 8: Cannot apply 'NOT' to arguments of type 'NOT<VARCHAR(0)>'. Supported form(s): 'NOT<BOOLEAN>' (state=,code=0)
+Error: At line 1, column 8: Cannot apply 'NOT' to arguments of type 'NOT<CHAR(0)>'. Supported form(s): 'NOT<BOOLEAN>' (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values 'a'||1;
-Error: At line 1, column 13: Cannot apply '||' to arguments of type '<VARCHAR(1)> || <INTEGER>'. Supported form(s): '<CHAR> || <CHAR>'
+Error: At line 1, column 13: Cannot apply '||' to arguments of type '<CHAR(1)> || <INTEGER>'. Supported form(s): '<CHAR> || <CHAR>'
 '<VARCHAR> || <VARCHAR>'
-'<BIT> || <BIT>'
 '<BINARY> || <BINARY>'
 '<VARBINARY> || <VARBINARY>' (state=,code=0)
 0: jdbc:farrago:> values false||'a';
-Error: At line 1, column 15: Cannot apply '||' to arguments of type '<BOOLEAN> || <VARCHAR(1)>'. Supported form(s): '<CHAR> || <CHAR>'
+Error: At line 1, column 15: Cannot apply '||' to arguments of type '<BOOLEAN> || <CHAR(1)>'. Supported form(s): '<CHAR> || <CHAR>'
 '<VARCHAR> || <VARCHAR>'
-'<BIT> || <BIT>'
 '<BINARY> || <BINARY>'
 '<VARBINARY> || <VARBINARY>' (state=,code=0)
 0: jdbc:farrago:> 
@@ -94,7 +92,7 @@ Messages:
 [0]:PC=0 Code=22023 (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values 1='';
-Error: At line 1, column 10: Cannot apply '=' to arguments of type '<INTEGER> = <VARCHAR(0)>'. Supported form(s): '<ANY> = <ANY>'
+Error: At line 1, column 10: Cannot apply '=' to arguments of type '<INTEGER> = <CHAR(0)>'. Supported form(s): '<ANY> = <ANY>'
 '<TINYINT> = <TINYINT>'
 '<TINYINT> = <SMALLINT>'
 '<TINYINT> = <INTEGER>'
@@ -159,13 +157,8 @@ Error: At line 1, column 10: Cannot apply '=' to arguments of type '<INTEGER> = 
 '<DOUBLE> = <FLOAT>'
 '<DOUBLE> = <REAL>'
 '<DOUBLE> = <DOUBLE>'
-'<BIT> = <BIT>'
-'<BIT> = <BINARY>'
-'<BIT> = <VARBINARY>'
-'<BINARY> = <BIT>'
 '<BINARY> = <BINARY>'
 '<BINARY> = <VARBINARY>'
-'<VARBINARY> = <BIT>'
 '<VARBINARY> = <BINARY>'
 '<VARBINARY> = <VARBINARY>'
 '<CHAR> = <CHAR>'
@@ -178,7 +171,7 @@ Error: At line 1, column 10: Cannot apply '=' to arguments of type '<INTEGER> = 
 '<INTERVALYEARMONTH> = <INTERVALYEARMONTH>'
 '<ANY> = <ANY>' (state=,code=0)
 0: jdbc:farrago:> values false='';
-Error: At line 1, column 14: Cannot apply '=' to arguments of type '<BOOLEAN> = <VARCHAR(0)>'. Supported form(s): '<ANY> = <ANY>'
+Error: At line 1, column 14: Cannot apply '=' to arguments of type '<BOOLEAN> = <CHAR(0)>'. Supported form(s): '<ANY> = <ANY>'
 '<TINYINT> = <TINYINT>'
 '<TINYINT> = <SMALLINT>'
 '<TINYINT> = <INTEGER>'
@@ -243,13 +236,8 @@ Error: At line 1, column 14: Cannot apply '=' to arguments of type '<BOOLEAN> = 
 '<DOUBLE> = <FLOAT>'
 '<DOUBLE> = <REAL>'
 '<DOUBLE> = <DOUBLE>'
-'<BIT> = <BIT>'
-'<BIT> = <BINARY>'
-'<BIT> = <VARBINARY>'
-'<BINARY> = <BIT>'
 '<BINARY> = <BINARY>'
 '<BINARY> = <VARBINARY>'
-'<VARBINARY> = <BIT>'
 '<VARBINARY> = <BINARY>'
 '<VARBINARY> = <VARBINARY>'
 '<CHAR> = <CHAR>'
@@ -261,8 +249,8 @@ Error: At line 1, column 14: Cannot apply '=' to arguments of type '<BOOLEAN> = 
 '<INTERVALYEARMONTH> = <INTERVALDAYTIME>'
 '<INTERVALYEARMONTH> = <INTERVALYEARMONTH>'
 '<ANY> = <ANY>' (state=,code=0)
-0: jdbc:farrago:> values b'101'=0.001;
-Error: At line 1, column 15: Cannot apply '=' to arguments of type '<BIT(3)> = <DECIMAL(4, 3)>'. Supported form(s): '<ANY> = <ANY>'
+0: jdbc:farrago:> values x'101f'=0.001;
+Error: At line 1, column 16: Cannot apply '=' to arguments of type '<BINARY(2)> = <DECIMAL(4, 3)>'. Supported form(s): '<ANY> = <ANY>'
 '<TINYINT> = <TINYINT>'
 '<TINYINT> = <SMALLINT>'
 '<TINYINT> = <INTEGER>'
@@ -327,13 +315,8 @@ Error: At line 1, column 15: Cannot apply '=' to arguments of type '<BIT(3)> = <
 '<DOUBLE> = <FLOAT>'
 '<DOUBLE> = <REAL>'
 '<DOUBLE> = <DOUBLE>'
-'<BIT> = <BIT>'
-'<BIT> = <BINARY>'
-'<BIT> = <VARBINARY>'
-'<BINARY> = <BIT>'
 '<BINARY> = <BINARY>'
 '<BINARY> = <VARBINARY>'
-'<VARBINARY> = <BIT>'
 '<VARBINARY> = <BINARY>'
 '<VARBINARY> = <VARBINARY>'
 '<CHAR> = <CHAR>'
@@ -346,7 +329,7 @@ Error: At line 1, column 15: Cannot apply '=' to arguments of type '<BIT(3)> = <
 '<INTERVALYEARMONTH> = <INTERVALYEARMONTH>'
 '<ANY> = <ANY>' (state=,code=0)
 0: jdbc:farrago:> values 1<>'';
-Error: At line 1, column 11: Cannot apply '<>' to arguments of type '<INTEGER> <> <VARCHAR(0)>'. Supported form(s): '<ANY> <> <ANY>'
+Error: At line 1, column 11: Cannot apply '<>' to arguments of type '<INTEGER> <> <CHAR(0)>'. Supported form(s): '<ANY> <> <ANY>'
 '<TINYINT> <> <TINYINT>'
 '<TINYINT> <> <SMALLINT>'
 '<TINYINT> <> <INTEGER>'
@@ -411,13 +394,8 @@ Error: At line 1, column 11: Cannot apply '<>' to arguments of type '<INTEGER> <
 '<DOUBLE> <> <FLOAT>'
 '<DOUBLE> <> <REAL>'
 '<DOUBLE> <> <DOUBLE>'
-'<BIT> <> <BIT>'
-'<BIT> <> <BINARY>'
-'<BIT> <> <VARBINARY>'
-'<BINARY> <> <BIT>'
 '<BINARY> <> <BINARY>'
 '<BINARY> <> <VARBINARY>'
-'<VARBINARY> <> <BIT>'
 '<VARBINARY> <> <BINARY>'
 '<VARBINARY> <> <VARBINARY>'
 '<CHAR> <> <CHAR>'
@@ -430,7 +408,7 @@ Error: At line 1, column 11: Cannot apply '<>' to arguments of type '<INTEGER> <
 '<INTERVALYEARMONTH> <> <INTERVALYEARMONTH>'
 '<ANY> <> <ANY>' (state=,code=0)
 0: jdbc:farrago:> values false<>'';
-Error: At line 1, column 15: Cannot apply '<>' to arguments of type '<BOOLEAN> <> <VARCHAR(0)>'. Supported form(s): '<ANY> <> <ANY>'
+Error: At line 1, column 15: Cannot apply '<>' to arguments of type '<BOOLEAN> <> <CHAR(0)>'. Supported form(s): '<ANY> <> <ANY>'
 '<TINYINT> <> <TINYINT>'
 '<TINYINT> <> <SMALLINT>'
 '<TINYINT> <> <INTEGER>'
@@ -495,13 +473,8 @@ Error: At line 1, column 15: Cannot apply '<>' to arguments of type '<BOOLEAN> <
 '<DOUBLE> <> <FLOAT>'
 '<DOUBLE> <> <REAL>'
 '<DOUBLE> <> <DOUBLE>'
-'<BIT> <> <BIT>'
-'<BIT> <> <BINARY>'
-'<BIT> <> <VARBINARY>'
-'<BINARY> <> <BIT>'
 '<BINARY> <> <BINARY>'
 '<BINARY> <> <VARBINARY>'
-'<VARBINARY> <> <BIT>'
 '<VARBINARY> <> <BINARY>'
 '<VARBINARY> <> <VARBINARY>'
 '<CHAR> <> <CHAR>'
@@ -513,8 +486,8 @@ Error: At line 1, column 15: Cannot apply '<>' to arguments of type '<BOOLEAN> <
 '<INTERVALYEARMONTH> <> <INTERVALDAYTIME>'
 '<INTERVALYEARMONTH> <> <INTERVALYEARMONTH>'
 '<ANY> <> <ANY>' (state=,code=0)
-0: jdbc:farrago:> values b''<>0.2;
-Error: At line 1, column 13: Cannot apply '<>' to arguments of type '<BIT(0)> <> <DECIMAL(2, 1)>'. Supported form(s): '<ANY> <> <ANY>'
+0: jdbc:farrago:> values x''<>0.2;
+Error: At line 1, column 13: Cannot apply '<>' to arguments of type '<BINARY(0)> <> <DECIMAL(2, 1)>'. Supported form(s): '<ANY> <> <ANY>'
 '<TINYINT> <> <TINYINT>'
 '<TINYINT> <> <SMALLINT>'
 '<TINYINT> <> <INTEGER>'
@@ -579,13 +552,8 @@ Error: At line 1, column 13: Cannot apply '<>' to arguments of type '<BIT(0)> <>
 '<DOUBLE> <> <FLOAT>'
 '<DOUBLE> <> <REAL>'
 '<DOUBLE> <> <DOUBLE>'
-'<BIT> <> <BIT>'
-'<BIT> <> <BINARY>'
-'<BIT> <> <VARBINARY>'
-'<BINARY> <> <BIT>'
 '<BINARY> <> <BINARY>'
 '<BINARY> <> <VARBINARY>'
-'<VARBINARY> <> <BIT>'
 '<VARBINARY> <> <BINARY>'
 '<VARBINARY> <> <VARBINARY>'
 '<CHAR> <> <CHAR>'
@@ -663,13 +631,8 @@ Error: At line 1, column 10: Cannot apply '>' to arguments of type '<INTEGER> > 
 '<DOUBLE> > <FLOAT>'
 '<DOUBLE> > <REAL>'
 '<DOUBLE> > <DOUBLE>'
-'<BIT> > <BIT>'
-'<BIT> > <BINARY>'
-'<BIT> > <VARBINARY>'
-'<BINARY> > <BIT>'
 '<BINARY> > <BINARY>'
 '<BINARY> > <VARBINARY>'
-'<VARBINARY> > <BIT>'
 '<VARBINARY> > <BINARY>'
 '<VARBINARY> > <VARBINARY>'
 '<CHAR> > <CHAR>'
@@ -682,7 +645,7 @@ Error: At line 1, column 10: Cannot apply '>' to arguments of type '<INTEGER> > 
 '<INTERVALYEARMONTH> > <INTERVALYEARMONTH>'
 '<ANY> > <ANY>' (state=,code=0)
 0: jdbc:farrago:> values x''>'';
-Error: At line 1, column 12: Cannot apply '>' to arguments of type '<VARBINARY(0)> > <VARCHAR(0)>'. Supported form(s): '<ANY> > <ANY>'
+Error: At line 1, column 12: Cannot apply '>' to arguments of type '<BINARY(0)> > <CHAR(0)>'. Supported form(s): '<ANY> > <ANY>'
 '<TINYINT> > <TINYINT>'
 '<TINYINT> > <SMALLINT>'
 '<TINYINT> > <INTEGER>'
@@ -747,13 +710,8 @@ Error: At line 1, column 12: Cannot apply '>' to arguments of type '<VARBINARY(0
 '<DOUBLE> > <FLOAT>'
 '<DOUBLE> > <REAL>'
 '<DOUBLE> > <DOUBLE>'
-'<BIT> > <BIT>'
-'<BIT> > <BINARY>'
-'<BIT> > <VARBINARY>'
-'<BINARY> > <BIT>'
 '<BINARY> > <BINARY>'
 '<BINARY> > <VARBINARY>'
-'<VARBINARY> > <BIT>'
 '<VARBINARY> > <BINARY>'
 '<VARBINARY> > <VARBINARY>'
 '<CHAR> > <CHAR>'
@@ -831,13 +789,8 @@ Error: At line 1, column 10: Cannot apply '<' to arguments of type '<INTEGER> < 
 '<DOUBLE> < <FLOAT>'
 '<DOUBLE> < <REAL>'
 '<DOUBLE> < <DOUBLE>'
-'<BIT> < <BIT>'
-'<BIT> < <BINARY>'
-'<BIT> < <VARBINARY>'
-'<BINARY> < <BIT>'
 '<BINARY> < <BINARY>'
 '<BINARY> < <VARBINARY>'
-'<VARBINARY> < <BIT>'
 '<VARBINARY> < <BINARY>'
 '<VARBINARY> < <VARBINARY>'
 '<CHAR> < <CHAR>'
@@ -850,7 +803,7 @@ Error: At line 1, column 10: Cannot apply '<' to arguments of type '<INTEGER> < 
 '<INTERVALYEARMONTH> < <INTERVALYEARMONTH>'
 '<ANY> < <ANY>' (state=,code=0)
 0: jdbc:farrago:> values ''<0.1;
-Error: At line 1, column 11: Cannot apply '<' to arguments of type '<VARCHAR(0)> < <DECIMAL(2, 1)>'. Supported form(s): '<ANY> < <ANY>'
+Error: At line 1, column 11: Cannot apply '<' to arguments of type '<CHAR(0)> < <DECIMAL(2, 1)>'. Supported form(s): '<ANY> < <ANY>'
 '<TINYINT> < <TINYINT>'
 '<TINYINT> < <SMALLINT>'
 '<TINYINT> < <INTEGER>'
@@ -915,13 +868,8 @@ Error: At line 1, column 11: Cannot apply '<' to arguments of type '<VARCHAR(0)>
 '<DOUBLE> < <FLOAT>'
 '<DOUBLE> < <REAL>'
 '<DOUBLE> < <DOUBLE>'
-'<BIT> < <BIT>'
-'<BIT> < <BINARY>'
-'<BIT> < <VARBINARY>'
-'<BINARY> < <BIT>'
 '<BINARY> < <BINARY>'
 '<BINARY> < <VARBINARY>'
-'<VARBINARY> < <BIT>'
 '<VARBINARY> < <BINARY>'
 '<VARBINARY> < <VARBINARY>'
 '<CHAR> < <CHAR>'
@@ -999,13 +947,8 @@ Error: At line 1, column 11: Cannot apply '>=' to arguments of type '<INTEGER> >
 '<DOUBLE> >= <FLOAT>'
 '<DOUBLE> >= <REAL>'
 '<DOUBLE> >= <DOUBLE>'
-'<BIT> >= <BIT>'
-'<BIT> >= <BINARY>'
-'<BIT> >= <VARBINARY>'
-'<BINARY> >= <BIT>'
 '<BINARY> >= <BINARY>'
 '<BINARY> >= <VARBINARY>'
-'<VARBINARY> >= <BIT>'
 '<VARBINARY> >= <BINARY>'
 '<VARBINARY> >= <VARBINARY>'
 '<CHAR> >= <CHAR>'
@@ -1017,8 +960,8 @@ Error: At line 1, column 11: Cannot apply '>=' to arguments of type '<INTEGER> >
 '<INTERVALYEARMONTH> >= <INTERVALDAYTIME>'
 '<INTERVALYEARMONTH> >= <INTERVALYEARMONTH>'
 '<ANY> >= <ANY>' (state=,code=0)
-0: jdbc:farrago:> select b''>=name from sales.emps;
-Error: At line 1, column 13: Cannot apply '>=' to arguments of type '<BIT(0)> >= <VARCHAR(128)>'. Supported form(s): '<ANY> >= <ANY>'
+0: jdbc:farrago:> select x''>=name from sales.emps;
+Error: At line 1, column 13: Cannot apply '>=' to arguments of type '<BINARY(0)> >= <VARCHAR(128)>'. Supported form(s): '<ANY> >= <ANY>'
 '<TINYINT> >= <TINYINT>'
 '<TINYINT> >= <SMALLINT>'
 '<TINYINT> >= <INTEGER>'
@@ -1083,13 +1026,8 @@ Error: At line 1, column 13: Cannot apply '>=' to arguments of type '<BIT(0)> >=
 '<DOUBLE> >= <FLOAT>'
 '<DOUBLE> >= <REAL>'
 '<DOUBLE> >= <DOUBLE>'
-'<BIT> >= <BIT>'
-'<BIT> >= <BINARY>'
-'<BIT> >= <VARBINARY>'
-'<BINARY> >= <BIT>'
 '<BINARY> >= <BINARY>'
 '<BINARY> >= <VARBINARY>'
-'<VARBINARY> >= <BIT>'
 '<VARBINARY> >= <BINARY>'
 '<VARBINARY> >= <VARBINARY>'
 '<CHAR> >= <CHAR>'
@@ -1167,13 +1105,8 @@ Error: At line 1, column 11: Cannot apply '<=' to arguments of type '<INTEGER> <
 '<DOUBLE> <= <FLOAT>'
 '<DOUBLE> <= <REAL>'
 '<DOUBLE> <= <DOUBLE>'
-'<BIT> <= <BIT>'
-'<BIT> <= <BINARY>'
-'<BIT> <= <VARBINARY>'
-'<BINARY> <= <BIT>'
 '<BINARY> <= <BINARY>'
 '<BINARY> <= <VARBINARY>'
-'<VARBINARY> <= <BIT>'
 '<VARBINARY> <= <BINARY>'
 '<VARBINARY> <= <VARBINARY>'
 '<CHAR> <= <CHAR>'
@@ -1186,7 +1119,7 @@ Error: At line 1, column 11: Cannot apply '<=' to arguments of type '<INTEGER> <
 '<INTERVALYEARMONTH> <= <INTERVALYEARMONTH>'
 '<ANY> <= <ANY>' (state=,code=0)
 0: jdbc:farrago:> values ''<=0.0;
-Error: At line 1, column 12: Cannot apply '<=' to arguments of type '<VARCHAR(0)> <= <DECIMAL(2, 1)>'. Supported form(s): '<ANY> <= <ANY>'
+Error: At line 1, column 12: Cannot apply '<=' to arguments of type '<CHAR(0)> <= <DECIMAL(2, 1)>'. Supported form(s): '<ANY> <= <ANY>'
 '<TINYINT> <= <TINYINT>'
 '<TINYINT> <= <SMALLINT>'
 '<TINYINT> <= <INTEGER>'
@@ -1251,13 +1184,8 @@ Error: At line 1, column 12: Cannot apply '<=' to arguments of type '<VARCHAR(0)
 '<DOUBLE> <= <FLOAT>'
 '<DOUBLE> <= <REAL>'
 '<DOUBLE> <= <DOUBLE>'
-'<BIT> <= <BIT>'
-'<BIT> <= <BINARY>'
-'<BIT> <= <VARBINARY>'
-'<BINARY> <= <BIT>'
 '<BINARY> <= <BINARY>'
 '<BINARY> <= <VARBINARY>'
-'<VARBINARY> <= <BIT>'
 '<VARBINARY> <= <BINARY>'
 '<VARBINARY> <= <VARBINARY>'
 '<CHAR> <= <CHAR>'
@@ -1278,19 +1206,19 @@ Error: At line 1, column 12: Cannot apply '<=' to arguments of type '<VARCHAR(0)
 0: jdbc:farrago:> values 1 is true;
 Error: At line 1, column 13: Cannot apply 'IS TRUE' to arguments of type '<INTEGER> IS TRUE'. Supported form(s): '<BOOLEAN> IS TRUE' (state=,code=0)
 0: jdbc:farrago:> values '' is not true;
-Error: At line 1, column 18: Cannot apply 'IS NOT TRUE' to arguments of type '<VARCHAR(0)> IS NOT TRUE'. Supported form(s): '<BOOLEAN> IS NOT TRUE' (state=,code=0)
+Error: At line 1, column 18: Cannot apply 'IS NOT TRUE' to arguments of type '<CHAR(0)> IS NOT TRUE'. Supported form(s): '<BOOLEAN> IS NOT TRUE' (state=,code=0)
 0: jdbc:farrago:> values 1 is false;
 Error: At line 1, column 13: Cannot apply 'IS FALSE' to arguments of type '<INTEGER> IS FALSE'. Supported form(s): '<BOOLEAN> IS FALSE' (state=,code=0)
 0: jdbc:farrago:> values 0.01 is not false;
 Error: At line 1, column 20: Cannot apply 'IS NOT FALSE' to arguments of type '<DECIMAL(3, 2)> IS NOT FALSE'. Supported form(s): '<BOOLEAN> IS NOT FALSE' (state=,code=0)
 0: jdbc:farrago:> values x'' is unknown; 
-Error: At line 1, column 15: Cannot apply 'IS UNKNOWN' to arguments of type '<VARBINARY(0)> IS UNKNOWN'. Supported form(s): '<BOOLEAN> IS UNKNOWN' (state=,code=0)
-0: jdbc:farrago:> values b'' is not unknown;
-Error: At line 1, column 19: Cannot apply 'IS NOT UNKNOWN' to arguments of type '<BIT(0)> IS NOT UNKNOWN'. Supported form(s): '<BOOLEAN> IS NOT UNKNOWN' (state=,code=0)
+Error: At line 1, column 15: Cannot apply 'IS UNKNOWN' to arguments of type '<BINARY(0)> IS UNKNOWN'. Supported form(s): '<BOOLEAN> IS UNKNOWN' (state=,code=0)
+0: jdbc:farrago:> values x'' is not unknown;
+Error: At line 1, column 19: Cannot apply 'IS NOT UNKNOWN' to arguments of type '<BINARY(0)> IS NOT UNKNOWN'. Supported form(s): '<BOOLEAN> IS NOT UNKNOWN' (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> --prefix
-0: jdbc:farrago:> values -b'';
-Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<BIT(0)>'. Supported form(s): '-<TINYINT>'
+0: jdbc:farrago:> values -x'';
+Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<BINARY(0)>'. Supported form(s): '-<TINYINT>'
 '-<SMALLINT>'
 '-<INTEGER>'
 '-<BIGINT>'
@@ -1301,7 +1229,7 @@ Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<BIT(0)>'. S
 '-<INTERVALDAYTIME>'
 '-<INTERVALYEARMONTH>' (state=,code=0)
 0: jdbc:farrago:> values -'2';
-Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<VARCHAR(1)>'. Supported form(s): '-<TINYINT>'
+Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<CHAR(1)>'. Supported form(s): '-<TINYINT>'
 '-<SMALLINT>'
 '-<INTEGER>'
 '-<BIGINT>'
@@ -1312,7 +1240,7 @@ Error: At line 1, column 8: Cannot apply '-' to arguments of type '-<VARCHAR(1)>
 '-<INTERVALDAYTIME>'
 '-<INTERVALYEARMONTH>' (state=,code=0)
 0: jdbc:farrago:> values +x'';
-Error: At line 1, column 8: Cannot apply '+' to arguments of type '+<VARBINARY(0)>'. Supported form(s): '+<TINYINT>'
+Error: At line 1, column 8: Cannot apply '+' to arguments of type '+<BINARY(0)>'. Supported form(s): '+<TINYINT>'
 '+<SMALLINT>'
 '+<INTEGER>'
 '+<BIGINT>'
@@ -1335,7 +1263,7 @@ Error: At line 1, column 8: Cannot apply '+' to arguments of type '+<DATE>'. Sup
 '+<INTERVALYEARMONTH>' (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values x'' between x'' and 1;
-Error: At line 1, column 12: Cannot apply 'BETWEEN' to arguments of type '<VARBINARY(0)> BETWEEN <VARBINARY(0)> AND <INTEGER>'. Supported form(s): '<TINYINT> BETWEEN <TINYINT> AND <TINYINT>'
+Error: At line 1, column 12: Cannot apply 'BETWEEN' to arguments of type '<BINARY(0)> BETWEEN <BINARY(0)> AND <INTEGER>'. Supported form(s): '<TINYINT> BETWEEN <TINYINT> AND <TINYINT>'
 '<TINYINT> BETWEEN <TINYINT> AND <SMALLINT>'
 '<TINYINT> BETWEEN <TINYINT> AND <INTEGER>'
 '<TINYINT> BETWEEN <TINYINT> AND <BIGINT>'
@@ -1847,31 +1775,12 @@ Error: At line 1, column 12: Cannot apply 'BETWEEN' to arguments of type '<VARBI
 '<DOUBLE> BETWEEN <DOUBLE> AND <FLOAT>'
 '<DOUBLE> BETWEEN <DOUBLE> AND <REAL>'
 '<DOUBLE> BETWEEN <DOUBLE> AND <DOUBLE>'
-'<BIT> BETWEEN <BIT> AND <BIT>'
-'<BIT> BETWEEN <BIT> AND <BINARY>'
-'<BIT> BETWEEN <BIT> AND <VARBINARY>'
-'<BIT> BETWEEN <BINARY> AND <BIT>'
-'<BIT> BETWEEN <BINARY> AND <BINARY>'
-'<BIT> BETWEEN <BINARY> AND <VARBINARY>'
-'<BIT> BETWEEN <VARBINARY> AND <BIT>'
-'<BIT> BETWEEN <VARBINARY> AND <BINARY>'
-'<BIT> BETWEEN <VARBINARY> AND <VARBINARY>'
-'<BINARY> BETWEEN <BIT> AND <BIT>'
-'<BINARY> BETWEEN <BIT> AND <BINARY>'
-'<BINARY> BETWEEN <BIT> AND <VARBINARY>'
-'<BINARY> BETWEEN <BINARY> AND <BIT>'
 '<BINARY> BETWEEN <BINARY> AND <BINARY>'
 '<BINARY> BETWEEN <BINARY> AND <VARBINARY>'
-'<BINARY> BETWEEN <VARBINARY> AND <BIT>'
 '<BINARY> BETWEEN <VARBINARY> AND <BINARY>'
 '<BINARY> BETWEEN <VARBINARY> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <BIT> AND <BIT>'
-'<VARBINARY> BETWEEN <BIT> AND <BINARY>'
-'<VARBINARY> BETWEEN <BIT> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <BINARY> AND <BIT>'
 '<VARBINARY> BETWEEN <BINARY> AND <BINARY>'
 '<VARBINARY> BETWEEN <BINARY> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <VARBINARY> AND <BIT>'
 '<VARBINARY> BETWEEN <VARBINARY> AND <BINARY>'
 '<VARBINARY> BETWEEN <VARBINARY> AND <VARBINARY>'
 '<CHAR> BETWEEN <CHAR> AND <CHAR>'
@@ -1882,8 +1791,8 @@ Error: At line 1, column 12: Cannot apply 'BETWEEN' to arguments of type '<VARBI
 '<VARCHAR> BETWEEN <CHAR> AND <VARCHAR>'
 '<VARCHAR> BETWEEN <VARCHAR> AND <CHAR>'
 '<VARCHAR> BETWEEN <VARCHAR> AND <VARCHAR>' (state=,code=0)
-0: jdbc:farrago:> values b'' not between '' and 3;
-Error: At line 1, column 16: Cannot apply 'NOT BETWEEN' to arguments of type '<BIT(0)> NOT BETWEEN <VARCHAR(0)> AND <INTEGER>'. Supported form(s): '<TINYINT> NOT BETWEEN <TINYINT> AND <TINYINT>'
+0: jdbc:farrago:> values x'' not between '' and 3;
+Error: At line 1, column 16: Cannot apply 'NOT BETWEEN' to arguments of type '<BINARY(0)> NOT BETWEEN <CHAR(0)> AND <INTEGER>'. Supported form(s): '<TINYINT> NOT BETWEEN <TINYINT> AND <TINYINT>'
 '<TINYINT> NOT BETWEEN <TINYINT> AND <SMALLINT>'
 '<TINYINT> NOT BETWEEN <TINYINT> AND <INTEGER>'
 '<TINYINT> NOT BETWEEN <TINYINT> AND <BIGINT>'
@@ -2395,31 +2304,12 @@ Error: At line 1, column 16: Cannot apply 'NOT BETWEEN' to arguments of type '<B
 '<DOUBLE> NOT BETWEEN <DOUBLE> AND <FLOAT>'
 '<DOUBLE> NOT BETWEEN <DOUBLE> AND <REAL>'
 '<DOUBLE> NOT BETWEEN <DOUBLE> AND <DOUBLE>'
-'<BIT> NOT BETWEEN <BIT> AND <BIT>'
-'<BIT> NOT BETWEEN <BIT> AND <BINARY>'
-'<BIT> NOT BETWEEN <BIT> AND <VARBINARY>'
-'<BIT> NOT BETWEEN <BINARY> AND <BIT>'
-'<BIT> NOT BETWEEN <BINARY> AND <BINARY>'
-'<BIT> NOT BETWEEN <BINARY> AND <VARBINARY>'
-'<BIT> NOT BETWEEN <VARBINARY> AND <BIT>'
-'<BIT> NOT BETWEEN <VARBINARY> AND <BINARY>'
-'<BIT> NOT BETWEEN <VARBINARY> AND <VARBINARY>'
-'<BINARY> NOT BETWEEN <BIT> AND <BIT>'
-'<BINARY> NOT BETWEEN <BIT> AND <BINARY>'
-'<BINARY> NOT BETWEEN <BIT> AND <VARBINARY>'
-'<BINARY> NOT BETWEEN <BINARY> AND <BIT>'
 '<BINARY> NOT BETWEEN <BINARY> AND <BINARY>'
 '<BINARY> NOT BETWEEN <BINARY> AND <VARBINARY>'
-'<BINARY> NOT BETWEEN <VARBINARY> AND <BIT>'
 '<BINARY> NOT BETWEEN <VARBINARY> AND <BINARY>'
 '<BINARY> NOT BETWEEN <VARBINARY> AND <VARBINARY>'
-'<VARBINARY> NOT BETWEEN <BIT> AND <BIT>'
-'<VARBINARY> NOT BETWEEN <BIT> AND <BINARY>'
-'<VARBINARY> NOT BETWEEN <BIT> AND <VARBINARY>'
-'<VARBINARY> NOT BETWEEN <BINARY> AND <BIT>'
 '<VARBINARY> NOT BETWEEN <BINARY> AND <BINARY>'
 '<VARBINARY> NOT BETWEEN <BINARY> AND <VARBINARY>'
-'<VARBINARY> NOT BETWEEN <VARBINARY> AND <BIT>'
 '<VARBINARY> NOT BETWEEN <VARBINARY> AND <BINARY>'
 '<VARBINARY> NOT BETWEEN <VARBINARY> AND <VARBINARY>'
 '<CHAR> NOT BETWEEN <CHAR> AND <CHAR>'
@@ -2431,7 +2321,7 @@ Error: At line 1, column 16: Cannot apply 'NOT BETWEEN' to arguments of type '<B
 '<VARCHAR> NOT BETWEEN <VARCHAR> AND <CHAR>'
 '<VARCHAR> NOT BETWEEN <VARCHAR> AND <VARCHAR>' (state=,code=0)
 0: jdbc:farrago:> values '' between '' and 1.0;
-Error: At line 1, column 11: Cannot apply 'BETWEEN' to arguments of type '<VARCHAR(0)> BETWEEN <VARCHAR(0)> AND <DECIMAL(2, 1)>'. Supported form(s): '<TINYINT> BETWEEN <TINYINT> AND <TINYINT>'
+Error: At line 1, column 11: Cannot apply 'BETWEEN' to arguments of type '<CHAR(0)> BETWEEN <CHAR(0)> AND <DECIMAL(2, 1)>'. Supported form(s): '<TINYINT> BETWEEN <TINYINT> AND <TINYINT>'
 '<TINYINT> BETWEEN <TINYINT> AND <SMALLINT>'
 '<TINYINT> BETWEEN <TINYINT> AND <INTEGER>'
 '<TINYINT> BETWEEN <TINYINT> AND <BIGINT>'
@@ -2943,31 +2833,12 @@ Error: At line 1, column 11: Cannot apply 'BETWEEN' to arguments of type '<VARCH
 '<DOUBLE> BETWEEN <DOUBLE> AND <FLOAT>'
 '<DOUBLE> BETWEEN <DOUBLE> AND <REAL>'
 '<DOUBLE> BETWEEN <DOUBLE> AND <DOUBLE>'
-'<BIT> BETWEEN <BIT> AND <BIT>'
-'<BIT> BETWEEN <BIT> AND <BINARY>'
-'<BIT> BETWEEN <BIT> AND <VARBINARY>'
-'<BIT> BETWEEN <BINARY> AND <BIT>'
-'<BIT> BETWEEN <BINARY> AND <BINARY>'
-'<BIT> BETWEEN <BINARY> AND <VARBINARY>'
-'<BIT> BETWEEN <VARBINARY> AND <BIT>'
-'<BIT> BETWEEN <VARBINARY> AND <BINARY>'
-'<BIT> BETWEEN <VARBINARY> AND <VARBINARY>'
-'<BINARY> BETWEEN <BIT> AND <BIT>'
-'<BINARY> BETWEEN <BIT> AND <BINARY>'
-'<BINARY> BETWEEN <BIT> AND <VARBINARY>'
-'<BINARY> BETWEEN <BINARY> AND <BIT>'
 '<BINARY> BETWEEN <BINARY> AND <BINARY>'
 '<BINARY> BETWEEN <BINARY> AND <VARBINARY>'
-'<BINARY> BETWEEN <VARBINARY> AND <BIT>'
 '<BINARY> BETWEEN <VARBINARY> AND <BINARY>'
 '<BINARY> BETWEEN <VARBINARY> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <BIT> AND <BIT>'
-'<VARBINARY> BETWEEN <BIT> AND <BINARY>'
-'<VARBINARY> BETWEEN <BIT> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <BINARY> AND <BIT>'
 '<VARBINARY> BETWEEN <BINARY> AND <BINARY>'
 '<VARBINARY> BETWEEN <BINARY> AND <VARBINARY>'
-'<VARBINARY> BETWEEN <VARBINARY> AND <BIT>'
 '<VARBINARY> BETWEEN <VARBINARY> AND <BINARY>'
 '<VARBINARY> BETWEEN <VARBINARY> AND <VARBINARY>'
 '<CHAR> BETWEEN <CHAR> AND <CHAR>'
@@ -2979,7 +2850,7 @@ Error: At line 1, column 11: Cannot apply 'BETWEEN' to arguments of type '<VARCH
 '<VARCHAR> BETWEEN <VARCHAR> AND <CHAR>'
 '<VARCHAR> BETWEEN <VARCHAR> AND <VARCHAR>' (state=,code=0)
 0: jdbc:farrago:> --all then's and else return null forbidden in SQL99
-0: jdbc:farrago:> select CASE 1 WHEN 1 THEN NULL WHEN 2 THEN NULL END from values(1);
+0: jdbc:farrago:> values CASE 1 WHEN 1 THEN NULL WHEN 2 THEN NULL END;
 Error: ELSE clause or at least one THEN clause must be non-NULL (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> --according to the standard any trim character value that is not of length 1 should return a runtime error
@@ -2995,42 +2866,33 @@ Messages:
 [0]:PC=0 Code=22027 (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values position(1 in 'superman');
-Error: At line 1, column 8: Cannot apply 'POSITION' to arguments of type 'POSITION(<INTEGER> IN <VARCHAR(8)>)'. Supported form(s): 'POSITION(<CHAR> IN <CHAR>)'
+Error: At line 1, column 8: Cannot apply 'POSITION' to arguments of type 'POSITION(<INTEGER> IN <CHAR(8)>)'. Supported form(s): 'POSITION(<CHAR> IN <CHAR>)'
 'POSITION(<CHAR> IN <VARCHAR>)'
-'POSITION(<CHAR> IN <BIT>)'
 'POSITION(<CHAR> IN <BINARY>)'
 'POSITION(<CHAR> IN <VARBINARY>)'
 'POSITION(<VARCHAR> IN <CHAR>)'
 'POSITION(<VARCHAR> IN <VARCHAR>)'
-'POSITION(<VARCHAR> IN <BIT>)'
 'POSITION(<VARCHAR> IN <BINARY>)'
 'POSITION(<VARCHAR> IN <VARBINARY>)'
-'POSITION(<BIT> IN <CHAR>)'
-'POSITION(<BIT> IN <VARCHAR>)'
-'POSITION(<BIT> IN <BIT>)'
-'POSITION(<BIT> IN <BINARY>)'
-'POSITION(<BIT> IN <VARBINARY>)'
 'POSITION(<BINARY> IN <CHAR>)'
 'POSITION(<BINARY> IN <VARCHAR>)'
-'POSITION(<BINARY> IN <BIT>)'
 'POSITION(<BINARY> IN <BINARY>)'
 'POSITION(<BINARY> IN <VARBINARY>)'
 'POSITION(<VARBINARY> IN <CHAR>)'
 'POSITION(<VARBINARY> IN <VARCHAR>)'
-'POSITION(<VARBINARY> IN <BIT>)'
 'POSITION(<VARBINARY> IN <BINARY>)'
 'POSITION(<VARBINARY> IN <VARBINARY>)' (state=,code=0)
 0: jdbc:farrago:> values character_length(1);
 Error: At line 1, column 8: Cannot apply 'CHARACTER_LENGTH' to arguments of type 'CHARACTER_LENGTH(<INTEGER>)'. Supported form(s): 'CHARACTER_LENGTH(<CHAR>)'
 'CHARACTER_LENGTH(<VARCHAR>)' (state=,code=0)
 0: jdbc:farrago:> values char_length(x'');
-Error: At line 1, column 8: Cannot apply 'CHAR_LENGTH' to arguments of type 'CHAR_LENGTH(<VARBINARY(0)>)'. Supported form(s): 'CHAR_LENGTH(<CHAR>)'
+Error: At line 1, column 8: Cannot apply 'CHAR_LENGTH' to arguments of type 'CHAR_LENGTH(<BINARY(0)>)'. Supported form(s): 'CHAR_LENGTH(<CHAR>)'
 'CHAR_LENGTH(<VARCHAR>)' (state=,code=0)
 0: jdbc:farrago:> values upper(0.02);
 Error: At line 1, column 8: Cannot apply 'UPPER' to arguments of type 'UPPER(<DECIMAL(3, 2)>)'. Supported form(s): 'UPPER(<CHAR>)'
 'UPPER(<VARCHAR>)' (state=,code=0)
-0: jdbc:farrago:> values lower(b'');
-Error: At line 1, column 8: Cannot apply 'LOWER' to arguments of type 'LOWER(<BIT(0)>)'. Supported form(s): 'LOWER(<CHAR>)'
+0: jdbc:farrago:> values lower(x'');
+Error: At line 1, column 8: Cannot apply 'LOWER' to arguments of type 'LOWER(<BINARY(0)>)'. Supported form(s): 'LOWER(<CHAR>)'
 'LOWER(<VARCHAR>)' (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> --doesnt return the correct error message but keeping it active until its fixed
@@ -3040,7 +2902,7 @@ Error: At line 1, column 8: Cannot apply 'INITCAP' to arguments of type 'INITCAP
 'INITCAP(<VARCHAR>)' (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values abs('');
-Error: At line 1, column 8: Cannot apply 'ABS' to arguments of type 'ABS(<VARCHAR(0)>)'. Supported form(s): 'ABS(<TINYINT>)'
+Error: At line 1, column 8: Cannot apply 'ABS' to arguments of type 'ABS(<CHAR(0)>)'. Supported form(s): 'ABS(<TINYINT>)'
 'ABS(<SMALLINT>)'
 'ABS(<INTEGER>)'
 'ABS(<BIGINT>)'
@@ -3051,92 +2913,8 @@ Error: At line 1, column 8: Cannot apply 'ABS' to arguments of type 'ABS(<VARCHA
 'ABS(<INTERVALDAYTIME>)'
 'ABS(<INTERVALYEARMONTH>)' (state=,code=0)
 0: jdbc:farrago:> 
-0: jdbc:farrago:> select nullif('',1) from values(1);
-Error: At line 1, column 8: Cannot apply '=' to arguments of type '<VARCHAR(0)> = <INTEGER>'. Supported form(s): '<ANY> = <ANY>'
-'<TINYINT> = <TINYINT>'
-'<TINYINT> = <SMALLINT>'
-'<TINYINT> = <INTEGER>'
-'<TINYINT> = <BIGINT>'
-'<TINYINT> = <DECIMAL>'
-'<TINYINT> = <FLOAT>'
-'<TINYINT> = <REAL>'
-'<TINYINT> = <DOUBLE>'
-'<SMALLINT> = <TINYINT>'
-'<SMALLINT> = <SMALLINT>'
-'<SMALLINT> = <INTEGER>'
-'<SMALLINT> = <BIGINT>'
-'<SMALLINT> = <DECIMAL>'
-'<SMALLINT> = <FLOAT>'
-'<SMALLINT> = <REAL>'
-'<SMALLINT> = <DOUBLE>'
-'<INTEGER> = <TINYINT>'
-'<INTEGER> = <SMALLINT>'
-'<INTEGER> = <INTEGER>'
-'<INTEGER> = <BIGINT>'
-'<INTEGER> = <DECIMAL>'
-'<INTEGER> = <FLOAT>'
-'<INTEGER> = <REAL>'
-'<INTEGER> = <DOUBLE>'
-'<BIGINT> = <TINYINT>'
-'<BIGINT> = <SMALLINT>'
-'<BIGINT> = <INTEGER>'
-'<BIGINT> = <BIGINT>'
-'<BIGINT> = <DECIMAL>'
-'<BIGINT> = <FLOAT>'
-'<BIGINT> = <REAL>'
-'<BIGINT> = <DOUBLE>'
-'<DECIMAL> = <TINYINT>'
-'<DECIMAL> = <SMALLINT>'
-'<DECIMAL> = <INTEGER>'
-'<DECIMAL> = <BIGINT>'
-'<DECIMAL> = <DECIMAL>'
-'<DECIMAL> = <FLOAT>'
-'<DECIMAL> = <REAL>'
-'<DECIMAL> = <DOUBLE>'
-'<FLOAT> = <TINYINT>'
-'<FLOAT> = <SMALLINT>'
-'<FLOAT> = <INTEGER>'
-'<FLOAT> = <BIGINT>'
-'<FLOAT> = <DECIMAL>'
-'<FLOAT> = <FLOAT>'
-'<FLOAT> = <REAL>'
-'<FLOAT> = <DOUBLE>'
-'<REAL> = <TINYINT>'
-'<REAL> = <SMALLINT>'
-'<REAL> = <INTEGER>'
-'<REAL> = <BIGINT>'
-'<REAL> = <DECIMAL>'
-'<REAL> = <FLOAT>'
-'<REAL> = <REAL>'
-'<REAL> = <DOUBLE>'
-'<DOUBLE> = <TINYINT>'
-'<DOUBLE> = <SMALLINT>'
-'<DOUBLE> = <INTEGER>'
-'<DOUBLE> = <BIGINT>'
-'<DOUBLE> = <DECIMAL>'
-'<DOUBLE> = <FLOAT>'
-'<DOUBLE> = <REAL>'
-'<DOUBLE> = <DOUBLE>'
-'<BIT> = <BIT>'
-'<BIT> = <BINARY>'
-'<BIT> = <VARBINARY>'
-'<BINARY> = <BIT>'
-'<BINARY> = <BINARY>'
-'<BINARY> = <VARBINARY>'
-'<VARBINARY> = <BIT>'
-'<VARBINARY> = <BINARY>'
-'<VARBINARY> = <VARBINARY>'
-'<CHAR> = <CHAR>'
-'<CHAR> = <VARCHAR>'
-'<VARCHAR> = <CHAR>'
-'<VARCHAR> = <VARCHAR>'
-'<INTERVALDAYTIME> = <INTERVALDAYTIME>'
-'<INTERVALDAYTIME> = <INTERVALYEARMONTH>'
-'<INTERVALYEARMONTH> = <INTERVALDAYTIME>'
-'<INTERVALYEARMONTH> = <INTERVALYEARMONTH>'
-'<ANY> = <ANY>' (state=,code=0)
 0: jdbc:farrago:> values nullif('',1);
-Error: At line 1, column 8: Cannot apply '=' to arguments of type '<VARCHAR(0)> = <INTEGER>'. Supported form(s): '<ANY> = <ANY>'
+Error: At line 1, column 8: Cannot apply '=' to arguments of type '<CHAR(0)> = <INTEGER>'. Supported form(s): '<ANY> = <ANY>'
 '<TINYINT> = <TINYINT>'
 '<TINYINT> = <SMALLINT>'
 '<TINYINT> = <INTEGER>'
@@ -3201,13 +2979,8 @@ Error: At line 1, column 8: Cannot apply '=' to arguments of type '<VARCHAR(0)> 
 '<DOUBLE> = <FLOAT>'
 '<DOUBLE> = <REAL>'
 '<DOUBLE> = <DOUBLE>'
-'<BIT> = <BIT>'
-'<BIT> = <BINARY>'
-'<BIT> = <VARBINARY>'
-'<BINARY> = <BIT>'
 '<BINARY> = <BINARY>'
 '<BINARY> = <VARBINARY>'
-'<VARBINARY> = <BIT>'
 '<VARBINARY> = <BINARY>'
 '<VARBINARY> = <VARBINARY>'
 '<CHAR> = <CHAR>'
@@ -3219,29 +2992,29 @@ Error: At line 1, column 8: Cannot apply '=' to arguments of type '<VARCHAR(0)> 
 '<INTERVALYEARMONTH> = <INTERVALDAYTIME>'
 '<INTERVALYEARMONTH> = <INTERVALYEARMONTH>'
 '<ANY> = <ANY>' (state=,code=0)
-0: jdbc:farrago:> select coalesce('a','b',1) from values(1);
+0: jdbc:farrago:> values coalesce('a','b',1);
 Error: At line 1, column 8: Illegal mixing of types in CASE or COALESCE statement (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> values localtime();
-Error: At line 1, column 8: Invalid number of arguments to function 'LOCALTIME'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature LOCALTIME() (state=,code=0)
 0: jdbc:farrago:> values localtime(1,2);
-Error: At line 1, column 8: Invalid number of arguments to function 'LOCALTIME'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature LOCALTIME(<NUMERIC>, <NUMERIC>) (state=,code=0)
 0: jdbc:farrago:> values localtime(-1);
 Error: Argument to function 'LOCALTIME' must be a positive integer literal (state=,code=0)
 0: jdbc:farrago:> values localtimestamp();
-Error: At line 1, column 8: Invalid number of arguments to function 'LOCALTIMESTAMP'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature LOCALTIMESTAMP() (state=,code=0)
 0: jdbc:farrago:> values localtimestamp(1,2);
-Error: At line 1, column 8: Invalid number of arguments to function 'LOCALTIMESTAMP'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature LOCALTIMESTAMP(<NUMERIC>, <NUMERIC>) (state=,code=0)
 0: jdbc:farrago:> values localtimestamp(-3);
 Error: Argument to function 'LOCALTIMESTAMP' must be a positive integer literal (state=,code=0)
 0: jdbc:farrago:> values current_time(2,3);
-Error: At line 1, column 8: Invalid number of arguments to function 'CURRENT_TIME'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature CURRENT_TIME(<NUMERIC>, <NUMERIC>) (state=,code=0)
 0: jdbc:farrago:> values current_timestamp(-1);
 Error: Argument to function 'CURRENT_TIMESTAMP' must be a positive integer literal (state=,code=0)
 0: jdbc:farrago:> values current_time(-20);
 Error: Argument to function 'CURRENT_TIME' must be a positive integer literal (state=,code=0)
 0: jdbc:farrago:> values current_date(2);
-Error: At line 1, column 8: Invalid number of arguments to function 'CURRENT_DATE'. Was expecting 0 arguments (state=,code=0)
+Error: At line 1, column 8: No match found for function signature CURRENT_DATE(<NUMERIC>) (state=,code=0)
 0: jdbc:farrago:> values log(1,2,3);
 Error: At line 1, column 8: Invalid number of arguments to function 'LOG'. Was expecting 1 arguments (state=,code=0)
 0: jdbc:farrago:> 

@@ -21,7 +21,7 @@
 
 package org.eigenbase.sql;
 
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.util.Util;
 
 
@@ -44,7 +44,7 @@ public class SqlExplain extends SqlCall
         SqlSpecialOperator operator,
         SqlNode explicandum,
         SqlLiteral withImplementation,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         super(operator, new SqlNode[OPERAND_COUNT], pos);
         operands[EXPLICANDUM_OPERAND] = explicandum;
@@ -66,7 +66,7 @@ public class SqlExplain extends SqlCall
     /**
      * Get the source SELECT expression for the data to be inserted.  It is
      * only safe to call this after non-SELECT source expressions (e.g. VALUES)
-     * have been expanded by SqlValidator.createInternalSelect
+     * have been expanded by SqlValidator.performUnconditionalRewrites.
      *
      * @return the source SELECT for the data to be inserted
      */

@@ -64,7 +64,7 @@ SharedExecStream ExecStreamTestBase::prepareTransformGraph(
     }
 
     SharedExecStream pAdaptedStream =
-        pGraphEmbryo->addAdapterFor(previousStream.getStream()->getName(),
+        pGraphEmbryo->addAdapterFor(previousStream.getStream()->getName(), 0,
                                     BUFPROV_PRODUCER);
     pGraph->addOutputDataflow(pAdaptedStream->getStreamId());
 
@@ -91,7 +91,7 @@ SharedExecStream ExecStreamTestBase::prepareConfluenceGraph(
 
     SharedExecStream pAdaptedStream =
         pGraphEmbryo->addAdapterFor(
-            confluenceStreamEmbryo.getStream()->getName(),
+            confluenceStreamEmbryo.getStream()->getName(), 0, 
             BUFPROV_PRODUCER);
     pGraph->addOutputDataflow(
         pAdaptedStream->getStreamId());
@@ -106,10 +106,7 @@ void ExecStreamTestBase::testCaseSetUp()
     SegStorageTestBase::testCaseSetUp();
     openStorage(DeviceMode::createNew);
     pGraph = ExecStreamGraph::newExecStreamGraph();
-    pScheduler.reset(
-        new DfsTreeExecStreamScheduler(
-            this,
-            "DfsTreeExecStreamScheduler"));
+    pScheduler.reset(newScheduler());
     pGraphEmbryo.reset(
         new ExecStreamGraphEmbryo(
             pGraph,
@@ -117,6 +114,13 @@ void ExecStreamTestBase::testCaseSetUp()
             pCache,
             pSegmentFactory,
             true));
+}
+
+ExecStreamScheduler *ExecStreamTestBase::newScheduler()
+{
+    return new DfsTreeExecStreamScheduler(
+        this,
+        "DfsTreeExecStreamScheduler");
 }
 
 void ExecStreamTestBase::testCaseTearDown()

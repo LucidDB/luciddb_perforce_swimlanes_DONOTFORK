@@ -34,6 +34,7 @@ import net.sf.farrago.type.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.parser.*;
 
 
 /**
@@ -206,7 +207,7 @@ public interface FarragoSessionStmtValidator extends FarragoAllocationOwner
      *
      * @return type definition
      */
-    public CwmSqldataType findSqldataType(String typeName);
+    public CwmSqldataType findSqldataType(SqlIdentifier typeName);
 
     /**
      * Resolve a (possibly qualified) name of a schema object.
@@ -214,11 +215,38 @@ public interface FarragoSessionStmtValidator extends FarragoAllocationOwner
      * @param names array of 1 or more name components, from
      * most general to most specific
      *
+     * @param refClass type of object to resolve
+     *
      * @return FarragoSessionResolvedObject, or null if object definitely
      * doesn't exist
      */
     public FarragoSessionResolvedObject resolveSchemaObjectName(
-        String [] names);
+        String [] names,
+        RefClass refClass);
+
+    /**
+      * Gets schema object names as specified. They can be schema or table
+      * object.
+      * If names array contain 1 element, return all schema names and 
+      *    all table names under the default schema (if that is set)
+      * If names array contain 2 elements, treat 1st element as schema name
+      *    and return all table names in this schema
+      *
+      * @param names the array contains either 2 elements representing a 
+      * partially qualified object name in the format of 'schema.object', or an 
+      * unqualified name in the format of 'object'
+      *
+      * @return the list of all object (schema and table) names under the above
+      *  criteria
+      */
+    public String [] getAllSchemaObjectNames(String [] names);
+
+    /**
+     * Sets the parser position to use for context in error messages.
+     *
+     * @param pos new position to set, or null to clear
+     */
+    public void setParserPosition(SqlParserPos pos);
 }
 
 

@@ -22,12 +22,13 @@
 package org.eigenbase.sql;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.resource.EigenbaseResource;
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.sql.util.SqlVisitor;
-
+import org.eigenbase.util.Util;
 
 /**
  * A <code>SqlCall</code> is a call to an {@link SqlOperator operator}.
@@ -47,7 +48,7 @@ public class SqlCall extends SqlNode
     SqlCall(
         SqlOperator operator,
         SqlNode [] operands,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         super(pos);
         this.operator = operator;
@@ -113,6 +114,34 @@ public class SqlCall extends SqlNode
     public void validate(SqlValidator validator, SqlValidator.Scope scope)
     {
         validator.validateCall(this, scope);
+    }
+
+    /**
+     * Find out all the valid alternatives for the operand of this node's 
+     * operator that matches the parse position indicated by pp
+     *
+     * @param validator Validator
+     * @param scope Validation scope
+     * @param pp SqlParserPos indicating the cursor position at which 
+     * competion hints are requested for
+     * @return a string array of valid options
+     */
+    public String[] findValidOptions(SqlValidator validator, 
+        SqlValidator.Scope scope,
+        SqlParserPos pp)
+    {
+        final SqlNode[] operands = getOperands();
+        HashMap sqlids = new HashMap();
+        for (int i = 0; i < operands.length; i++) {
+            if (operands[i] instanceof SqlIdentifier) {
+                SqlIdentifier id = (SqlIdentifier) operands[i];
+                String ppstring = id.getParserPosition().toString();
+                if (ppstring.equals(pp.toString())) {
+                    return id.findValidOptions(validator, scope);
+                }
+            }
+        }
+        return Util.emptyStringArray;
     }
 
     public void accept(SqlVisitor visitor)

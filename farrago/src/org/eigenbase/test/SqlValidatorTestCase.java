@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2002-2004 Disruptive Tech
-// Copyright (C) 2003-2004 John V. Sichi
+// Copyright (C) 2002-2005 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,12 +25,10 @@ import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
-import org.eigenbase.reltype.RelDataTypeFactoryImpl;
 import org.eigenbase.sql.SqlCollation;
 import org.eigenbase.sql.SqlNode;
-import org.eigenbase.sql.SqlOperatorTable;
 import org.eigenbase.sql.SqlValidator;
-import org.eigenbase.sql.parser.ParseException;
+import org.eigenbase.sql.parser.SqlParseException;
 import org.eigenbase.sql.parser.SqlParser;
 import org.eigenbase.sql.fun.*;
 import org.eigenbase.sql.type.*;
@@ -72,7 +70,7 @@ public class SqlValidatorTestCase extends TestCase
      * tables, which can run without having to start up Farrago.
      */
     public interface Tester {
-        SqlNode parseQuery(String sql) throws Exception;
+        SqlNode parseQuery(String sql) throws SqlParseException;
         SqlValidator getValidator();
         /**
          * Asserts either if a sql query is valid or not.
@@ -113,7 +111,8 @@ public class SqlValidatorTestCase extends TestCase
      * Returns a tester. Derived classes should override this method to run
      * the same set of tests in a different testing environment.
      */
-    public Tester getTester() {
+    public Tester getTester()
+    {
         return new TesterImpl();
     }
 
@@ -124,7 +123,7 @@ public class SqlValidatorTestCase extends TestCase
 
     public void checkExp(String sql)
     {
-        sql = "select " + sql + " from values(true)";
+        sql = "select " + sql + " from (values(true))";
         tester.assertExceptionIsThrown(sql, null, -1, -1);
     }
 
@@ -165,7 +164,7 @@ public class SqlValidatorTestCase extends TestCase
         int line,
         int column)
     {
-        sql = "select " + sql + " from values(true)";
+        sql = "select " + sql + " from (values(true))";
         tester.assertExceptionIsThrown(sql, expected, line, column);
     }
 
@@ -173,7 +172,7 @@ public class SqlValidatorTestCase extends TestCase
         String sql,
         String expected)
     {
-        sql = "select " + sql + " from values(true)";
+        sql = "select " + sql + " from (values(true))";
         checkType(sql, expected);
     }
 
@@ -245,15 +244,20 @@ public class SqlValidatorTestCase extends TestCase
             try {
                 sqlNode = parseQuery(sql);
                 validator = getValidator();
-            } catch (ParseException ex) {
-                ex.printStackTrace();
-                fail("SqlValidationTest: Parse Error while parsing query=" + sql
-                    + "\n" + ex.getMessage());
+            } catch (SqlParseException ex) {
+                String errMessage = ex.getMessage();
+                if (null == errMessage ||
+                    expectedMsgPattern == null ||
+                    !errMessage.matches(expectedMsgPattern)) {
+                    ex.printStackTrace();
+                    fail("SqlValidationTest: Parse Error while parsing query="
+                        + sql + "\n" + errMessage);
+                }
                 return;
             } catch (Throwable e) {
                 e.printStackTrace(System.err);
-                fail(
-                    "SqlValidationTest: Failed while trying to connect or get statement");
+                fail("SqlValidationTest: Failed while trying to connect or " +
+                    "get statement");
                 return;
             }
 
@@ -328,7 +332,7 @@ public class SqlValidatorTestCase extends TestCase
             SqlNode sqlNode;
             try {
                 sqlNode = parseQuery(sql);
-            } catch (ParseException ex) {
+            } catch (SqlParseException ex) {
                 ex.printStackTrace();
                 throw new AssertionFailedError("SqlValidationTest: " +
                     "Parse Error while parsing query=" + sql
@@ -342,7 +346,7 @@ public class SqlValidatorTestCase extends TestCase
             return n;
         }
 
-        public SqlNode parseQuery(String sql) throws Exception
+        public SqlNode parseQuery(String sql) throws SqlParseException
         {
             SqlParser parser = new SqlParser(sql);
             SqlNode sqlNode = parser.parseQuery();
@@ -368,7 +372,7 @@ public class SqlValidatorTestCase extends TestCase
             String expectedCollationName,
             SqlCollation.Coercibility expectedCoercibility)
         {
-            sql = "select " + sql + " from values(true)";
+            sql = "select " + sql + " from (values(true))";
             RelDataType actualType = getResultType(sql);
             SqlCollation collation = actualType.getCollation();
 
@@ -383,7 +387,7 @@ public class SqlValidatorTestCase extends TestCase
             String sql,
             Charset expectedCharset)
         {
-            sql = "select " + sql + " from values(true)";
+            sql = "select " + sql + " from (values(true))";
             RelDataType actualType = tester.getResultType(sql);
             Charset actualCharset = actualType.getCharset();
 

@@ -21,7 +21,7 @@
 
 package org.eigenbase.sql;
 
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 
 
 /**
@@ -46,7 +46,7 @@ public class SqlInsert extends SqlCall
         SqlIdentifier targetTable,
         SqlNode source,
         SqlNodeList columnList,
-        ParserPosition pos)
+        SqlParserPos pos)
     {
         super(operator, new SqlNode[OPERAND_COUNT], pos);
         operands[TARGET_TABLE_OPERAND] = targetTable;
@@ -69,7 +69,7 @@ public class SqlInsert extends SqlCall
     /**
      * Get the source SELECT expression for the data to be inserted.  This
      * returns null before the statement
-     * has been expanded by SqlValidator.createInternalSelect
+     * has been expanded by SqlValidator.performUnconditionalRewrites
      *
      * @return the source SELECT for the data to be inserted
      */

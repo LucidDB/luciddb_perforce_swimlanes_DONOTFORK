@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2002-2004 Disruptive Tech
-// Copyright (C) 2003-2004 John V. Sichi
+// Copyright (C) 2002-2005 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,6 +25,9 @@ import org.eigenbase.util.Util;
 import org.eigenbase.sql.*;
 import org.eigenbase.rex.RexNode;
 import org.eigenbase.resource.EigenbaseResource;
+import org.eigenbase.rel.RelNode;
+
+import java.util.*;
 
 /**
  * Contains utility methods used during SQL validation or type derivation.
@@ -142,7 +145,15 @@ public abstract class SqlTypeUtil
         for (int i = 0; i < types.length; i++) {
             types[i] = exprs[i].getType();
         }
+        return types;
+    }
 
+    public static RelDataType [] collectTypes(RelNode [] rels)
+    {
+        RelDataType [] types = new RelDataType[rels.length];
+        for (int i = 0; i < types.length; i++) {
+            types[i] = rels[i].getRowType();
+        }
         return types;
     }
 
@@ -440,11 +451,6 @@ public abstract class SqlTypeUtil
         }
 
         switch (typeName.getOrdinal()) {
-        case SqlTypeName.Bit_ordinal:
-        case SqlTypeName.Varbit_ordinal:
-            // 8 bits per byte
-            return (type.getPrecision() + 7) / 8;
-
         case SqlTypeName.Char_ordinal:
         case SqlTypeName.Varchar_ordinal:
             return (int) Math.ceil(
@@ -454,6 +460,13 @@ public abstract class SqlTypeUtil
         case SqlTypeName.Binary_ordinal:
         case SqlTypeName.Varbinary_ordinal:
             return type.getPrecision();
+
+        case SqlTypeName.Multiset_ordinal:
+            // TODO Wael Jan-24-2005: Need a better way to tell fennel this
+            // number. This a very generic place and implementation details like
+            // this doesnt belong here. Waiting to change this once we have
+            // blob support
+            return 4096;
 
         default:
             return 0;
@@ -507,7 +520,7 @@ public abstract class SqlTypeUtil
      *
      * @param fromType type of the source value
      *
-     * @return true iff assignable 
+     * @return true iff assignable
      */
     public static boolean canAssignFrom(
         RelDataType toType,
@@ -524,11 +537,6 @@ public abstract class SqlTypeUtil
      *
      *<p>
      *
-     * NOTE jvs 17-Dec-2004: despite the name, these are NOT the SQL rules used
-     * for deciding whether the assignment (SET X=Y) is legal.
-     *
-     *<p>
-     *
      * REVIEW jvs 17-Dec-2004:  the coerce param below shouldn't really be
      * necessary.  We're using it as a hack because
      * SqlTypeFactoryImpl.leastRestrictiveSqlType isn't complete enough
@@ -540,7 +548,7 @@ public abstract class SqlTypeUtil
      * @param fromType source of assignment
      *
      * @param coerce if true, the SQL rules for CAST are used; if
-     * false, the rules are similar to Java (e.g. you can't assign
+     * false, the rules are similar to Java; e.g. you can't assign
      * short x = (int) y, and you can't assign int x = (String) z.
      *
      * @return true iff cast is legal
@@ -550,9 +558,27 @@ public abstract class SqlTypeUtil
         RelDataType fromType,
         boolean coerce)
     {
+        if (toType == fromType) {
+            return true;
+        }
         if (toType.isStruct() || fromType.isStruct()) {
-            // could handle this, but there's no point
-            return false;
+            if (toType.getSqlTypeName() == SqlTypeName.Distinct) {
+                if (fromType.getSqlTypeName() == SqlTypeName.Distinct) {
+                    // can't cast between different distinct types
+                    return false;
+                }
+                return canCastFrom(
+                    toType.getFields()[0].getType(),
+                    fromType,
+                    coerce);
+            } else if (fromType.getSqlTypeName() == SqlTypeName.Distinct) {
+                return canCastFrom(
+                    toType,
+                    fromType.getFields()[0].getType(),
+                    coerce);
+            } else {
+                return toType.getFamily() == fromType.getFamily();
+            }
         }
         RelDataType c1 = toType.getComponentType();
         if (c1 != null) {
@@ -598,6 +624,88 @@ public abstract class SqlTypeUtil
     }
 
     /**
+     * Flattens a record type by recursively expanding any
+     * fields which are themselves record types.
+     *
+     * @param typeFactory factory which should produced flattened type
+     *
+     * @param recordType type with possible nesting
+     *
+     * @param flatteningMap if non-null, receives map from unflattened
+     * ordinal to flattened ordinal (must have length at least
+     * recordType.getFieldList().size())
+     *
+     * @return flattened equivalent
+     */
+    public static RelDataType flattenRecordType(
+        RelDataTypeFactory typeFactory,
+        RelDataType recordType,
+        int [] flatteningMap)
+    {
+        if (!recordType.isStruct()) {
+            return recordType;
+        }
+        List fieldList = new ArrayList();
+        boolean nested =
+            flattenFields(
+                typeFactory,
+                recordType.getFields(),
+                fieldList,
+                flatteningMap);
+        if (!nested) {
+            return recordType;
+        }
+        RelDataType [] types = new RelDataType[fieldList.size()];
+        String [] fieldNames = new String[types.length];
+        for (int i = 0; i < types.length; ++i) {
+            RelDataTypeField field = (RelDataTypeField) fieldList.get(i);
+            types[i] = field.getType();
+            fieldNames[i] = field.getName() + "_" + i;
+        }
+        return typeFactory.createStructType(types, fieldNames);
+    }
+
+    private static boolean flattenFields(
+        RelDataTypeFactory typeFactory,
+        RelDataTypeField [] fields,
+        List list,
+        int [] flatteningMap)
+    {
+        boolean nested = false;
+        for (int i = 0; i < fields.length; ++i) {
+            if (flatteningMap != null) {
+                flatteningMap[i] = list.size();
+            }
+            if (fields[i].getType().isStruct()) {
+                nested = true;
+                flattenFields(
+                    typeFactory,
+                    fields[i].getType().getFields(),
+                    list,
+                    null);
+            } else if (fields[i].getType().getComponentType() != null) {
+                // TODO jvs 14-Feb-2005:  generalize to any kind of
+                // collection type
+                RelDataType flattenedCollectionType =
+                    typeFactory.createMultisetType(
+                        flattenRecordType(
+                            typeFactory,
+                            fields[i].getType().getComponentType(),
+                            null),
+                        -1);
+                RelDataTypeField field = new RelDataTypeFieldImpl(
+                    fields[i].getName(),
+                    fields[i].getIndex(),
+                    flattenedCollectionType);
+                list.add(field);
+            } else {
+                list.add(fields[i]);
+            }
+        }
+        return nested;
+    }
+
+    /**
      * Converts an instance of RelDataType to an instance of SqlDataTypeSpec.
      *
      * @param type type descriptor
@@ -623,7 +731,7 @@ public abstract class SqlTypeUtil
 
         // REVIEW jvs 28-Dec-2004:  discriminate between precision/scale
         // zero and unspecified?
-        
+
         if (typeName.allowsScale()) {
             return new SqlDataTypeSpec(
                 typeIdentifier,
@@ -646,6 +754,13 @@ public abstract class SqlTypeUtil
                 charSetName,
                 null);
         }
+    }
+
+    public static RelDataType createMultisetType(RelDataTypeFactory typeFactory,
+                                             RelDataType type,
+                                             boolean nullable) {
+        RelDataType ret = typeFactory.createMultisetType(type, -1);
+        return typeFactory.createTypeWithNullability(ret, nullable);
     }
 }
 

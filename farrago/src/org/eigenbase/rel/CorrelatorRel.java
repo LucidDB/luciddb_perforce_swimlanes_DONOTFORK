@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2002-2004 Disruptive Tech
-// Copyright (C) 2003-2004 John V. Sichi
+// Copyright (C) 2002-2005 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,12 +22,16 @@
 package org.eigenbase.rel;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 
 import openjava.ptree.Expression;
 
 import org.eigenbase.relopt.RelOptCluster;
 import org.eigenbase.relopt.RelOptUtil;
+import org.eigenbase.relopt.RelOptPlanWriter;
 import org.eigenbase.util.Util;
+import org.eigenbase.reltype.RelDataType;
 
 
 /**
@@ -45,8 +49,24 @@ public class CorrelatorRel extends JoinRel
 {
     //~ Instance fields -------------------------------------------------------
 
-    Expression [] correlations;
+    protected ArrayList correlations;
 
+    //~ Inner Classes ---------------------------------------------------------
+
+    /**
+     * Describes the neccessary parameters for an implementation in order
+     * to identify and set dynamic variables
+     */
+    public static class Correlation implements Cloneable {
+        public final int id;
+        public final int offset;
+
+        public Correlation(int id, int offset)
+        {
+            this.id = id;
+            this.offset = offset;
+        }
+    }
     //~ Constructors ----------------------------------------------------------
 
     /**
@@ -56,19 +76,17 @@ public class CorrelatorRel extends JoinRel
      *        belongs to
      * @param left left input relational expression
      * @param right right  input relational expression
-     * @param joinType join type (see {@link JoinRel#joinType})
      * @param correlations set of expressions to set as variables each time a
      *        row arrives from the left input
      */
-    CorrelatorRel(
+    public CorrelatorRel(
         RelOptCluster cluster,
         RelNode left,
         RelNode right,
-        int joinType,
-        Expression [] correlations)
+        ArrayList correlations)
     {
         super(cluster, left, right,
-            cluster.rexBuilder.makeLiteral(true), joinType,
+            cluster.rexBuilder.makeLiteral(true), JoinType.LEFT,
             Collections.EMPTY_SET);
         this.correlations = correlations;
     }
@@ -81,8 +99,26 @@ public class CorrelatorRel extends JoinRel
             cluster,
             RelOptUtil.clone(left),
             RelOptUtil.clone(right),
-            joinType,
-            Util.clone(correlations));
+            (ArrayList) correlations.clone());
+    }
+
+    protected RelDataType deriveRowType()
+    {
+        return super.deriveRowType();
+    }
+
+    public void explain(RelOptPlanWriter pw)
+    {
+        // todo wael: add var and col descriptions;
+        pw.explain(
+            this,
+            new String [] { "left", "right", "condition", "joinType" },
+            new Object [] { JoinType.toString(joinType) });
+    }
+
+    public ArrayList getCorrelations()
+    {
+        return correlations;
     }
 }
 

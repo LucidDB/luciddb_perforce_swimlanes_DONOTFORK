@@ -23,6 +23,7 @@ import net.sf.farrago.catalog.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.parser.*;
 
 
 /**
@@ -59,37 +60,13 @@ public interface FarragoSessionParser
     /**
      * @return the current position, or null if done parsing
      */
-    public FarragoSessionParserPosition getCurrentPosition();
+    public SqlParserPos getCurrentPosition();
 
     /**
      * @return a comma-separated list of all a database's SQL keywords that are
-     * NOT also SQL92 keywords.
+     * NOT also SQL92 keywords (as defined by JDBC getSQLKeywords)
      */
-    public String getSQLKeywords();
-
-    /**
-     * @return a comma-separated list of string functions available with this
-     * database
-     */
-    public String getStringFunctions();
-
-    /**
-     * @return a comma-separated list of math functions available with this
-     * database
-     */
-    public String getNumericFunctions();
-
-    /**
-     * @return a comma-separated list of the time and date functions available
-     * with this database
-     */
-    public String getTimeDateFunctions();
-
-    /**
-     * @return a comma-separated list of system functions available with this
-     * database
-     */
-    public String getSystemFunctions();
+    public String getJdbcKeywords();
 
     /**
      * @return validator to use for validating DDL statements as they are
@@ -112,6 +89,17 @@ public interface FarragoSessionParser
      */
     public FarragoException newPositionalError(
         SqlValidatorException ex);
+
+    /**
+     * Gets a substring from the text currently being parsed.
+     *
+     * @param start start position (inclusive) of substring
+     *
+     * @param end end position (exclusive) of substring
+     *
+     * @return substring
+     */
+    public String getSubstring(SqlParserPos start, SqlParserPos end);
 }
 
 

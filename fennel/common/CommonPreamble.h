@@ -212,13 +212,50 @@ extern std::logic_error constructAssertion(
 
 // Use permAssert to create an assertion which should be compiled even in
 // non-debug builds.  This is only appropriate for performance-insensitive
-// code.
+// code. In debug-mode, does the same as assert.
+
+#ifdef NDEBUG
+
 #define permAssert(cond) \
 do { \
     if (!(cond)) { \
         throw fennel::constructAssertion(__FILE__,__LINE__,#cond); \
     } \
 } while (0)
+
+#else
+
+#define permAssert(cond) assert(cond)
+
+#endif
+
+// Use permFail to create an exception which indicates that an invariant has
+// been violated. For example:
+//
+// switch (x) {
+// case 1: return foo();
+// default: permFail("invalid value for x: " << x);
+// }
+
+#ifdef NDEBUG
+
+#define permFail(msg) \
+do { \
+    ostringstream oss; \
+    oss << msg; \
+    throw fennel::constructAssertion(__FILE__,__LINE__, oss.str().c_str()); \
+} while (0)
+
+#else
+
+#define permFail(msg) \
+do { \
+    std::cout << "Internal error: " << msg << std::endl; \
+    assert(false); \
+    throw 0; \
+} while (0)
+
+#endif
 
 // Network to Host conversion for 64 bit quantities
 #define ntohll(x) ( ( (uint64_t) ntohl ((uint32_t)( x )) << 32 ) |  \

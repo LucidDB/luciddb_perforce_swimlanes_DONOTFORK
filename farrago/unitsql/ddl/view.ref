@@ -40,7 +40,7 @@ Error: DDL validation error near line 1, column 22: Duplicate definition for col
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- bad:  invalid view def
 0: jdbc:farrago:> create view v5 as select * from nonexistent_table;
-Error: At line 2, column 6: Table 'NONEXISTENT_TABLE' not found (state=,code=0)
+Error: At line 1, column 33: Table 'NONEXISTENT_TABLE' not found (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- bad:  view with dynamic params
 0: jdbc:farrago:> create view v6 as select * from sales.emps where empno = ?;
@@ -49,6 +49,10 @@ Error: Dynamic parameters are illegal in views (state=,code=0)
 0: jdbc:farrago:> -- bad:  duplicate view name
 0: jdbc:farrago:> create view v1 as select * from sales.emps;
 Error: DDL validation error near line 1, column 13: Target schema "LOCALDB"."S" already contains view "V1" with same name (state=,code=0)
+0: jdbc:farrago:> 
+0: jdbc:farrago:> -- bad:  duplicate view name (views and tables conflict)
+0: jdbc:farrago:> create view sales.depts as select * from sales.emps;
+Error: DDL validation error near line 1, column 19: Target schema "LOCALDB"."SALES" already contains table "DEPTS" with same name (state=,code=0)
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- bad:  ORDER BY in view
 0: jdbc:farrago:> create view v7 as select * from sales.emps order by name;

@@ -27,18 +27,21 @@ using boost::format;
 
 FENNEL_BEGIN_CPPFILE("$Id$");
 
-Calculator::Calculator() :
+Calculator::Calculator(DynamicParamManager* dynamicParamManager) :
     mIsUsingAssembler(true),
-    mIsAssembling(false)
+    mIsAssembling(false),
+    mPDynamicParamManager(dynamicParamManager)
 {
     init(0,0,0,0,0,0);
 }
 
 
-Calculator::Calculator(int codeSize, int literalSize, int inputSize,
+Calculator::Calculator(DynamicParamManager* dynamicParamManager,
+                       int codeSize, int literalSize, int inputSize,
                        int outputSize, int localSize, int statusSize) :
     mIsUsingAssembler(false),
-    mIsAssembling(false)
+    mIsAssembling(false),
+    mPDynamicParamManager(dynamicParamManager)
 {
     init(codeSize, literalSize, inputSize, outputSize,
          localSize, statusSize);
@@ -239,15 +242,16 @@ Calculator::exec()
 #ifdef DEBUG
     ostringstream oss;
     TuplePrinter p;
-    oss << "Pre-Exec" << endl << "Output Register: " << endl;
-    p.print(oss, getOutputRegisterDescriptor(),
-            *(mRegisterTuple[RegisterReference::EOutput]));
-    oss << endl << "Input Register: " << endl;
-    p.print(oss, getInputRegisterDescriptor(), 
-            *(mRegisterTuple[RegisterReference::EInput]));
-    oss << endl;
-    string forsomereasonthisisneeded = oss.str();
-    FENNEL_TRACE(TRACE_FINER, forsomereasonthisisneeded);
+    if (isTracingLevel(TRACE_FINER)) {
+        oss << "Pre-Exec" << endl << "Output Register: " << endl;
+        p.print(oss, getOutputRegisterDescriptor(),
+                *(mRegisterTuple[RegisterReference::EOutput]));
+        oss << endl << "Input Register: " << endl;
+        p.print(oss, getInputRegisterDescriptor(), 
+                *(mRegisterTuple[RegisterReference::EInput]));
+        oss << endl;
+        trace(TRACE_FINER, oss.str());
+    }
 #endif
                  
 
@@ -259,17 +263,19 @@ Calculator::exec()
 #ifdef DEBUG
             int oldpc = pc;
             string out;
-            mCode[oldpc]->describe(out, true);
-            FENNEL_TRACE(TRACE_FINER,
-                         "BF [" << oldpc << "] " <<  out.c_str());
+            if (isTracingLevel(TRACE_FINER)) {
+                mCode[oldpc]->describe(out, true);
+                FENNEL_TRACE(TRACE_FINER, "BF [" << oldpc << "] " <<  out.c_str());
+            }
 #endif 
             
             mCode[pc]->exec(pc);
 
 #ifdef DEBUG
-            mCode[oldpc]->describe(out, true);
-            FENNEL_TRACE(TRACE_FINER,
-                         "AF [" << oldpc << "] " <<  out.c_str());
+            if (isTracingLevel(TRACE_FINER)) {
+                mCode[oldpc]->describe(out, true);
+                FENNEL_TRACE(TRACE_FINER, "AF [" << oldpc << "] " <<  out.c_str());
+            }
 #endif
         }
 
@@ -282,19 +288,20 @@ Calculator::exec()
         }
     }
 #ifdef DEBUG
-    oss.clear();
-    oss << "Post-Exec" << endl << "Output Register: " << endl;
-    p.print(oss, getOutputRegisterDescriptor(),
-            *(mRegisterTuple[RegisterReference::EOutput]));
-    oss << endl << "Input Register: " << endl;
-    p.print(oss, getInputRegisterDescriptor(), 
-            *(mRegisterTuple[RegisterReference::EInput]));
-    oss << endl << "Status Register: " << endl;
-    p.print(oss, getStatusRegisterDescriptor(), 
-            *(mRegisterTuple[RegisterReference::EStatus]));
-    oss << endl << "Warnings: |" << warnings() << "|"<< endl;
-    forsomereasonthisisneeded = oss.str();
-    FENNEL_TRACE(TRACE_FINER, forsomereasonthisisneeded);
+    if (isTracingLevel(TRACE_FINER)) {
+        oss.clear();
+        oss << "Post-Exec" << endl << "Output Register: " << endl;
+        p.print(oss, getOutputRegisterDescriptor(),
+                *(mRegisterTuple[RegisterReference::EOutput]));
+        oss << endl << "Input Register: " << endl;
+        p.print(oss, getInputRegisterDescriptor(), 
+                *(mRegisterTuple[RegisterReference::EInput]));
+        oss << endl << "Status Register: " << endl;
+        p.print(oss, getStatusRegisterDescriptor(), 
+                *(mRegisterTuple[RegisterReference::EStatus]));
+        oss << endl << "Warnings: |" << warnings() << "|"<< endl;
+        trace(TRACE_FINER, oss.str());
+    }
 #endif
 }
 

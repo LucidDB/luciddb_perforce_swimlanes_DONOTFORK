@@ -1,7 +1,7 @@
 /*
 // Farrago is a relational database management system.
-// Copyright (C) 2003-2004 John V. Sichi.
-// Copyright (C) 2003-2004 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi.
+// Copyright (C) 2003-2005 Disruptive Tech
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -19,8 +19,6 @@
 */
 package net.sf.farrago.query;
 
-import java.nio.charset.*;
-import java.sql.*;
 import java.util.*;
 
 import net.sf.farrago.catalog.*;
@@ -28,22 +26,22 @@ import net.sf.farrago.fem.fennel.*;
 import net.sf.farrago.fem.med.*;
 import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fennel.*;
-import net.sf.farrago.type.*;
 import net.sf.farrago.util.*;
+import net.sf.farrago.session.FarragoSessionPlanner;
 
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
-import org.eigenbase.rex.RexBuilder;
-import org.eigenbase.rex.RexNode;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.util.*;
 
 
 /**
- * Static utilities for FennelRel implementations.  Examples in the comments
+ * Static utilities for FennelRel implementations.
+ *
+ * <p>Examples in the comments
  * refer to the test tables EMPS and DEPTS defined in
- * {@link net.sf.farrago.test.PopulateTestData}.  For an overview and
+ * <code>farrago/initsql/createSalesSchema.sql</code>.  For an overview and
  * terminology, please see
  * <a href="http://farrago.sf.net/design/TableIndexing.html">
  * the design docs</a>.
@@ -84,14 +82,19 @@ public abstract class FennelRelUtil
      * Create a FemTupleDescriptor for a RelDataType which is a row.
      *
      * @param repos repos storing object definitions
-     * @param rowType row of FarragoTypes
+     * @param rowType row type descriptor
      *
      * @return generated tuple descriptor
      */
     public static FemTupleDescriptor createTupleDescriptorFromRowType(
         FarragoRepos repos,
+        RelDataTypeFactory typeFactory,
         RelDataType rowType)
     {
+        rowType = SqlTypeUtil.flattenRecordType(
+            typeFactory,
+            rowType,
+            null);
         FemTupleDescriptor tupleDesc = repos.newFemTupleDescriptor();
         RelDataTypeField [] fields = rowType.getFields();
         for (int i = 0; i < fields.length; ++i) {
@@ -168,72 +171,74 @@ public abstract class FennelRelUtil
         FemTupleAttrDescriptor attrDesc = repos.newFemTupleAttrDescriptor();
         tupleDesc.getAttrDescriptor().add(attrDesc);
         attrDesc.setTypeOrdinal(
-            convertSqlTypeNumberToFennelTypeOrdinal(
-                type.getSqlTypeName().getJdbcOrdinal()));
+            convertSqlTypeNameToFennelTypeOrdinal(
+                type.getSqlTypeName()));
         int byteLength = SqlTypeUtil.getMaxByteSize(type);
         attrDesc.setByteLength(byteLength);
         attrDesc.setNullable(type.isNullable());
     }
 
-    public static FemTupleProjection createTupleProjectionFromColumnList(
-        FarragoRepos repos,
-        List indexColumnList)
-    {
-        FemTupleProjection tupleProj = repos.newFemTupleProjection();
-        Iterator indexColumnIter = indexColumnList.iterator();
-        while (indexColumnIter.hasNext()) {
-            FemAbstractColumn column =
-                (FemAbstractColumn) indexColumnIter.next();
-            FemTupleAttrProjection attrProj =
-                repos.newFemTupleAttrProjection();
-            tupleProj.getAttrProjection().add(attrProj);
-            attrProj.setAttributeIndex(column.getOrdinal());
-        }
-        return tupleProj;
-    }
-
-    private static int convertSqlTypeNumberToFennelTypeOrdinal(int sqlType)
+    private static int convertSqlTypeNameToFennelTypeOrdinal(
+        SqlTypeName sqlType)
     {
         // TODO:  return values correspond to enum
         // StandardTypeDescriptorOrdinal in Fennel; should be single-sourced
         // somehow
-        // NOTE: Any changes must be copied into 
+        // NOTE: Any changes must be copied into
         // 1) enum StandardTypeDescriptorOrdinal
         // 2) this method
         // 3) StandardTypeDescriptor class
         // 4) StoredTypeDescriptor standardTypes
-        switch (sqlType) {
-        case Types.BOOLEAN:
+        switch (sqlType.getOrdinal()) {
+        case SqlTypeName.Boolean_ordinal:
             return 9; // STANDARD_TYPE_BOOL
-        case Types.TINYINT:
+        case SqlTypeName.Tinyint_ordinal:
             return 1; // STANDARD_TYPE_INT_8
-        case Types.SMALLINT:
+        case SqlTypeName.Smallint_ordinal:
             return 3; // STANDARD_TYPE_INT_16
-        case Types.INTEGER:
+        case SqlTypeName.Integer_ordinal:
             return 5; // STANDARD_TYPE_INT_32
-        case Types.DATE:
-        case Types.TIME:
-        case Types.TIMESTAMP:
-        case Types.BIGINT:
+        case SqlTypeName.Date_ordinal:
+        case SqlTypeName.Time_ordinal:
+        case SqlTypeName.Timestamp_ordinal:
+        case SqlTypeName.Bigint_ordinal:
             return 7; // STANDARD_TYPE_INT_64
-        case Types.VARCHAR:
+        case SqlTypeName.Varchar_ordinal:
             return 13; // STANDARD_TYPE_VARCHAR
-        case Types.BIT:
-        case Types.VARBINARY:
-        case Types.ARRAY:
+        case SqlTypeName.Varbinary_ordinal:
+        case SqlTypeName.Multiset_ordinal:
             return 15; // STANDARD_TYPE_VARBINARY
-        case Types.CHAR:
+        case SqlTypeName.Char_ordinal:
             return 12; // STANDARD_TYPE_CHAR
-        case Types.BINARY:
+        case SqlTypeName.Binary_ordinal:
             return 14; // STANDARD_TYPE_BINARY
-        case Types.REAL:
+        case SqlTypeName.Real_ordinal:
             return 10; // STANDARD_TYPE_REAL
-        case Types.FLOAT:
-        case Types.DOUBLE:
+        case SqlTypeName.Float_ordinal:
+        case SqlTypeName.Double_ordinal:
             return 11; // STANDARD_TYPE_DOUBLE
         default:
             throw Util.newInternal("unimplemented SQL type number");
         }
+    }
+
+    /**
+     * Returns the repository that a relational expression belongs to.
+     */
+    public static FarragoPreparingStmt getPreparingStmt(FennelRel rel)
+    {
+        RelOptCluster cluster = rel.getCluster();
+        FarragoSessionPlanner farragoPlanner =
+            (FarragoSessionPlanner) cluster.getPlanner();
+        return (FarragoPreparingStmt)farragoPlanner.getPreparingStmt();
+    }
+
+    /**
+     * Returns the repository that a relational expression belongs to.
+     */
+    public static FarragoRepos getRepos(FennelRel rel)
+    {
+        return getPreparingStmt(rel).getRepos();
     }
 }
 

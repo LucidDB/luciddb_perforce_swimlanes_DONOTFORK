@@ -25,7 +25,6 @@ import net.sf.farrago.util.FarragoAllocation;
 
 import org.eigenbase.oj.rex.OJRexImplementorTable;
 import org.eigenbase.sql.SqlOperatorTable;
-import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 
 
@@ -171,7 +170,7 @@ public interface FarragoSession
      *
      * @return new planner
      */
-    public RelOptPlanner newPlanner(
+    public FarragoSessionPlanner newPlanner(
         FarragoSessionPreparingStmt stmt,
         boolean init);
 
@@ -232,6 +231,8 @@ public interface FarragoSession
      *
      * @param sql text of SQL expression
      *
+     * @param typeFactory factory for creating result and param types
+     *
      * @param paramRowType if non-null, expression is expected to be
      * a function body with these parameters; if null, expression is
      * expected to be a query
@@ -240,6 +241,7 @@ public interface FarragoSession
      */
     public FarragoSessionAnalyzedSql analyzeSql(
         String sql,
+        RelDataTypeFactory typeFactory,
         RelDataType paramRowType);
 
     /**

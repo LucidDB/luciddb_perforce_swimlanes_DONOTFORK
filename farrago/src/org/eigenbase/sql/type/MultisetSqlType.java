@@ -26,7 +26,7 @@ import org.eigenbase.util.*;
 /**
  * MultisetSqlType represents a standard SQL2003 multiset type.
  *
- * @author wael
+ * @author Wael Chatila
  * @version $Id$
  */
 public class MultisetSqlType extends AbstractSqlType
@@ -34,13 +34,13 @@ public class MultisetSqlType extends AbstractSqlType
     private RelDataType elementType;
 
     /**
-     * This should only be called from a factory method.
+     * This constructor should only be called from a factory method.
      *
      * @pre null!=elementType
      */
     public MultisetSqlType(RelDataType elementType, boolean isNullable)
     {
-        super(SqlTypeName.Multiset, isNullable);
+        super(SqlTypeName.Multiset, isNullable, null);
         Util.pre(null!=elementType,"null!=elementType");
         this.elementType = elementType;
         computeDigest();
@@ -75,6 +75,8 @@ public class MultisetSqlType extends AbstractSqlType
         // think the same goes for ROW types.
         return this;
     }
+
+    // TODO jvs 25-Jan-2005:  same goes for getPrecedenceList()
 }
 
 // End MultisetSqlType.java

@@ -1,6 +1,6 @@
 /*
 // Farrago is a relational database management system.
-// Copyright (C) 2003-2004 John V. Sichi.
+// Copyright (C) 2003-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -84,7 +84,7 @@ class FtrsTableProjectionRule extends RelOptRule
         // pushed down and parts that can't
         int n = origProject.getChildExps().length;
         Integer [] projectedColumns = new Integer[n];
-        RelDataType rowType = origScan.ftrsTable.getRowType();
+        RelDataType rowType = origScan.getRowType();
         RelDataType projType = origProject.getRowType();
         RelDataTypeField [] projFields = projType.getFields();
         String [] fieldNames = new String[n];
@@ -108,7 +108,8 @@ class FtrsTableProjectionRule extends RelOptRule
         // Generate a potential scan for each available index covering the
         // desired projection.  Leave it up to the optimizer to select one
         // based on cost, since sort order and I/O may be in competition.
-        FarragoRepos repos = origScan.getPreparingStmt().getRepos();
+        final FarragoRepos repos = FennelRelUtil.getRepos(origScan);
+
         Iterator iter = FarragoCatalogUtil.getTableIndexes(
             repos, origScan.ftrsTable.getCwmColumnSet()).iterator();
         while (iter.hasNext()) {
@@ -120,7 +121,9 @@ class FtrsTableProjectionRule extends RelOptRule
                 continue;
             }
 
-            if (!testIndexCoverage(repos, index, projectedColumns)) {
+            if (!testIndexCoverage(
+                    origScan.ftrsTable.getIndexGuide(),
+                    index, projectedColumns)) {
                 continue;
             }
 
@@ -148,7 +151,7 @@ class FtrsTableProjectionRule extends RelOptRule
     }
 
     private boolean testIndexCoverage(
-        FarragoRepos repos,
+        FtrsIndexGuide indexGuide,
         FemLocalIndex index,
         Integer [] projection)
     {
@@ -157,7 +160,7 @@ class FtrsTableProjectionRule extends RelOptRule
             return true;
         }
         Integer [] indexProjection =
-            FtrsUtil.getUnclusteredCoverageArray(repos, index);
+            indexGuide.getUnclusteredCoverageArray(index);
         return Arrays.asList(indexProjection).containsAll(
             Arrays.asList(projection));
     }

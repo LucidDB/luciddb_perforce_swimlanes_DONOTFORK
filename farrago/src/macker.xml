@@ -40,7 +40,7 @@
     <pattern name="ojrex" class="net.sf.farrago.ojrex.*" />
     <pattern name="query" class="net.sf.farrago.query.*" />
     <pattern name="ddl" class="net.sf.farrago.ddl.*" />
-    <pattern name="parser" class="net.sf.farrago.parser.*" />
+    <pattern name="parser" class="net.sf.farrago.parser.**" />
     <pattern name="db" class="net.sf.farrago.db.*" />
     <pattern name="jdbc" class="net.sf.farrago.jdbc.*" />
     <pattern name="jdbc.engine" class="net.sf.farrago.jdbc.engine.*" />
@@ -65,6 +65,8 @@
     <pattern name="test" class="net.sf.farrago.test.**" />
 
     <pattern name="dt.test" class="com.disruptivetech.farrago.test.*" />
+
+    <pattern name="plannerviz" class="net.sf.farrago.plannerviz.**" />
 
     <!-- explicit list of all farrago components above -->
     <pattern name="farrago.explicit">
@@ -108,6 +110,7 @@
       <include pattern="defimpl"/>
       <include pattern="test"/>
       <include pattern="dt.test"/>
+      <include pattern="plannerviz"/>
     </pattern>
 
     <!-- Below are the actual rules. -->

@@ -38,7 +38,7 @@ import org.eigenbase.reltype.RelDataTypeFactoryImpl;
 import org.eigenbase.sql.SqlNode;
 import org.eigenbase.sql.SqlOperatorTable;
 import org.eigenbase.sql.SqlValidator;
-import org.eigenbase.sql.parser.ParseException;
+import org.eigenbase.sql.parser.SqlParseException;
 import org.eigenbase.sql.parser.SqlParser;
 import org.eigenbase.sql.fun.*;
 import org.eigenbase.sql2rel.SqlToRelConverter;
@@ -94,7 +94,7 @@ public class ConverterTest extends TestCase
         final SqlNode sqlQuery;
         try {
             sqlQuery = new SqlParser(sql).parseQuery();
-        } catch (ParseException e) {
+        } catch (SqlParseException e) {
             throw new AssertionFailedError(e.toString());
         }
         final SqlValidator validator =
@@ -232,7 +232,7 @@ public class ConverterTest extends TestCase
     public void testStringLiteral()
     {
         check("select 'foo' from \"emps\"",
-            "ProjectRel(EXPR$0=[_ISO-8859-1'foo' COLLATE ISO-8859-1$en_US$primary])"
+            "ProjectRel(EXPR$0=[_ISO-8859-1'foo'])"
             + NL
             + "  ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
             + NL);
@@ -241,7 +241,7 @@ public class ConverterTest extends TestCase
     public void testSelectListAlias()
     {
         check("select 1 as one, 'foo' foo, 1 bar from \"emps\"",
-            "ProjectRel(ONE=[1], FOO=[_ISO-8859-1'foo' COLLATE ISO-8859-1$en_US$primary], BAR=[1])"
+            "ProjectRel(ONE=[1], FOO=[_ISO-8859-1'foo'], BAR=[1])"
             + NL
             + "  ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
             + NL);
@@ -313,7 +313,7 @@ public class ConverterTest extends TestCase
             + "      ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])" + NL
             + "      ExpressionReaderRel(expression=[Java((sales.Dept[]) {sales}.depts)])" + NL
             + "    ProjectRel(empno=[$0], name=[$1], deptno=[$2], gender=[$3], city=[$4], slacker=[$5])" + NL
-            + "      FilterRel(condition=[=($3, _ISO-8859-1'F' COLLATE ISO-8859-1$en_US$primary)])" + NL
+            + "      FilterRel(condition=[=($3, _ISO-8859-1'F')])" + NL
             + "        ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])" + NL);
     }
 
@@ -327,7 +327,7 @@ public class ConverterTest extends TestCase
     {
         check("select 1 from \"emps\" where \"gender\" = 'F'",
             "ProjectRel(EXPR$0=[1])" + NL
-            + "  FilterRel(condition=[=($3, _ISO-8859-1'F' COLLATE ISO-8859-1$en_US$primary)])"
+            + "  FilterRel(condition=[=($3, _ISO-8859-1'F')])"
             + NL
             + "    ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
             + NL);
@@ -337,7 +337,7 @@ public class ConverterTest extends TestCase
     {
         check("select 1 from \"emps\" where \"gender\" = 'F' and \"deptno\" = 10",
             "ProjectRel(EXPR$0=[1])" + NL
-            + "  FilterRel(condition=[AND(=($3, _ISO-8859-1'F' COLLATE ISO-8859-1$en_US$primary), =($2, 10))])"
+            + "  FilterRel(condition=[AND(=($3, _ISO-8859-1'F'), =($2, 10))])"
             + NL
             + "    ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
             + NL);
@@ -373,13 +373,12 @@ public class ConverterTest extends TestCase
     public void testQueryInSelect()
     {
         check("select \"gender\", (select \"name\" from \"depts\" where \"deptno\" = \"e\".\"deptno\") from \"emps\" as \"e\"",
-            "ProjectRel(gender=[$3], EXPR$1=[$6])" + NL
-            + "  JoinRel(condition=[true], joinType=[left])" + NL
-            + "    ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
-            + NL + "    ProjectRel(name=[$1])" + NL
-            + "      FilterRel(condition=[=($0, $cor0.deptno)])" + NL
-            + "        ExpressionReaderRel(expression=[Java((sales.Dept[]) {sales}.depts)])"
-            + NL);
+            "ProjectRel(gender=[$3], EXPR$1=[$6])" + NL +
+            "  CorrelatorRel(condition=[true], joinType=[left])" + NL +
+            "    ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])" + NL +
+            "    ProjectRel(name=[$1])" + NL +
+            "      FilterRel(condition=[=($0, $cor0.deptno)])" + NL +
+            "        ExpressionReaderRel(expression=[Java((sales.Dept[]) {sales}.depts)])" + NL);
     }
 
     public void testExistsUncorrelated()
@@ -417,9 +416,9 @@ public class ConverterTest extends TestCase
             + "            FilterRel(condition=[>($0, 10)])" + NL
             + "              ExpressionReaderRel(expression=[Java((sales.Dept[]) {sales}.depts)])"
             + NL + "      ProjectRel(EXPR$0=[$0], $indicator=[true])" + NL
-            + "        ProjectRel(EXPR$0=[_ISO-8859-1'foo' COLLATE ISO-8859-1$en_US$primary])"
+            + "        ProjectRel(EXPR$0=[_ISO-8859-1'foo'])"
             + NL
-            + "          FilterRel(condition=[=($3, _ISO-8859-1'Pig' COLLATE ISO-8859-1$en_US$primary)])"
+            + "          FilterRel(condition=[=($3, _ISO-8859-1'Pig')])"
             + NL
             + "            ExpressionReaderRel(expression=[Java((sales.Emp[]) {sales}.emps)])"
             + NL);
@@ -467,7 +466,7 @@ public class ConverterTest extends TestCase
         // converter bug; the individual rows were getting registered as
         // leaves, rather than the entire VALUES expression (as required to
         // get the join references correct).
-        check("select * from values (1), (2), values (3)",
+        check("select * from (values (1), (2)), (values (3))",
             "ProjectRel(EXPR$0=[$0], EXPR$00=[$1])" + NL
             + "  JoinRel(condition=[true], joinType=[inner])" + NL
             + "    ProjectRel(EXPR$0=[$0])" + NL

@@ -21,7 +21,7 @@
 
 package org.eigenbase.sql;
 
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 
 import java.util.Iterator;
 
@@ -40,7 +40,8 @@ public class SqlUpdate extends SqlCall
     public static final int TARGET_COLUMN_LIST_OPERAND = 2;
     public static final int CONDITION_OPERAND = 3;
     public static final int SOURCE_SELECT_OPERAND = 4;
-    public static final int OPERAND_COUNT = 5;
+    public static final int ALIAS_OPERAND = 5;
+    public static final int OPERAND_COUNT = 6;
 
     //~ Constructors ----------------------------------------------------------
 
@@ -50,13 +51,15 @@ public class SqlUpdate extends SqlCall
         SqlNodeList targetColumnList,
         SqlNodeList sourceExpressionList,
         SqlNode condition,
-        ParserPosition pos)
+        SqlIdentifier alias,
+        SqlParserPos pos)
     {
         super(operator, new SqlNode[OPERAND_COUNT], pos);
         operands[TARGET_TABLE_OPERAND] = targetTable;
         operands[SOURCE_EXPRESSION_LIST_OPERAND] = sourceExpressionList;
         operands[TARGET_COLUMN_LIST_OPERAND] = targetColumnList;
         operands[CONDITION_OPERAND] = condition;
+        operands[ALIAS_OPERAND] = alias;
         assert (sourceExpressionList.size() == targetColumnList.size());
     }
 
@@ -70,6 +73,14 @@ public class SqlUpdate extends SqlCall
     public SqlIdentifier getTargetTable()
     {
         return (SqlIdentifier) operands[TARGET_TABLE_OPERAND];
+    }
+
+    /**
+     * @return the alias for the target table of the deletion
+     */
+    public SqlIdentifier getAlias()
+    {
+        return (SqlIdentifier) operands[ALIAS_OPERAND];
     }
 
     /**
@@ -106,7 +117,7 @@ public class SqlUpdate extends SqlCall
     /**
      * Get the source SELECT expression for the data to be updated.  This
      * returns null before the statement
-     * has been expanded by SqlValidator.createInternalSelect.
+     * has been expanded by SqlValidator.performUnconditionalRewrites.
      *
      * @return the source SELECT for the data to be updated
      */
@@ -126,6 +137,10 @@ public class SqlUpdate extends SqlCall
         if (getTargetColumnList() != null) {
             getTargetColumnList().unparse(writer, operator.leftPrec,
                 operator.rightPrec);
+        }
+        if (getAlias() != null) {
+            writer.print(" AS ");
+            getAlias().unparse(writer, operator.leftPrec, operator.rightPrec);
         }
         writer.print("SET ");
         Iterator targetColumnIter = getTargetColumnList().getList().iterator();

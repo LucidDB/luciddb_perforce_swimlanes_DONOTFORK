@@ -19,11 +19,13 @@
 package net.sf.farrago.type;
 
 import java.sql.*;
+import java.util.*;
 
 import javax.jmi.model.*;
 
 import net.sf.farrago.catalog.*;
 import net.sf.farrago.cwm.relational.*;
+import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.fem.sql2003.*;
 
 import org.eigenbase.oj.*;
@@ -31,6 +33,9 @@ import org.eigenbase.rel.*;
 import org.eigenbase.reltype.*;
 
 import openjava.ptree.*;
+
+import java.util.List;
+
 
 /**
  * FarragoTypeFactory is a Farrago-specific refinement of the
@@ -51,24 +56,35 @@ public interface FarragoTypeFactory extends OJTypeFactory
     public FarragoRepos getRepos();
 
     /**
-     * Creates a type which represents the datatype of a FemSqltypedElement.
+     * Creates a type which represents the datatype of a
+     * FemAbstractTypedElement.
      *
      * @param element CWM typed element
      *
      * @return generated type
      */
     public RelDataType createCwmElementType(
-        FemSqltypedElement element);
+        FemAbstractTypedElement element);
 
     /**
-     * Creates a type which represents the row datatype of a CWM
-     * ColumnSet
+     * Creates a type which represents a CwmSqldataType.
      *
-     * @param columnSet CWM ColumnSet
+     * @param cwmType CWM type instance
      *
-     * @return generated type, or null if columnSet had no columns defined yet
+     * @return generated type
      */
-    public RelDataType createColumnSetType(CwmColumnSet columnSet);
+    public RelDataType createCwmType(
+        CwmSqldataType cwmType);
+
+    /**
+     * Creates a type which represents a structured row based on a
+     * classifier definition from the catalog.
+     *
+     * @param classifier definition of classifier
+     *
+     * @return generated type, or null if classifier had no features
+     */
+    public RelDataType createStructTypeFromClassifier(CwmClassifier classifier);
 
     /**
      * Creates a type which represents the row datatype of a JDBC

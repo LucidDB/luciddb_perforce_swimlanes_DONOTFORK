@@ -51,7 +51,7 @@ public class BasicSqlType extends AbstractSqlType
      */
     public BasicSqlType(SqlTypeName typeName)
     {
-        super(typeName, false);
+        super(typeName, false, null);
         Util.pre(
             typeName.allowsPrecScale(false, false),
             "typeName.allowsPrecScale(false,false), typeName="
@@ -70,7 +70,7 @@ public class BasicSqlType extends AbstractSqlType
         SqlTypeName typeName,
         int precision)
     {
-        super(typeName, false);
+        super(typeName, false, null);
         Util.pre(
             typeName.allowsPrecScale(true, false),
             "typeName.allowsPrecScale(true,false)");
@@ -89,7 +89,7 @@ public class BasicSqlType extends AbstractSqlType
         int precision,
         int scale)
     {
-        super(typeName, false);
+        super(typeName, false, null);
         Util.pre(
             typeName.allowsPrecScale(true, true),
             "typeName.allowsPrecScale(true,true)");
@@ -150,6 +150,11 @@ public class BasicSqlType extends AbstractSqlType
                 return 10;
             case SqlTypeName.Bigint_ordinal:
                 return 20;
+            case SqlTypeName.Real_ordinal:
+                return 7;
+            case SqlTypeName.Float_ordinal:
+            case SqlTypeName.Double_ordinal:
+                return 15;
             default:
                 throw new AssertionError();
             }

@@ -1,7 +1,7 @@
 /*
 // $Id$
 // Farrago is a relational database management system.
-// Copyright (C) 2002-2004 Disruptive Tech
+// Copyright (C) 2002-2005 Disruptive Tech
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,16 +19,17 @@
 */
 package com.disruptivetech.farrago.rel;
 
-import net.sf.farrago.query.FennelSingleRel;
-import net.sf.farrago.query.FennelPullRel;
-import net.sf.farrago.query.FennelRelImplementor;
-import net.sf.farrago.query.FennelRel;
+import net.sf.farrago.query.*;
 import net.sf.farrago.fem.fennel.FemExecutionStreamDef;
 import net.sf.farrago.fem.fennel.FemCollectTupleStreamDef;
 import net.sf.farrago.fem.fennel.FemUncollectTupleStreamDef;
+import net.sf.farrago.fem.fennel.FemTupleDescriptor;
+import net.sf.farrago.catalog.FarragoRepos;
 import org.eigenbase.relopt.*;
 import org.eigenbase.rel.RelNode;
+import org.eigenbase.rel.UncollectRel;
 import org.eigenbase.reltype.RelDataType;
+import org.eigenbase.sql.type.SqlTypeName;
 
 /**
  * FennelPullUncollectRel is the relational expression corresponding to an
@@ -39,7 +40,7 @@ import org.eigenbase.reltype.RelDataType;
  * operator {@link org.eigenbase.sql.fun.SqlStdOperatorTable#unnestOperator}</li>
  * </ul></p>
  *
- * @author Wael Chatila 
+ * @author Wael Chatila
  * @since Dec 12, 2004
  * @version $Id$
  */
@@ -56,9 +57,7 @@ public class FennelPullUncollectRel extends FennelSingleRel
 
     protected RelDataType deriveRowType()
     {
-        RelDataType ret = child.getRowType().getComponentType();
-        assert(null!=ret);
-        return ret;
+        return UncollectRel.deriveUncollectRowType(this);
     }
 
     public RelOptCost computeSelfCost(RelOptPlanner planner) {
@@ -66,11 +65,13 @@ public class FennelPullUncollectRel extends FennelSingleRel
     }
 
     public FemExecutionStreamDef toStreamDef(FennelRelImplementor implementor) {
+        final FarragoRepos repos = FennelRelUtil.getRepos(this);
         FemUncollectTupleStreamDef uncollectStream =
-            getRepos().newFemUncollectTupleStreamDef();
+            repos.newFemUncollectTupleStreamDef();
 
         uncollectStream.getInput().add(
             implementor.visitFennelChild((FennelRel) child));
+
         return uncollectStream;
     }
 

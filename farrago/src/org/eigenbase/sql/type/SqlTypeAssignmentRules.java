@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of database components.
-// Copyright (C) 2004-2004 Disruptive Tech
-// Copyright (C) 2004-2004 John V. Sichi.
+// Copyright (C) 2004-2005 Disruptive Tech
+// Copyright (C) 2004-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -133,16 +133,10 @@ public class SqlTypeAssignmentRules
         rule.add(SqlTypeName.Decimal);
         rules.put(SqlTypeName.Decimal, rule);
 
-        // Bit is assignable from...
-        rule = new HashSet();
-        rule.add(SqlTypeName.Varbinary);
-        rule.add(SqlTypeName.Bit);
-        rules.put(SqlTypeName.Bit, rule);
-
         // VarBinary is assignable from...
         rule = new HashSet();
-        rule.add(SqlTypeName.Bit);
         rule.add(SqlTypeName.Varbinary);
+        rule.add(SqlTypeName.Binary);
         rules.put(SqlTypeName.Varbinary, rule);
 
         // Char is assignable from...
@@ -164,6 +158,7 @@ public class SqlTypeAssignmentRules
         // Binary is assignable from...
         rule = new HashSet();
         rule.add(SqlTypeName.Binary);
+        rule.add(SqlTypeName.Varbinary);
         rules.put(SqlTypeName.Binary, rule);
 
         // Date is assignable from ...
@@ -212,10 +207,6 @@ public class SqlTypeAssignmentRules
         coerceRules.put(SqlTypeName.Char, rule);
         coerceRules.put(SqlTypeName.Varchar, rule);
 
-        // binary is castable from varbinary
-        rule = (HashSet) coerceRules.get(SqlTypeName.Binary);
-        rule.add(SqlTypeName.Varbinary);
-
         // varchar is castable from Date, time and timestamp and numbers
         rule = (HashSet) coerceRules.get(SqlTypeName.Varchar);
         rule.add(SqlTypeName.Date);
@@ -245,7 +236,7 @@ public class SqlTypeAssignmentRules
         // REVIEW jvs 13-Dec-2004:  getting the milliseconds?
         // That sounds like a physical operation, and has nothing to do
         // with enforcing the logical rules.
-            
+
         // for getting the milliseconds.
         rule = (HashSet) coerceRules.get(SqlTypeName.Bigint);
         rule.add(SqlTypeName.Date);
@@ -268,7 +259,7 @@ public class SqlTypeAssignmentRules
     {
         assert (null != to);
         assert (null != from);
-        
+
         HashMap ruleset = coerce ? coerceRules : rules;
 
         if (to.equals(SqlTypeName.Null)) {

@@ -22,7 +22,7 @@
 #define Fennel_ExecStreamGraph_Included
 
 #include "fennel/common/ClosableObject.h"
-#include "fennel/exec/DynamicParam.h"
+#include "fennel/disruptivetech/calc/DynamicParam.h"
 
 #include <vector>
 #include <boost/utility.hpp>
@@ -166,10 +166,13 @@ public:
      *
      * @param name name of stream to find
      *
+     * @param iOutput ordinal of output arc
+     *
      * @return stream found
      */
     virtual SharedExecStream findLastStream(
-        std::string name) = 0;
+        std::string name,
+        uint iOutput) = 0;
     
     /**
      * Interposes an adapter stream. In the process, creates a dataflow 
@@ -177,11 +180,14 @@ public:
      *
      * @param name name of stream to adapt
      *
+     * @param iOutput ordinal of output of stream
+     *
      * @param ID of adapter stream within this graph
      *
      */
     virtual void interposeStream(
         std::string name,
+        uint iOutput,
         ExecStreamId interposedId) = 0;
 
     /**
@@ -232,6 +238,19 @@ public:
         uint iInput) = 0;
 
     /**
+     * Accesses a stream's input accessor.
+     *
+     * @param streamId ID of stream
+     *
+     * @param iInput 0-based input flow ordinal
+     *
+     * @return accessor used by upstream producer
+     */
+    virtual SharedExecStreamBufAccessor getStreamInputAccessor(
+        ExecStreamId streamId,
+        uint iInput) = 0;
+
+    /**
      * Accesses a stream's output.
      *
      * @param streamId ID of stream
@@ -241,6 +260,19 @@ public:
      * @return downstream consumer
      */
     virtual SharedExecStream getStreamOutput(
+        ExecStreamId streamId,
+        uint iOutput) = 0;
+
+    /**
+     * Accesses a stream's output accessor.
+     *
+     * @param streamId ID of stream
+     *
+     * @param iInput 0-based output flow ordinal
+     *
+     * @return accessor used by downstream consumer
+     */
+    virtual SharedExecStreamBufAccessor getStreamOutputAccessor(
         ExecStreamId streamId,
         uint iOutput) = 0;
 

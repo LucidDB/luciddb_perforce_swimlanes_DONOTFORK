@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a relational database kernel.
-// Copyright (C) 2004-2004 Disruptive Tech
-// Copyright (C) 1999-2004 John V. Sichi.
+// Copyright (C) 2004-2005 Disruptive Tech
+// Copyright (C) 1999-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,19 +28,36 @@
 
 FENNEL_BEGIN_NAMESPACE
 
+
+/**
+ * Mapping an id to an left input column
+ */
+struct Correlation 
+{
+    uint dynamicParamId;
+    uint leftAttributeOrdinal;
+
+    Correlation(uint id, uint offset) : 
+        dynamicParamId(id), 
+        leftAttributeOrdinal(offset)
+    { 
+        //empty
+    }
+};
+
 /**
  * CorrelationJoinExecStreamParams defines parameters for instantiating a
  * CorrelationJoinExecStream.
  */
 struct CorrelationJoinExecStreamParams : public ConfluenceExecStreamParams
 {
-    uint leftAttributeOrdinal;
-    uint dynamicParamId;
+    std::vector<Correlation> correlations;
 };
 
 /**
  * CorrelationJoinExecStream produces a join of two input
- * streams.  The corrleation will happen based on a given column 
+ * streams.  The corrleation will happen based on one or serveral
+ * given column from the left hand side
  *
  * @author Wael Chatila
  * @version $Id$
@@ -51,8 +68,7 @@ class CorrelationJoinExecStream : public ConfluenceExecStream
     SharedExecStreamBufAccessor pLeftBufAccessor;
     SharedExecStreamBufAccessor pRightBufAccessor;
     uint nLeftAttributes;
-    uint leftAttributeOrdinal;
-    uint dynamicParamId;
+    std::vector<Correlation> correlations;
 
 public:
     // implement ExecStream

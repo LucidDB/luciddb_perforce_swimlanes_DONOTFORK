@@ -20,6 +20,7 @@
 */
 package org.eigenbase.sql.type;
 
+import org.eigenbase.sql.*;
 import org.eigenbase.reltype.*;
 
 /**
@@ -34,9 +35,12 @@ public abstract class AbstractSqlType
     protected final SqlTypeName typeName;
     protected boolean isNullable;
         
-    protected AbstractSqlType(SqlTypeName typeName, boolean isNullable)
+    protected AbstractSqlType(
+        SqlTypeName typeName,
+        boolean isNullable,
+        RelDataTypeField [] fields)
     {
-        super(null);
+        super(fields);
         this.typeName = typeName;
         this.isNullable = isNullable;
     }
@@ -57,6 +61,17 @@ public abstract class AbstractSqlType
     public RelDataTypeFamily getFamily()
     {
         return SqlTypeFamily.getFamilyForSqlType(typeName);
+    }
+
+    // implement RelDataType
+    public RelDataTypePrecedenceList getPrecedenceList()
+    {
+        RelDataTypePrecedenceList list = 
+            SqlTypeExplicitPrecedenceList.getListForType(this);
+        if (list != null) {
+            return list;
+        }
+        return super.getPrecedenceList();
     }
 }
 

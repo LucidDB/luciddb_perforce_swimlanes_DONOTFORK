@@ -57,7 +57,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
         FennelJavaStreamMap
 {
     private static final ThreadLocal threadInvocationStack = new ThreadLocal();
-    
+
     //~ Instance fields -------------------------------------------------------
 
     private final FarragoSession session;
@@ -555,7 +555,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
         RoutineInvocationFrame frame = new RoutineInvocationFrame();
         frame.context = this;
         frame.allowSql = allowSql;
-        
+
         List stack = getInvocationStack();
         stack.add(frame);
     }
@@ -600,7 +600,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
         }
         return stack;
     }
-    
+
     /**
      * Creates a new default connection to the session of the current thread.
      */
@@ -613,7 +613,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
 
         RoutineInvocationFrame frame =
             (RoutineInvocationFrame) stack.get(stack.size() - 1);
-        
+
         if (!frame.allowSql) {
             throw FarragoResource.instance().newNoDefaultConnection();
         }
@@ -632,7 +632,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
         // connection in popRoutineInvocation, which is guaranteed
         // to be called because we generate it in a finally block.  So
         // there's no need to track the connection as an allocation.
-            
+
         return frame.connection;
     }
 
@@ -663,7 +663,7 @@ public class FarragoRuntimeContext extends FarragoCompoundAllocation
     private static class RoutineInvocationFrame
     {
         FarragoRuntimeContext context;
-        
+
         boolean allowSql;
 
         Connection connection;

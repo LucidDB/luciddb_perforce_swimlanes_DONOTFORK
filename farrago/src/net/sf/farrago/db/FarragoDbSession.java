@@ -41,7 +41,6 @@ import org.eigenbase.oj.rex.*;
 import org.eigenbase.oj.stmt.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.fun.*;
-import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.util.*;
 
@@ -258,7 +257,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
     }
 
     // implement FarragoSession
-    public RelOptPlanner newPlanner(
+    public FarragoSessionPlanner newPlanner(
         FarragoSessionPreparingStmt stmt,
         boolean init)
     {
@@ -386,7 +385,9 @@ public class FarragoDbSession extends FarragoCompoundAllocation
 
     // implement FarragoSession
     public FarragoSessionAnalyzedSql analyzeSql(
-        String sql, RelDataType paramRowType)
+        String sql,
+        RelDataTypeFactory typeFactory, 
+        RelDataType paramRowType)
     {
         FarragoSessionAnalyzedSql analyzedSql =
             new FarragoSessionAnalyzedSql();
@@ -394,6 +395,18 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         FarragoSessionExecutableStmt stmt = prepare(
             sql, null, false, analyzedSql);
         assert (stmt == null);
+        if (typeFactory != null) {
+            // Have to copy types into the caller's factory since
+            // analysis uses a private factory.
+            if (analyzedSql.paramRowType != null) {
+                analyzedSql.paramRowType = typeFactory.copyType(
+                    analyzedSql.paramRowType);
+            }
+            if (analyzedSql.resultType != null) {
+                analyzedSql.resultType = typeFactory.copyType(
+                    analyzedSql.resultType);
+            }
+        }
         return analyzedSql;
     }
 

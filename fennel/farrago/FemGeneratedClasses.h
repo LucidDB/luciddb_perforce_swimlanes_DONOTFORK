@@ -54,6 +54,12 @@ typedef JniProxyIter<ProxyCmdTruncateIndex> SharedProxyCmdTruncateIndex;
 class ProxyCollectTupleStreamDef;
 typedef JniProxyIter<ProxyCollectTupleStreamDef> SharedProxyCollectTupleStreamDef;
 
+class ProxyCorrelation;
+typedef JniProxyIter<ProxyCorrelation> SharedProxyCorrelation;
+
+class ProxyCorrelationJoinStreamDef;
+typedef JniProxyIter<ProxyCorrelationJoinStreamDef> SharedProxyCorrelationJoinStreamDef;
+
 class ProxyDatabaseCmd;
 typedef JniProxyIter<ProxyDatabaseCmd> SharedProxyDatabaseCmd;
 
@@ -215,6 +221,8 @@ class ProxyCartesianProductStreamDef
 : virtual public JniProxy, virtual public ProxyTupleStreamDef
 {
 public:
+bool isLeftOuter();
+static jmethodID meth_isLeftOuter;
 };
 
 class ProxyCmd
@@ -377,6 +385,24 @@ class ProxyCollectTupleStreamDef
 : virtual public JniProxy, virtual public ProxyTupleStreamDef
 {
 public:
+};
+
+class ProxyCorrelation
+: virtual public JniProxy
+{
+public:
+int32_t getOffset();
+static jmethodID meth_getOffset;
+int32_t getId();
+static jmethodID meth_getId;
+};
+
+class ProxyCorrelationJoinStreamDef
+: virtual public JniProxy, virtual public ProxyTupleStreamDef
+{
+public:
+SharedProxyCorrelation getCorrelations();
+static jmethodID meth_getCorrelations;
 };
 
 class ProxyDatabaseParam
@@ -637,10 +663,10 @@ bool isPhysical();
 static jmethodID meth_isPhysical;
 std::string getRange();
 static jmethodID meth_getRange;
-SharedProxyWindowStreamDef getWindowStream();
-static jmethodID meth_getWindowStream;
 SharedProxyWindowPartitionDef getPartition();
 static jmethodID meth_getPartition;
+SharedProxyWindowStreamDef getWindowStream();
+static jmethodID meth_getWindowStream;
 };
 
 class ProxyWindowPartitionDef
@@ -714,6 +740,10 @@ virtual void visit(ProxyCmdSavepoint &)
 virtual void visit(ProxyCmdTruncateIndex &)
 { unhandledVisit(); }
 virtual void visit(ProxyCollectTupleStreamDef &)
+{ unhandledVisit(); }
+virtual void visit(ProxyCorrelation &)
+{ unhandledVisit(); }
+virtual void visit(ProxyCorrelationJoinStreamDef &)
 { unhandledVisit(); }
 virtual void visit(ProxyDatabaseCmd &)
 { unhandledVisit(); }

@@ -60,8 +60,6 @@ public class FarragoUserDefinedRoutine
 
     private final RelDataType returnType;
     
-    private final RelDataType [] paramTypes;
-
     private final FarragoSessionStmtValidator stmtValidator;
 
     private final FarragoPreparingStmt preparingStmt;
@@ -79,12 +77,22 @@ public class FarragoUserDefinedRoutine
             FarragoCatalogUtil.getQualifiedName(routine),
             new ReturnTypeInferenceImpl.FixedReturnTypeInference(returnType),
             new ExplicitParamInference(paramTypes),
-            new AssignableOperandsTypeChecking(paramTypes));
+            new AssignableOperandsTypeChecking(paramTypes),
+            paramTypes,
+            routine.getType() == ProcedureTypeEnum.PROCEDURE
+            ? SqlFuncTypeName.UserDefinedProcedure
+            : ((routine.getSpecification() == null) ?
+                SqlFuncTypeName.UserDefinedFunction
+                : SqlFuncTypeName.UserDefinedConstructor));
         this.stmtValidator = stmtValidator;
         this.preparingStmt = preparingStmt;
         this.routine = routine;
         this.returnType = returnType;
-        this.paramTypes = paramTypes;
+    }
+
+    public FarragoPreparingStmt getPreparingStmt()
+    {
+        return preparingStmt;
     }
 
     public FemRoutine getFemRoutine()
@@ -95,11 +103,6 @@ public class FarragoUserDefinedRoutine
     public RelDataType getReturnType()
     {
         return returnType;
-    }
-
-    public RelDataType [] getParamTypes()
-    {
-        return paramTypes;
     }
 
     public FemJar getJar()
@@ -124,8 +127,7 @@ public class FarragoUserDefinedRoutine
         // TODO jvs 18-Jan-2005:  support OUT and INOUT parameters
         
         String externalName = routine.getExternalName();
-        // TODO jvs 11-Jan-2005:  JAR support, and move some of this
-        // code to FarragoPluginCache
+        // TODO jvs 11-Jan-2005:  move some of this code to FarragoPluginCache
         String jarName = null;
         String fullMethodName;
         if (!externalName.startsWith(FarragoPluginCache.LIBRARY_CLASS_PREFIX)) {
@@ -162,7 +164,7 @@ public class FarragoUserDefinedRoutine
         if (iLeftParen == -1) {
             List params = routine.getParameter();
             for (int i = 0; i < nParams; ++i) {
-                RelDataType type = paramTypes[i];
+                RelDataType type = getParamTypes()[i];
                 javaParamClasses[i] =
                     stmtValidator.getTypeFactory().getClassForJavaParamStyle(
                         type);
@@ -300,14 +302,14 @@ public class FarragoUserDefinedRoutine
         for (int i = 0; i < nParams; ++i) {
             Class javaParamClass = javaParamClasses[i];
             SqlTypeName actualParamSqlType = rules.lookup(javaParamClass);
-            SqlTypeName declParamSqlType = paramTypes[i].getSqlTypeName();
+            SqlTypeName declParamSqlType = getParamTypes()[i].getSqlTypeName();
             if (!checkCompatibility(actualParamSqlType, declParamSqlType)) {
                 throw FarragoResource.instance().
                     newValidatorRoutineJavaParamMismatch(
                         repos.getLocalizedObjectName((FemRoutineParameter)
                             (routine.getParameter().get(i))),
                         repos.getLocalizedObjectName(routine),
-                        paramTypes[i].toString(),
+                        getParamTypes()[i].toString(),
                         repos.getLocalizedObjectName(javaUnmangledMethodName),
                         javaParamClass.toString());
             }
@@ -348,7 +350,7 @@ public class FarragoUserDefinedRoutine
                 operands[i],
                 javaParams[i],
                 call.getOperands()[i].getType(),
-                paramTypes[i]);
+                getParamTypes()[i]);
             exprList.add(expr);
         }
 
@@ -483,6 +485,25 @@ public class FarragoUserDefinedRoutine
                     "getNullableData",
                     new ExpressionList()));
         }
+    }
+
+    private static final String RETURN_PREFIX = "RETURN ";
+
+    public static String removeReturnPrefix(String body)
+    {
+        assert(hasReturnPrefix(body));
+        return body.substring(RETURN_PREFIX.length());
+    }
+
+    public static String addReturnPrefix(String body)
+    {
+        assert (!hasReturnPrefix(body));
+        return RETURN_PREFIX + body;
+    }
+
+    public static boolean hasReturnPrefix(String body)
+    {
+        return body.startsWith(RETURN_PREFIX);
     }
 }
 

@@ -1,6 +1,6 @@
 /*
 // Farrago is a relational database management system.
-// Copyright (C) 2003-2004 John V. Sichi.
+// Copyright (C) 2003-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -58,6 +58,7 @@ class FtrsTableModificationRel extends TableModificationRel
      * @param connection connection expression
      * @param child child producing rows to be inserted
      * @param operation modification operation to perform
+     * @param updateColumnList list of column names to be updated
      */
     public FtrsTableModificationRel(
         RelOptCluster cluster,
@@ -68,8 +69,10 @@ class FtrsTableModificationRel extends TableModificationRel
         List updateColumnList)
     {
         super(cluster, ftrsTable, connection, child, operation,
-            updateColumnList);
+            updateColumnList, true);
         this.ftrsTable = ftrsTable;
+        assert ftrsTable.getPreparingStmt() ==
+            FennelRelUtil.getPreparingStmt(this);
     }
 
     //~ Methods ---------------------------------------------------------------
@@ -84,12 +87,6 @@ class FtrsTableModificationRel extends TableModificationRel
     public CallingConvention getConvention()
     {
         return FennelPullRel.FENNEL_PULL_CONVENTION;
-    }
-
-    // implement FennelRel
-    public FarragoPreparingStmt getPreparingStmt()
-    {
-        return ftrsTable.getPreparingStmt();
     }
 
     // implement FennelRel
@@ -149,7 +146,7 @@ class FtrsTableModificationRel extends TableModificationRel
             throw Util.needToImplement(ftrsTable.getCwmColumnSet());
         }
         CwmTable table = (CwmTable) ftrsTable.getCwmColumnSet();
-        FarragoRepos repos = getRepos();
+        FarragoRepos repos = FennelRelUtil.getRepos(this);
 
         List updateCwmColumnList = null;
 
@@ -166,7 +163,7 @@ class FtrsTableModificationRel extends TableModificationRel
             tableWriterDef = tableUpdaterDef;
             updateCwmColumnList = getUpdateCwmColumnList();
             tableUpdaterDef.setUpdateProj(
-                FennelRelUtil.createTupleProjectionFromColumnList(repos,
+                ftrsTable.getIndexGuide().createTupleProjectionFromColumnList(
                     updateCwmColumnList));
             break;
         default:
@@ -193,6 +190,8 @@ class FtrsTableModificationRel extends TableModificationRel
         List firstList = new ArrayList();
         List secondList = new ArrayList();
 
+        FtrsIndexGuide indexGuide = ftrsTable.getIndexGuide();
+
         Iterator indexIter = FarragoCatalogUtil.getTableIndexes(
             repos, table).iterator();
         while (indexIter.hasNext()) {
@@ -203,7 +202,7 @@ class FtrsTableModificationRel extends TableModificationRel
             if (updateCwmColumnList != null) {
                 if (index != clusteredIndex) {
                     List coverageList =
-                        FtrsUtil.getUnclusteredCoverageColList(repos, index);
+                        indexGuide.getUnclusteredCoverageColList(index);
                     if (!coverageList.removeAll(updateCwmColumnList)) {
                         // no intersection between update list and index
                         // coverage, so skip this index entirely
@@ -211,8 +210,7 @@ class FtrsTableModificationRel extends TableModificationRel
                     }
                 }
 
-                List distinctKeyList =
-                    FtrsUtil.getDistinctKeyColList(repos, index);
+                List distinctKeyList = indexGuide.getDistinctKeyColList(index);
                 if (!distinctKeyList.removeAll(updateCwmColumnList)) {
                     // distinct key is not being changed, so it's safe to
                     // attempt update-in-place
@@ -224,24 +222,26 @@ class FtrsTableModificationRel extends TableModificationRel
                 repos.getFennelPackage().getFemIndexWriterDef()
                     .createFemIndexWriterDef();
             if (!FarragoCatalogUtil.isIndexTemporary(index)) {
+                final FarragoPreparingStmt stmt =
+                    FennelRelUtil.getPreparingStmt(this);
                 indexWriter.setRootPageId(
-                    getPreparingStmt().getIndexMap().getIndexRoot(index));
+                    stmt.getIndexMap().getIndexRoot(index));
             } else {
                 indexWriter.setRootPageId(-1);
             }
             indexWriter.setSegmentId(FtrsDataServer.getIndexSegmentId(index));
             indexWriter.setIndexId(JmiUtil.getObjectId(index));
             indexWriter.setTupleDesc(
-                FtrsUtil.getCoverageTupleDescriptor(typeFactory, index));
+                indexGuide.getCoverageTupleDescriptor(index));
             indexWriter.setKeyProj(
-                FtrsUtil.getDistinctKeyProjection(repos, index));
+                indexGuide.getDistinctKeyProjection(index));
             indexWriter.setUpdateInPlace(updateInPlace);
 
             indexWriter.setDistinctness(index.isUnique()
                 ? DistinctnessEnum.DUP_FAIL : DistinctnessEnum.DUP_ALLOW);
             if (index != clusteredIndex) {
                 indexWriter.setInputProj(
-                    FtrsUtil.getCoverageProjection(repos, index));
+                    indexGuide.getCoverageProjection(index));
             }
 
             boolean prepend = false;
@@ -298,6 +298,7 @@ class FtrsTableModificationRel extends TableModificationRel
             buffer.setOutputDesc(
                 FennelRelUtil.createTupleDescriptorFromRowType(
                     repos,
+                    getFarragoTypeFactory(),
                     child.getRowType()));
 
             buffer.getInput().add(input);
@@ -308,16 +309,6 @@ class FtrsTableModificationRel extends TableModificationRel
         }
 
         return tableWriterDef;
-    }
-
-    /**
-     * .
-     *
-     * @return repos for object definitions
-     */
-    FarragoRepos getRepos()
-    {
-        return getPreparingStmt().getRepos();
     }
 
     // implement FennelRel

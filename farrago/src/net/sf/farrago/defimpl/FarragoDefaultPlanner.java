@@ -1,7 +1,7 @@
 /*
 // Farrago is a relational database management system.
-// Copyright (C) 2003-2004 John V. Sichi.
-// Copyright (C) 2003-2004 Disruptive Tech
+// Copyright (C) 2003-2005 John V. Sichi.
+// Copyright (C) 2003-2005 Disruptive Tech
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -43,6 +43,7 @@ import org.eigenbase.util.*;
  * @version $Id$
  */
 public class FarragoDefaultPlanner extends VolcanoPlanner
+    implements FarragoSessionPlanner
 {
     //~ Instance fields -------------------------------------------------------
 
@@ -89,9 +90,11 @@ public class FarragoDefaultPlanner extends VolcanoPlanner
         addRule(new AbstractConverter.ExpandConversionRule());
         addRule(new RemoveDistinctRule());
         addRule(new UnionToDistinctRule());
+        addRule(new UnionEliminatorRule());
         addRule(new CoerceInputsRule(UnionRel.class));
         addRule(new CoerceInputsRule(TableModificationRel.class));
         addRule(new SwapJoinRule());
+        addRule(new RemoveTrivialProjectRule());
 
         addRule(new IterRules.HomogeneousUnionToIteratorRule());
         addRule(new IterRules.OneRowToIteratorRule());
@@ -105,6 +108,8 @@ public class FarragoDefaultPlanner extends VolcanoPlanner
                 new FennelRenameRule(FennelPullRel.FENNEL_PULL_CONVENTION,
                     "FennelPullRenameRule"));
             addRule(new FennelCartesianJoinRule());
+            addRule(new FennelCorrelatorRule());
+            addRule(new FennelOneRowRule());
         }
 
         // Add the rule to introduce FennelCalcRel's only if the fennel
@@ -137,11 +142,11 @@ public class FarragoDefaultPlanner extends VolcanoPlanner
 
         if (fennelEnabled) {
             FennelToIteratorConverter.register(this);
-            IteratorToFennelConverter.register(this,stmt);
+            IteratorToFennelConverter.register(this);
         }
     }
 
-    public FarragoPreparingStmt getPreparingStmt()
+    public FarragoSessionPreparingStmt getPreparingStmt()
     {
         return stmt;
     }

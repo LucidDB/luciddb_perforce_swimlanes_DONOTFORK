@@ -22,7 +22,7 @@ package org.eigenbase.sql.util;
 
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.sql.*;
-import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.parser.SqlParserPos;
 import org.eigenbase.util.MultiMap;
 import org.eigenbase.util.Util;
 
@@ -42,7 +42,6 @@ public abstract class ReflectiveSqlOperatorTable implements SqlOperatorTable
 
     private final MultiMap operators = new MultiMap();
     private final HashMap mapNameToOp = new HashMap();
-    private final MultiMap categoryToFuncNames = new MultiMap();
 
     //~ Constructors ----------------------------------------------------------
 
@@ -90,10 +89,19 @@ public abstract class ReflectiveSqlOperatorTable implements SqlOperatorTable
         SqlSyntax syntax)
     {
         List overloads = new ArrayList();
-        if (!opName.isSimple()) {
-            return overloads;
+        String simpleName;
+        if (opName.names.length > 1) {
+            if (opName.names[opName.names.length - 2].equals(
+                    "INFORMATION_SCHEMA"))
+            {
+                // per SQL99 Part 2 Section 10.4 Syntax Rule 7.b.ii.1
+                simpleName = opName.names[opName.names.length - 1];
+            } else {
+                return overloads;
+            }
+        } else {
+            simpleName = opName.getSimple();
         }
-        String simpleName = opName.getSimple();
         final List list = operators.getMulti(simpleName);
         for (int i = 0, n = list.size(); i < n; i++) {
             SqlOperator op = (SqlOperator) list.get(i);
@@ -151,7 +159,6 @@ public abstract class ReflectiveSqlOperatorTable implements SqlOperatorTable
         SqlFunction.SqlFuncTypeName funcType = function.getFunctionType();
         assert (funcType != null) : "Function type for " + function.name
         + " not set";
-        categoryToFuncNames.putMulti(funcType, function.name);
     }
 
     // implement SqlOperatorTable
@@ -166,19 +173,6 @@ public abstract class ReflectiveSqlOperatorTable implements SqlOperatorTable
         }
 
         return list;
-    }
-    
-    /**
-     * Retrieves a list of functions in a particular category.
-     *
-     * @param category category of functions to retrieve
-     *
-     * @return list of String function names
-     */
-    public List getFunctionNamesByCategory(
-        SqlFunction.SqlFuncTypeName category)
-    {
-        return categoryToFuncNames.getMulti(category);
     }
 }
 

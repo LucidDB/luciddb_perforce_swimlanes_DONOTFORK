@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a relational database kernel.
-// Copyright (C) 2004-2004 Disruptive Tech
-// Copyright (C) 1999-2004 John V. Sichi.
+// Copyright (C) 2004-2005 Disruptive Tech
+// Copyright (C) 1999-2005 John V. Sichi.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -48,8 +48,11 @@ void CorrelationJoinExecStream::prepare(
     pOutAccessor->setTupleShape(outputDesc);
 
     nLeftAttributes = leftDesc.size();
-    leftAttributeOrdinal = params.leftAttributeOrdinal;
-    dynamicParamId = params.dynamicParamId;
+    correlations.assign(params.correlations.begin(), 
+                        params.correlations.end());
+    //correlations.resize(correlations.size()); 
+    //assert(correlations.size() > 0);
+    assert(correlations.size() <= nLeftAttributes);
     
     ConfluenceExecStream::prepare(params);
 }
@@ -57,14 +60,20 @@ void CorrelationJoinExecStream::prepare(
 void CorrelationJoinExecStream::open(bool restart) 
 {
     ConfluenceExecStream::open(restart);
-    pGraph->getDynamicParamManager().createParam(
-                dynamicParamId,
-                pLeftBufAccessor->getTupleDesc()[leftAttributeOrdinal]);
+    std::vector<Correlation>::iterator it = correlations.begin();
+    for (/* empty */ ; it != correlations.end(); ++it) {
+        pGraph->getDynamicParamManager().createParam(
+                it->dynamicParamId,
+                pLeftBufAccessor->getTupleDesc()[it->leftAttributeOrdinal]);
+    }
 }
 
 void CorrelationJoinExecStream::close()
 {
-    pGraph->getDynamicParamManager().removeParam(dynamicParamId);
+    std::vector<Correlation>::iterator it = correlations.begin();
+    for (/* empty */ ; it != correlations.end(); ++it) {
+        pGraph->getDynamicParamManager().removeParam(it->dynamicParamId);
+    }
     ConfluenceExecStream::closeImpl();
 }
 
@@ -84,8 +93,12 @@ ExecStreamResult CorrelationJoinExecStream::execute(
                 return EXECRC_BUF_UNDERFLOW;
             }
             pLeftBufAccessor->unmarshalTuple(outputData);
-            // updating the dynamic param with the new left value
-            pGraph->getDynamicParamManager().setParam(dynamicParamId, outputData[leftAttributeOrdinal]);
+            // updating the dynamic param(s) with the new left value(s)
+            std::vector<Correlation>::iterator it = correlations.begin();
+            for (/* empty */ ; it != correlations.end(); ++it) {
+                pGraph->getDynamicParamManager().setParam(
+                    it->dynamicParamId, outputData[it->leftAttributeOrdinal]);
+            }
 
             // restart right input stream
             pGraph->getStreamInput(getStreamId(),1)->open(true);

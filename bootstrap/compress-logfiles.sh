@@ -27,6 +27,13 @@ fi
 
 debug=false
 
+# Find all files more than 30 days old and delete them
+find $LOGDIR -maxdepth 2 -daystart -mtime +30 \
+ -not -name currentbuildstatus.txt \
+ -not -name latest.xml \
+ -type f \
+ -exec rm {} ";" 
+
 # Find all files more than 13 days old and compress them.
 find $LOGDIR -maxdepth 2 -daystart -mtime +13 \
  -not -name "*.bz2" \
@@ -48,8 +55,12 @@ for i in $(find $LOGDIR/* -type d -maxdepth 0); do
    fi
 
    rm -f $i/latest.xml
-   mostRecentXml="$(ls -t $i/*.xml | tail -1)"
-   ln -s $mostRecentXml $i/latest.xml
+   # redirect stderr if file doesn't exist.
+   mostRecentXml="$(ls $i/*.xml 2>/dev/null | tail -1)" 
+   if [ "$mostRecentXml" != "" ]; then
+       ln -s $mostRecentXml $i/latest.xml
+   fi
+
 done
 
 for i in $(find $ARTDIR/* -type d -maxdepth 0); do

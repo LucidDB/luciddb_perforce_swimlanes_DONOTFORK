@@ -44,6 +44,7 @@ import net.sf.farrago.type.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.parser.*;
 import org.eigenbase.util.*;
 import org.netbeans.api.mdr.events.*;
 
@@ -105,8 +106,17 @@ public class DdlValidator extends FarragoCompoundAllocation
      */
     private MultiMap dropRules;
 
-    /** Map from parsed object to ParserContext. */
+    /** Map from catalog object to SqlParserPos for beginning of definition. */
     private final Map parserContextMap;
+
+    /** Map from catalog object to SqlParserPos for offset of body. */
+    private final Map parserOffsetMap;
+
+    /**
+     * Map from catalog object to associated SQL definition
+     * (not all objects have these).
+     */
+    private final Map sqlMap;
 
     /**
      * Map containing scheduled validation actions.  The key is the MofId of
@@ -163,12 +173,15 @@ public class DdlValidator extends FarragoCompoundAllocation
         this.stmtValidator = stmtValidator;
         stmtValidator.addAllocation(this);
 
-        // NOTE jvs 25-Jan-2004:  Use LinkedHashXXX everywhere, since order
-        // matters in some cases.
+        // NOTE jvs 25-Jan-2004:  Use LinkedHashXXX, since order
+        // matters for these.
         schedulingMap = new LinkedHashMap();
         validatedMap = new LinkedHashMap();
-        parserContextMap = new LinkedHashMap();
         deleteQueue = new LinkedHashSet();
+
+        parserContextMap = new HashMap();
+        parserOffsetMap = new HashMap();
+        sqlMap = new HashMap();
 
         dropRules = new MultiMap();
 
@@ -222,7 +235,15 @@ public class DdlValidator extends FarragoCompoundAllocation
     public List defineHandlers()
     {
         List list = new ArrayList();
-        list.add(new DdlHandler(this));
+
+        // NOTE jvs 21-Jan-2005:  list order matters here.
+        // DdlRelationalHandler includes some catch-all methods for
+        // superinterfaces which we only want to invoke when one of
+        // the more specific handlers doesn't satisfied the request.
+        DdlMedHandler medHandler = new DdlMedHandler(this);
+        list.add(medHandler);
+        list.add(new DdlRoutineHandler(this));
+        list.add(new DdlRelationalHandler(medHandler));
         return list;
     }
     
@@ -332,14 +353,47 @@ public class DdlValidator extends FarragoCompoundAllocation
     // implement FarragoSessionDdlValidator
     public String getParserPosString(RefObject obj)
     {
-        FarragoSessionParserPosition parserContext =
-            (FarragoSessionParserPosition) parserContextMap.get(obj);
+        SqlParserPos parserContext = getParserPos(obj);
         if (parserContext == null) {
             return null;
         }
         return parserContext.toString();
     }
 
+    private SqlParserPos getParserPos(RefObject obj)
+    {
+        return (SqlParserPos) parserContextMap.get(obj);
+    }
+
+    // implement FarragoSessionDdlValidator
+    public void setParserOffset(RefObject obj, SqlParserPos pos)
+    {
+        parserOffsetMap.put(obj, pos);
+    }
+    
+    // implement FarragoSessionDdlValidator
+    public SqlParserPos getParserOffset(RefObject obj)
+    {
+        return (SqlParserPos) parserOffsetMap.get(obj);
+    }
+    
+    // implement FarragoSessionDdlValidator
+    public void setSqlDefinition(RefObject obj, SqlNode sqlNode)
+    {
+        sqlMap.put(obj, sqlNode);
+    }
+    
+    // implement FarragoSessionDdlValidator
+    public SqlNode getSqlDefinition(RefObject obj)
+    {
+        SqlNode sqlNode = (SqlNode) sqlMap.get(obj);
+        SqlParserPos parserContext = getParserPos(obj);
+        if (parserContext != null) {
+            stmtValidator.setParserPosition(parserContext);
+        }
+        return sqlNode;
+    }
+    
     // implement FarragoSessionDdlValidator
     public void setSchemaObjectName(
         CwmModelElement schemaElement,
@@ -651,16 +705,12 @@ public class DdlValidator extends FarragoCompoundAllocation
         Iterator iter = collection.iterator();
         while (iter.hasNext()) {
             CwmModelElement element = (CwmModelElement) iter.next();
-            String name = element.getName();
-            if (name == null) {
+            Object nameKey = getNameKey(element, includeType);
+            if (nameKey == null) {
                 continue;
             }
 
-            // TODO:  implement includeType, since SQL standard says object
-            // names within a schema are distinguished by type.  However, it's
-            // tricky, since some types (e.g. table and view) should be treated
-            // as the same.  So, need a set of special-case base classes.
-            CwmModelElement other = (CwmModelElement) nameMap.get(name);
+            CwmModelElement other = (CwmModelElement) nameMap.get(nameKey);
             if (other != null) {
                 if (isNewObject(other) && isNewObject(element)) {
                     // clash between two new objects being defined
@@ -700,8 +750,32 @@ public class DdlValidator extends FarragoCompoundAllocation
                             getRepos().getLocalizedObjectName(container)));
                 }
             }
-            nameMap.put(name, element);
+            nameMap.put(nameKey, element);
         }
+    }
+
+    private Object getNameKey(
+        CwmModelElement element,
+        boolean includeType)
+    {
+        String name = element.getName();
+        if (name == null) {
+            return null;
+        }
+        if (!includeType) {
+            return name;
+        }
+        Class typeClass;
+        // TODO jvs 25-Feb-2005:  provide a mechanism for generalizing these
+        // special case
+        if (element instanceof CwmNamedColumnSet) {
+            typeClass = CwmNamedColumnSet.class;
+        } else if (element instanceof CwmCatalog) {
+            typeClass = CwmCatalog.class;
+        } else {
+            typeClass = element.getClass();
+        }
+        return typeClass.toString() + ":" + name;
     }
 
     // implement FarragoSessionDdlValidator
@@ -736,35 +810,6 @@ public class DdlValidator extends FarragoCompoundAllocation
     }
 
     // implement FarragoSessionDdlValidator
-    public void setViewText(
-        CwmView view,
-        SqlNode query)
-    {
-        FarragoSession session = getInvokingSession();
-        String unparseSql = query.toSqlString(
-            new SqlDialect(session.getDatabaseMetaData()));
-        CwmQueryExpression queryExpr = getRepos().newCwmQueryExpression();
-        queryExpr.setLanguage("SQL");
-        queryExpr.setBody(unparseSql);
-        view.setQueryExpression(queryExpr);
-    }
-
-    // implement FarragoSessionDdlValidator
-    public void setProcedureText(
-        CwmProcedure routine,
-        SqlNode body)
-    {
-        FarragoSession session = getInvokingSession();
-        String unparseSql = body.toSqlString(
-            new SqlDialect(session.getDatabaseMetaData()));
-        CwmProcedureExpression procedureExpr =
-            getRepos().newCwmProcedureExpression();
-        procedureExpr.setLanguage("SQL");
-        procedureExpr.setBody(unparseSql);
-        routine.setBody(procedureExpr);
-    }
-    
-    // implement FarragoSessionDdlValidator
     public void setCreatedSchemaContext(FemLocalSchema schema)
     {
         FarragoSessionVariables sessionVariables =
@@ -797,9 +842,14 @@ public class DdlValidator extends FarragoCompoundAllocation
         RefObject refObj,
         SqlValidatorException ex)
     {
-        String msg = getParserPosString(refObj);
-        assert(msg != null);
-        return res.newValidatorPositionContext(msg, ex);
+        SqlParserPos parserContext = getParserPos(refObj);
+        assert(parserContext != null);
+        String msg = parserContext.toString();
+        FarragoException contextExcn = res.newValidatorPositionContext(msg, ex);
+        contextExcn.setPosition(
+            parserContext.getLineNum(), 
+            parserContext.getColumnNum());
+        return contextExcn;
     }
     
     /**
@@ -877,7 +927,7 @@ public class DdlValidator extends FarragoCompoundAllocation
 
     private void mapParserPosition(Object obj)
     {
-        FarragoSessionParserPosition context =
+        SqlParserPos context =
             getParser().getCurrentPosition();
         if (context == null) {
             return;
@@ -945,21 +995,15 @@ public class DdlValidator extends FarragoCompoundAllocation
         CwmModelElement modelElement,
         Object action)
     {
-        if (action == VALIDATE_MODIFICATION) {
-            boolean fired = invokeHandler(
-                modelElement,
-                "validateModification");
-            if (fired) {
-                return true;
-            } else {
-                action = VALIDATE_CREATION;
-            }
-        }
-        
+        stmtValidator.setParserPosition(null);
         if (action == VALIDATE_CREATION) {
             return invokeHandler(
                 modelElement,
                 "validateDefinition");
+        } else if (action == VALIDATE_MODIFICATION) {
+            return invokeHandler(
+                modelElement,
+                "validateModification");
         } else if (action == VALIDATE_DELETION) {
             return invokeHandler(
                 modelElement,
