@@ -19,9 +19,12 @@
 package net.sf.farrago.ddl;
 
 import net.sf.farrago.cwm.core.*;
-import net.sf.farrago.cwm.relational.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.session.*;
 
+import java.util.*;
+
+import org.eigenbase.sql.*;
 
 /**
  * DdlCreateStmt represents a DDL CREATE statement of any kind.
@@ -49,19 +52,6 @@ public class DdlCreateStmt extends DdlStmt
     public void visit(DdlVisitor visitor)
     {
         visitor.visit(this);
-    }
-
-    // implement DdlStmt
-    public void preValidate(FarragoSessionDdlValidator ddlValidator)
-    {
-        if (getModelElement() instanceof CwmSchema) {
-            // for CREATE SCHEMA, override the default qualifier
-            // with the new schema
-            ddlValidator.getSessionVariables().schemaCatalogName =
-                getModelElement().getNamespace().getName();
-            ddlValidator.getSessionVariables().schemaName =
-                getModelElement().getName();
-        }
     }
 }
 

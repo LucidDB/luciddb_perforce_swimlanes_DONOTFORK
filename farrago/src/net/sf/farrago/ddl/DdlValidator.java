@@ -32,6 +32,7 @@ import net.sf.farrago.cwm.keysindexes.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.fem.med.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fennel.*;
 import net.sf.farrago.namespace.*;
 import net.sf.farrago.namespace.util.*;
@@ -264,7 +265,8 @@ public class DdlValidator extends FarragoCompoundAllocation
     // implement FarragoSessionDdlValidator
     public FarragoSession newReentrantSession()
     {
-        return getInvokingSession().cloneSession();
+        return getInvokingSession().cloneSession(
+            stmtValidator.getSessionVariables());
     }
 
     // implement FarragoSessionDdlValidator
@@ -283,12 +285,6 @@ public class DdlValidator extends FarragoCompoundAllocation
     public FarragoSessionParser getParser()
     {
         return stmtValidator.getParser();
-    }
-
-    // implement FarragoSessionDdlValidator
-    public FarragoSessionVariables getSessionVariables()
-    {
-        return stmtValidator.getSessionVariables();
     }
 
     // implement FarragoSessionDdlValidator
@@ -346,7 +342,6 @@ public class DdlValidator extends FarragoCompoundAllocation
 
     // implement FarragoSessionDdlValidator
     public void setSchemaObjectName(
-        CwmSchema schema,
         CwmModelElement schemaElement,
         SqlIdentifier qualifiedName)
     {
@@ -360,17 +355,13 @@ public class DdlValidator extends FarragoCompoundAllocation
             schemaName = qualifiedName.names[0];
         } else {
             schemaElement.setName(qualifiedName.names[0]);
-            if (schema == null) {
-                if (getSessionVariables().schemaName == null) {
-                    throw res.newValidatorNoDefaultSchema();
-                }
-                schemaName = getSessionVariables().schemaName;
+            if (stmtValidator.getSessionVariables().schemaName == null) {
+                throw res.newValidatorNoDefaultSchema();
             }
+            schemaName = stmtValidator.getSessionVariables().schemaName;
         }
-        if (schema == null) {
-            schema =
-                stmtValidator.findSchema(new SqlIdentifier(schemaName, null));
-        }
+        CwmSchema schema =
+            stmtValidator.findSchema(new SqlIdentifier(schemaName, null));
         schema.getOwnedElement().add(schemaElement);
     }
 
@@ -746,6 +737,7 @@ public class DdlValidator extends FarragoCompoundAllocation
         stmtValidator.getSharedDataWrapperCache().discard(wrapper.refMofId());
     }
 
+    // implement FarragoSessionDdlValidator
     public void setViewText(
         CwmView view,
         SqlNode query)
@@ -753,12 +745,55 @@ public class DdlValidator extends FarragoCompoundAllocation
         FarragoSession session = getInvokingSession();
         String unparseSql = query.toSqlString(
             new SqlDialect(session.getDatabaseMetaData()));
-        CwmQueryExpression queryExp = getRepos().newCwmQueryExpression();
-        queryExp.setLanguage("SQL");
-        queryExp.setBody(unparseSql);
-        view.setQueryExpression(queryExp);
+        CwmQueryExpression queryExpr = getRepos().newCwmQueryExpression();
+        queryExpr.setLanguage("SQL");
+        queryExpr.setBody(unparseSql);
+        view.setQueryExpression(queryExpr);
     }
 
+    // implement FarragoSessionDdlValidator
+    public void setProcedureText(
+        CwmProcedure routine,
+        SqlNode body)
+    {
+        FarragoSession session = getInvokingSession();
+        String unparseSql = body.toSqlString(
+            new SqlDialect(session.getDatabaseMetaData()));
+        CwmProcedureExpression procedureExpr =
+            getRepos().newCwmProcedureExpression();
+        procedureExpr.setLanguage("SQL");
+        procedureExpr.setBody(unparseSql);
+        routine.setBody(procedureExpr);
+    }
+    
+    // implement FarragoSessionDdlValidator
+    public void setCreatedSchemaContext(FemLocalSchema schema)
+    {
+        FarragoSessionVariables sessionVariables =
+            getStmtValidator().getSessionVariables();
+            
+        sessionVariables.catalogName =
+            schema.getNamespace().getName();
+        sessionVariables.schemaName =
+            schema.getName();
+
+        // convert from List<FemSqlpathElement> to List<SqlIdentifier>
+        List list = new ArrayList();
+        Iterator iter = schema.getPathElement().iterator();
+        while (iter.hasNext()) {
+            FemSqlpathElement element = (FemSqlpathElement) iter.next();
+            SqlIdentifier id = new SqlIdentifier(
+                new String [] {
+                    element.getSearchedSchemaCatalogName(), 
+                    element.getSearchedSchemaName()
+                },
+                null);
+            list.add(id);
+        }
+        sessionVariables.schemaSearchPath =
+            Collections.unmodifiableList(list);
+    }
+    
     /**
      * Add a new DropRule.
      *

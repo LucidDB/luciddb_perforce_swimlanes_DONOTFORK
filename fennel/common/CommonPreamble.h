@@ -216,9 +216,15 @@ extern std::logic_error constructAssertion(
 #define permAssert(cond) \
 do { \
     if (!(cond)) { \
-        throw constructAssertion(__FILE__,__LINE__,#cond); \
+        throw fennel::constructAssertion(__FILE__,__LINE__,#cond); \
     } \
 } while (0)
+
+// Network to Host conversion for 64 bit quantities
+#define ntohll(x) ( ( (uint64_t) ntohl ((uint32_t)( x )) << 32 ) |  \
+                    ntohl ((uint32_t)(x >> 32))) 
+
+#define htonll(x) ntohll(x)
 
 
 FENNEL_END_NAMESPACE

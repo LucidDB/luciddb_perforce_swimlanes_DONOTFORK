@@ -48,7 +48,8 @@ import java.util.regex.Pattern;
  */
 public class FarragoSqlOperatorsTest extends FarragoTestCase
 {
-    private static final SqlStdOperatorTable opTab = SqlOperatorTable.std();
+    private static final SqlStdOperatorTable opTab =
+        SqlStdOperatorTable.instance();
     private static final boolean bug260fixed = false;
 
     //~ Instance fields -------------------------------------------------------
@@ -100,11 +101,7 @@ public class FarragoSqlOperatorsTest extends FarragoTestCase
                 continue;
             }
             if (!bug260fixed) {
-                if (op == opTab.orOperator ||
-                    op == opTab.andOperator ||
-                    op == opTab.isFalseOperator ||
-                    op == opTab.literalChainOperator ||
-                    op == opTab.multiplyOperator ||
+                if (
                     op == opTab.localTimeFunc ||
                     op == opTab.localTimestampFunc) {
                     continue;

@@ -281,6 +281,13 @@ public class FarragoRexToOJTranslatorTest extends FarragoTestCase
         testTranslation("empno / age");
     }
 
+    public void testPrimitivePrefixMinus()
+        throws Exception
+    {
+        // NOTE:  choose nullable
+        testTranslation("-age");
+    }
+
     public void testVarcharEquals()
         throws Exception
     {
@@ -295,6 +302,27 @@ public class FarragoRexToOJTranslatorTest extends FarragoTestCase
         testTranslation("name < city");
     }
 
+    public void testBooleanNot()
+        throws Exception
+    {
+        // NOTE: choose nullable
+        testTranslation("not slacker");
+    }
+
+    public void testBooleanOr()
+        throws Exception
+    {
+        // NOTE:  choose one nullable and one not null
+        testTranslation("slacker or manager");
+    }
+
+    public void testBooleanOrNullable()
+        throws Exception
+    {
+        // NOTE:  choose both nullable
+        testTranslation("(empno < age) or (name = city)");
+    }
+
     public void testBooleanAnd()
         throws Exception
     {
@@ -305,7 +333,7 @@ public class FarragoRexToOJTranslatorTest extends FarragoTestCase
     public void testBooleanConjunction()
         throws Exception
     {
-        // NOTE:  choose one nullable and one not null
+        // NOTE:  choose both nullable
         testTranslation("(empno < age) and (name = city)");
     }
 
@@ -421,6 +449,12 @@ public class FarragoRexToOJTranslatorTest extends FarragoTestCase
         throws Exception
     {
         testTranslation("current_timestamp");
+    }
+
+    public void testCurrentPath()
+        throws Exception
+    {
+        testTranslation("current_path");
     }
 
     // FIXME

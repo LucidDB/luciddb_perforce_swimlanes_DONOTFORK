@@ -41,8 +41,10 @@ import net.sf.farrago.trace.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.oj.rex.*;
-import org.eigenbase.rel.RelNode;
+import org.eigenbase.rel.*;
+import org.eigenbase.reltype.*;
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.fun.*;
 import org.eigenbase.util.*;
 
 
@@ -75,12 +77,19 @@ public class FarragoDatabase extends FarragoCompoundAllocation
      */
     private static FarragoDatabase instance;
 
+    /**
+     * Flag indicating whether FarragoDatabase is already in
+     * {@link #shutdown()}, to help prevent recursive shutdown.
+     */
+    private static boolean inShutdown;
+
     //~ Instance fields -------------------------------------------------------
 
     private FarragoRepos systemRepos;
     private FarragoRepos userRepos;
     private FennelDbHandle fennelDbHandle;
     private OJRexImplementorTable ojRexImplementorTable;
+    protected FarragoSessionFactory sessionFactory;
 
     /**
      * Cache of all sorts of stuff.
@@ -122,6 +131,8 @@ public class FarragoDatabase extends FarragoCompoundAllocation
 
             dumpTraceConfig();
 
+            this.sessionFactory = sessionFactory;
+
             systemRepos = sessionFactory.newRepos(this, false);
             userRepos = systemRepos;
             if (init) {
@@ -156,8 +167,8 @@ public class FarragoDatabase extends FarragoCompoundAllocation
             // TODO:  parameter for cache size limit
             dataWrapperCache = new FarragoObjectCache(this, Long.MAX_VALUE);
 
-            ojRexImplementorTable =
-                new FarragoOJRexImplementorTable(SqlOperatorTable.std());
+            ojRexImplementorTable = new FarragoOJRexImplementorTable(
+                SqlStdOperatorTable.instance());
 
             // REVIEW:  sequencing from this point on
             if (currentConfig.isUserCatalogEnabled()) {
@@ -286,13 +297,30 @@ public class FarragoDatabase extends FarragoCompoundAllocation
      */
     public static synchronized void shutdown()
     {
+        // REVIEW: SWZ 12/31/2004: If an extension project adds "specialized
+        // initialization" that ends up pinning a reference to FarragoDatabase
+        // (e.g. it opens a Connection so that it can execute SQL statements),
+        // then the extension's specialized shutdown should close the
+        // connection. When it does, FarragoSessionFactory.cleanupSessions()
+        // will be invoked and calls shutdownConditional() -- resulting in a
+        // recursive call to shutdown. The inShutdown field blocks this, but
+        // there's probably a better way -- maybe a new implementation of
+        // Connection that represents an internal connection and avoids the
+        // extra reference count and cleanupSessions() call.
+        if (inShutdown) {
+            return;
+        }
+        inShutdown = true;
+
         tracer.info("shutdown");
         assert (instance != null);
         try {
+            instance.sessionFactory.specializedShutdown();
             instance.close(false);
         } finally {
             instance = null;
             nReferences = 0;
+            inShutdown = false;
         }
     }
 
@@ -474,7 +502,7 @@ public class FarragoDatabase extends FarragoCompoundAllocation
     }
 
     /**
-     * Prepare a query or DML statement; use a cached implementation if
+     * Prepare an SQL expression; use a cached implementation if
      * available, otherwise cache the one generated here.
      *
      * @param stmtValidator generic stmt validator
@@ -484,19 +512,19 @@ public class FarragoDatabase extends FarragoCompoundAllocation
      * @param owner the FarragoAllocationOwner which will be responsible for
      * the returned stmt
      *
-     * @param viewInfo receives information about a prepared view definition
+     * @param analyzedSql receives information about a prepared expression
      *
-     * @return statement implementation, or null when viewInfo is non-null
+     * @return statement implementation, or null when analyzedSql is non-null
      */
     public FarragoSessionExecutableStmt prepareStmt(
         FarragoSessionStmtValidator stmtValidator,
         SqlNode sqlNode,
         FarragoAllocationOwner owner,
-        FarragoSessionViewInfo viewInfo)
+        FarragoSessionAnalyzedSql analyzedSql)
     {
         final FarragoPreparingStmt stmt =
             new FarragoPreparingStmt(stmtValidator);
-        return prepareStmtImpl(stmt, sqlNode, owner, viewInfo);
+        return prepareStmtImpl(stmt, sqlNode, owner, analyzedSql);
     }
 
     /**
@@ -532,7 +560,7 @@ public class FarragoDatabase extends FarragoCompoundAllocation
         final FarragoPreparingStmt stmt,
         SqlNode sqlNode,
         FarragoAllocationOwner owner,
-        FarragoSessionViewInfo viewInfo)
+        FarragoSessionAnalyzedSql analyzedSql)
     {
         // It would be silly to cache EXPLAIN PLAN results, so deal with them
         // directly.
@@ -545,28 +573,43 @@ public class FarragoDatabase extends FarragoCompoundAllocation
 
         // Use unparsed validated SQL as cache key.  This eliminates trivial
         // differences such as whitespace and implicit qualifiers.
-        final SqlNode validatedSqlNode = stmt.validate(sqlNode);
+        SqlValidator sqlValidator = stmt.getSqlValidator();
+        final SqlNode validatedSqlNode;
+        if ((analyzedSql != null) && (analyzedSql.paramRowType != null)) {
+            Map nameToTypeMap = new HashMap();
+            Iterator iter = analyzedSql.paramRowType.getFieldList().iterator();
+            while (iter.hasNext()) {
+                RelDataTypeField field = (RelDataTypeField) iter.next();
+                nameToTypeMap.put(field.getName(), field.getType());
+            }
+            validatedSqlNode = sqlValidator.validateParameterizedExpression(
+                sqlNode, nameToTypeMap);
+        } else {
+            validatedSqlNode = sqlValidator.validate(sqlNode);
+        }
 
         SqlDialect sqlDialect =
             new SqlDialect(stmt.getSession().getDatabaseMetaData());
         final String sql = validatedSqlNode.toSqlString(sqlDialect);
 
-        if (viewInfo != null) {
-            SqlSelect select = (SqlSelect) validatedSqlNode;
-            if (select.getOrderList() != null) {
-                throw FarragoResource.instance()
-                    .newValidatorInvalidViewOrderBy();
+        if (analyzedSql != null) {
+            if (validatedSqlNode instanceof SqlSelect) {
+                // assume we're validating a view
+                SqlSelect select = (SqlSelect) validatedSqlNode;
+                if (select.getOrderList() != null) {
+                    analyzedSql.hasTopLevelOrderBy = true;
+                }
             }
 
             // Need to force preparation so we can dig out required info, so
             // don't use cache.  Also, don't need to go all the way with
-            // stmt implementation either; can stop after translation, which
-            // provides needed metadata.  (In fact, we can't go much further,
-            // because if this view is being created as part of a CREATE SCHEMA
+            // stmt implementation either; can stop after validation, which
+            // provides needed metadata.  (In fact, we CAN'T go much further,
+            // because if a view is being created as part of a CREATE SCHEMA
             // statement, some of the tables it depends on may not have
             // storage defined yet.)
-            viewInfo.validatedSql = sql;
-            stmt.prepareViewInfo(validatedSqlNode, viewInfo);
+            analyzedSql.canonicalString = sql;
+            stmt.analyzeSql(validatedSqlNode, analyzedSql);
             return null;
         }
 

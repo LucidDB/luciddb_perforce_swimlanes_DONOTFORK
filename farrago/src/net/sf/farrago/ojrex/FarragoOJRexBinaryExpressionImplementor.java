@@ -29,11 +29,10 @@ import org.eigenbase.sql.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.type.*;
 
-
 /**
  * FarragoOJRexBinaryExpressionImplementor implements Farrago specifics of
- * {@link OJRexImplementor} for row expressions which can be translated to
- * instances of OpenJava {@link BinaryExpression}.
+ * {@link org.eigenbase.oj.rex.OJRexImplementor} for row expressions which can
+ * be translated to instances of OpenJava {@link BinaryExpression}.
  *
  * @author John V. Sichi
  * @version $Id$
@@ -68,7 +67,8 @@ public class FarragoOJRexBinaryExpressionImplementor
 
         for (int i = 0; i < 2; ++i) {
             valueOperands[i] =
-                translator.convertPrimitiveAccess(operands[i], call.operands[i]);
+                translator.convertPrimitiveAccess(
+                    operands[i], call.operands[i]);
         }
 
         if (!call.getType().isNullable()) {
@@ -76,6 +76,21 @@ public class FarragoOJRexBinaryExpressionImplementor
         }
 
         Variable varResult = translator.createScratchVariable(call.getType());
+
+        // special cases for three-valued logic
+        if (ojBinaryExpressionOrdinal == BinaryExpression.LOGICAL_AND) {
+            return implement3VL(
+                translator, call,
+                operands, valueOperands,
+                varResult, 
+                "assignFromAnd3VL");
+        } else if (ojBinaryExpressionOrdinal == BinaryExpression.LOGICAL_OR) {
+            return implement3VL(
+                translator, call,
+                operands, valueOperands,
+                varResult, 
+                "assignFromOr3VL");
+        }
 
         Expression nullTest = null;
         for (int i = 0; i < 2; ++i) {
@@ -102,6 +117,47 @@ public class FarragoOJRexBinaryExpressionImplementor
                     assignmentStmt));
 
         translator.addStatement(ifStatement);
+
+        return varResult;
+    }
+
+    private Expression implement3VL(
+        FarragoRexToOJTranslator translator,
+        RexCall call,
+        Expression [] operands,
+        Expression [] valueOperands,
+        Expression varResult,
+        String methodName)
+    {
+        ExpressionList expressionList = new ExpressionList();
+
+        Expression n0 = translator.createNullTest(
+            call.operands[0],
+            operands[0],
+            null);
+        if (n0 == null) {
+            n0 = Literal.makeLiteral(false);
+        }
+        
+        Expression n1 = translator.createNullTest(
+            call.operands[1],
+            operands[1],
+            null);
+        if (n1 == null) {
+            n1 = Literal.makeLiteral(false);
+        }
+        
+        expressionList.add(n0);
+        expressionList.add(valueOperands[0]);
+        expressionList.add(n1);
+        expressionList.add(valueOperands[1]);
+        
+        translator.addStatement(
+            new ExpressionStatement(
+                new MethodCall(
+                    varResult,
+                    methodName,
+                    expressionList)));
 
         return varResult;
     }

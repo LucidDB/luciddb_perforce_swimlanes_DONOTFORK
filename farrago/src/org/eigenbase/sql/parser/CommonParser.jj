@@ -1,6 +1,6 @@
 /*
 // $Id$
-// Saffron preprocessor and data engine
+// Farrago preprocessor and data engine
 // (C) Copyright 2002-2004 Disruptive Tech
 // (C) Copyright 2002-2004 John V. Sichi
 // You must accept the terms in LICENSE.html to use this software.
@@ -179,7 +179,6 @@ SqlNode OrderedQueryOrExpr(ExprContext exprContext) :
 }
 {
     (
-
         e = QueryOrExpr(exprContext)
     )
     (
@@ -2219,7 +2218,7 @@ SqlNode FunctionCall() :
         )
 
         {
-            function = opTab.createCall(name, ParserUtil.toNodeArray(args), pos);
+            function = createCall(name, ParserUtil.toNodeArray(args), pos);
             if (over) {
                 if (id != null) {
                     return opTab.overOperator.createCall(
@@ -2430,6 +2429,7 @@ TOKEN :
 | < EXISTS: "exists" >
 | < EXPLAIN: "explain" >
 | < FALSE: "false" >
+| < FIRST: "first" >
 | < FOLLOWING: "following" >
 | < FOR: "for" >
 | < FROM: "from" >
@@ -2449,12 +2449,14 @@ TOKEN :
 | < JOIN: "join" >
 | < LEADING: "leading" >
 | < LEFT: "left" >
+| < LAST: "last" >
 | < LIKE: "like" >
 | < MEMBER: "member" >
 | < MINUTE: "minute" >
 | < MONTH: "month" >
 | < MULTISET: "multiset" >
 | < NATURAL: "natural" >
+| < NULLS: "nulls" >
 | < OF: "of" >
 | < OR: "or" >
 | < ORDER: "order" >

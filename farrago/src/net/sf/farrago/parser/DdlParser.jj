@@ -48,8 +48,10 @@ import net.sf.farrago.cwm.datatypes.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.cwm.keysindexes.*;
+import net.sf.farrago.cwm.behavioral.*;
 
 import net.sf.farrago.fem.med.*;
+import net.sf.farrago.fem.sql2003.*;
 
 
 /**
@@ -83,17 +85,19 @@ PARSER_END(FarragoParserImpl)
 /*****************************************
  * Syntactical Descriptions              *
  *****************************************/
-CwmModelElement SchemaObjectDefinition(CwmSchema schema) :
+CwmModelElement SchemaObjectDefinition() :
 {
     CwmModelElement modelElement;
 }
 {
     (
-        modelElement = TableDefinition(schema)
+        modelElement = TableDefinition()
 		|
-		modelElement = ViewDefinition(schema)
+		modelElement = ViewDefinition()
 		|
-		modelElement = ForeignTableDefinition(schema)
+		modelElement = ForeignTableDefinition()
+                |
+                modelElement = FunctionDefinition()
     )
         {
             return modelElement;

@@ -19,12 +19,11 @@
 package net.sf.farrago.fennel;
 
 import java.util.Arrays;
-import org.eigenbase.util.Util;
 
 /**
- * FennelPseudoUuid provides access to the Fennel PseudoUuid class.  Fennel's
- * PseudoUuid represents universal unique identifiers (UUIDs) in a way that
- * abstracts away OS and hardware dependencies.
+ * FennelPseudoUuid represents universal unique identifiers (UUIDs).  UUIDs
+ * are generated via Fennel (via {@link FennelPseudoUuidGenerator}) in a way
+ * that abstracts away OS and hardware dependencies.
  *
  * <p>Depends on Fennel's libfarrago.
  *
@@ -34,11 +33,7 @@ import org.eigenbase.util.Util;
 public class FennelPseudoUuid
 {
     //~ Static fields/initializers --------------------------------------------
-    private static final int UUID_LENGTH = 16;
-
-    static {
-        Util.loadLibrary("farrago");
-    }
+    public static final int UUID_LENGTH = 16;
 
     //~ Instance fields -------------------------------------------------------
     private final byte[] uuid;
@@ -46,42 +41,62 @@ public class FennelPseudoUuid
     //~ Constructors ----------------------------------------------------------
 
     /**
-     * Private constructor.  Creates an empty FennelPseudoUuid.  Use
-     * {@link #generate()} or {@link #generateInvalid()} to create a UUID.
+     * Creates a FennelPseudoUuid with the given bytes.  Use
+     * {@link FennelPseudoUuidGenerator#validUuid()} or
+     * {@link FennelPseudoUuidGenerator#invalidUuid()} to create a UUID.
      */
-    private FennelPseudoUuid(byte[] bytes)
+    public FennelPseudoUuid(byte[] bytes)
     {
-        uuid = bytes;
+        this.uuid = (byte[])bytes.clone();
+        validate();
+    }
+
+    public FennelPseudoUuid(String uuidStr)
+    {
+        this.uuid = parse(uuidStr);
         validate();
     }
 
     //~ Methods ---------------------------------------------------------------
 
     /**
-     * @return a valid UUID object
+     * @return a copy of the byte array that backs this FennelPseudoUuid.
      */
-    public static FennelPseudoUuid generate()
+    public byte[] getBytes()
     {
-        return new FennelPseudoUuid(nativeGenerate());
+        byte[] copy = new byte[UUID_LENGTH];
+        for(int i = 0; i < UUID_LENGTH; i++) {
+            copy[i] = uuid[i];
+        }
+        return copy;
     }
 
     /**
-     * @return an invalid UUID object (UUID's actual value is constant)
+     * Returns the byte value at a particular position within the UUID
+     * represented by this instance.
+     *
+     * @param index must be greater than or equal to 0 and less than
+     *        {@link #UUID_LENGTH}.
+     * @return the byte value at a particular possition
+     * @throws ArrayIndexOutOfBoundsException
+     *         if index is less than 0 or greater than or equal to
+     *         {@link #UUID_LENGTH}.
      */
-    public static FennelPseudoUuid generateInvalid()
+    public byte getByte(int index)
     {
-        return new FennelPseudoUuid(nativeGenerateInvalid());
+        return uuid[index];
     }
 
     /**
      * Parses the given string and returns the UUID it represents.  See
      * {@link #toString()} for details on the format of the UUID string.
      *
-     * @return a UUID object
+     * @return a byte-array representing the UUID's contents, suitable for
+     *         use by {@link #FennelPseudoUuid(byte[])}
      * @throws IllegalArgumentException if the String is not in the correct
      *                                  format.
      */
-    public static FennelPseudoUuid parse(String uuid)
+    private byte[] parse(String uuid)
     {
         if (uuid.length() != 36) {
             throw new IllegalArgumentException("invalid uuid format");
@@ -131,22 +146,9 @@ public class FennelPseudoUuid
             throw iae;
         }
 
-        return new FennelPseudoUuid(bytes);
+        return bytes;
     }
 
-    /**
-     * Convert a sequence of 16 bytes into a UUID object.
-     *
-     * @param bytes the bytes of a UUID
-     * @return a UUID object
-     */
-    public static FennelPseudoUuid parse(byte[] bytes)
-    {
-        assert(bytes.length == UUID_LENGTH);
-
-        // clone byte array so changes can't affect us
-        return new FennelPseudoUuid((byte[])bytes.clone());
-    }
 
     /**
      * @return UUID in xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx format
@@ -172,9 +174,10 @@ public class FennelPseudoUuid
 
     /**
      * Compares two UUID objects for equality by value.
+     *
      * @param obj another FennelPseudoUuid object
      * @return true if the UUIDs are the same, false otherwise
-     * @throws java.lang.ClassCastException if <code>obj</code> is not a FennelPseudoUuid
+     * @throws ClassCastException if <code>obj</code> is not a FennelPseudoUuid
      */
     public boolean equals(Object obj)
     {
@@ -185,25 +188,16 @@ public class FennelPseudoUuid
 
     public int hashCode()
     {
-        if (uuid == null) {
-            return 0;
-        }
-
-        // REVIEW: SWZ 12/1/2004: This wants a better algorithm.
-        int hash = 0;
-        int i;
-        for(i = 0; i < uuid.length; i += 4) {
-            hash = hash ^ ((uuid[i] << 24) | (uuid[i + 1] << 16) | (uuid[i + 2] << 8) | uuid[i + 3]);
-        }
-        if (i < uuid.length) {
-            int last = 0;
-            for( ; i < uuid.length; i++) {
-                last = last | uuid[i] << ((3 - i) * 8);
-            }
-            hash = hash ^ last;
-        }
-
-        return hash;
+        // REVIEW: SWZ 12/1/2004: This may want a better algorithm.  As long
+        // as Fennel's UUIDs are random numbers, this provides a nearly random
+        // distribution of hash code values -- if the UUIDs aren't random (for
+        // instance if they're based on time, MAC address, etc.), that may not
+        // be the case.
+        return
+            ((int)(uuid[0] ^ uuid[4] ^ uuid[8] ^ uuid[12]) & 0xFF) << 24 |
+            ((int)(uuid[1] ^ uuid[5] ^ uuid[9] ^ uuid[13]) & 0xFF) << 16 |
+            ((int)(uuid[2] ^ uuid[6] ^ uuid[10] ^ uuid[14]) & 0xFF) << 8 |
+            ((int)(uuid[3] ^ uuid[7] ^ uuid[11] ^ uuid[15]) & 0xFF);
     }
 
     private void validate()
@@ -211,8 +205,4 @@ public class FennelPseudoUuid
         assert(uuid != null);
         assert(uuid.length == UUID_LENGTH);
     }
-
-    private static native byte[] nativeGenerate();
-
-    private static native byte[] nativeGenerateInvalid();
 }

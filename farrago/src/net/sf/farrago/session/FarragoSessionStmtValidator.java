@@ -18,13 +18,16 @@
 */
 package net.sf.farrago.session;
 
+import java.util.*;
 import javax.jmi.reflect.*;
 
 import net.sf.farrago.catalog.*;
 import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.cwm.datatypes.*;
 import net.sf.farrago.cwm.relational.*;
+import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.fem.med.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fennel.*;
 import net.sf.farrago.namespace.util.*;
 import net.sf.farrago.type.*;
@@ -135,7 +138,7 @@ public interface FarragoSessionStmtValidator extends FarragoAllocationOwner
      *
      * @return schema found
      */
-    public CwmSchema findSchema(SqlIdentifier schemaName);
+    public FemLocalSchema findSchema(SqlIdentifier schemaName);
 
     /**
      * Looks up a data wrapper by name, throwing a validation error if not
@@ -171,8 +174,6 @@ public interface FarragoSessionStmtValidator extends FarragoAllocationOwner
      * Looks up a schema object by name, throwing a validation error if not
      * found.
      *
-     * @param schema containing schema or null if none
-     *
      * @param qualifiedName name of object to look up
      *
      * @param refClass expected class of object; if the object exists with a
@@ -181,9 +182,25 @@ public interface FarragoSessionStmtValidator extends FarragoAllocationOwner
      * @return schema object found
      */
     public CwmModelElement findSchemaObject(
-        CwmSchema schema,
         SqlIdentifier qualifiedName,
         RefClass refClass);
+
+    /**
+     * Looks up all matching routine overloads by invocation name.
+     *
+     * @param schema containing schema or null if none
+     *
+     * @param invocationName invocation name of routine to look up
+     *
+     * @param routineType type of routine to look up, or null
+     * for any type
+     *
+     * @return list of matching FemRoutine objects (empty if no matches)
+     */
+    public List findRoutineOverloads(
+        FemLocalSchema schema,
+        String invocationName,
+        ProcedureType routineType);
 
     /**
      * Looks up a SQL datatype by name, throwing an exception if not found.

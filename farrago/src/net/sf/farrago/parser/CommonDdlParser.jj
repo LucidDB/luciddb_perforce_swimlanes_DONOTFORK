@@ -1,3 +1,24 @@
+/*****************************************
+ * Convenience Functions                 *
+ *****************************************/
+
+ JAVACODE void SqlDataTypeSpecToCwmColumnType(SqlDataTypeSpec dataType,
+                                             CwmColumn column)
+{
+    CwmSqldataType type =
+        farragoParser.getStmtValidator().findSqldataType(
+            dataType.getTypeName().getSimple());
+    column.setType(type);
+    if (dataType.getPrecision() > 0) {
+        column.setPrecision(new Integer(dataType.getPrecision()));
+    }
+    if (dataType.getScale() > 0) {
+        column.setScale(new Integer(dataType.getScale()));
+    }
+    if (dataType.getCharSetName() != null) {
+        column.setCharacterSetName(dataType.getCharSetName());
+    }
+}
 
 /*****************************************
  * Syntactical Descriptions              *
@@ -49,6 +70,7 @@ DdlStmt DdlStmtEof() :
 {
     CwmModelElement modelElement;
     DdlStmt ddlStmt;
+    SqlNode expr;
 }
 {
     (
@@ -57,9 +79,9 @@ DdlStmt DdlStmtEof() :
             modelElement = SchemaDefinition()
             |
             LOOKAHEAD(2)
-            modelElement = SchemaObjectDefinition(null)
+            modelElement = SchemaObjectDefinition()
             |
-            modelElement = IndexDefinition(null,null)
+            modelElement = IndexDefinition(null)
             |
             modelElement = DataWrapperDefinition()
             |
@@ -87,6 +109,8 @@ DdlStmt DdlStmtEof() :
               |
               modelElement = ViewDrop()
               |
+              modelElement = RoutineDrop()
+              |
               LOOKAHEAD(2)
               modelElement = DataWrapperDrop()
               |
@@ -101,7 +125,7 @@ DdlStmt DdlStmtEof() :
         |
         ( <TRUNCATE>
           (
-              <TABLE> modelElement = TableIdentifier(null)
+              <TABLE> modelElement = TableIdentifier()
           )
         {
             ddlStmt = new DdlTruncateStmt(modelElement);
@@ -109,14 +133,20 @@ DdlStmt DdlStmtEof() :
         )
         |
         ( <SET>
-          (
-              (modelElement = CatalogReference())
-              |
-              (modelElement = SchemaReference())
-          )
-        {
-            ddlStmt = new DdlSetQualifierStmt(modelElement);
-        }
+            (
+                <CATALOG> expr = Expression(EXPR_ACCEPT_NONQUERY)
+            {
+                ddlStmt = new DdlSetCatalogStmt(expr);
+            }
+                | <SCHEMA> expr = Expression(EXPR_ACCEPT_NONQUERY)
+            {
+                ddlStmt = new DdlSetSchemaStmt(expr);
+            }
+                | <PATH> expr = Expression(EXPR_ACCEPT_NONQUERY)
+            {
+                ddlStmt = new DdlSetPathStmt(expr);
+            }
+            )
         )
         |
         ( <ALTER> 
@@ -148,15 +178,16 @@ DdlStmt DdlStmtEof() :
 // TODO:  support non-topological order of object definition, e.g. a
 // referencing table before a referenced table
 
-CwmSchema SchemaDefinition() :
+FemLocalSchema SchemaDefinition() :
 {
-    CwmSchema schema;
+    FemLocalSchema schema;
     SqlIdentifier schemaName,userName;
+    boolean pathDefined = false;
 }
 {
     <SCHEMA> schemaName = CompoundIdentifier2()
         {
-            schema = getRepos().newCwmSchema();
+            schema = getRepos().newFemLocalSchema();
             if (schemaName.names.length == 2) {
                 CwmCatalog catalog =
                     farragoParser.getStmtValidator().findCatalog(
@@ -173,9 +204,25 @@ CwmSchema SchemaDefinition() :
         {
             // TODO:  store userName
         }
+    [ SchemaPath(schema) { pathDefined = true; } ]
+        {
+            if (!pathDefined) {
+                // implicit default path is just this schema itself
+                FemSqlpathElement element = getRepos().newFemSqlpathElement();
+                element.setSearchedSchemaCatalogName(
+                    schema.getNamespace().getName());
+                element.setSearchedSchemaName(
+                    schema.getName());
+                schema.getPathElement().add(element);
+            }
+
+            // set up context which will prevail for any object
+            // definitions included in this schema definition
+            farragoParser.getDdlValidator().setCreatedSchemaContext(schema);
+        }
     (
         <CREATE>
-        SchemaObjectDefinition(schema)
+        SchemaObjectDefinition()
     )*
     {
         // TODO: character set, all that jazz
@@ -183,20 +230,68 @@ CwmSchema SchemaDefinition() :
     }
 }
 
+void SchemaPath(FemLocalSchema schema) :
+{
+    List searchPath;
+}
+{
+    searchPath = SearchPath()
+        {
+            Iterator iter = searchPath.iterator();
+            while (iter.hasNext()) {
+                CwmSchema searchedSchema = (CwmSchema) iter.next();
+                if (searchedSchema.getNamespace() != schema.getNamespace()) {
+                    throw FarragoResource.instance().newValidatorPathBadCatalog(
+                        searchedSchema.getNamespace().getName(),
+                        schema.getNamespace().getName());
+                }
+                FemSqlpathElement element = getRepos().newFemSqlpathElement();
+                element.setSearchedSchemaCatalogName(
+                    searchedSchema.getNamespace().getName());
+                element.setSearchedSchemaName(
+                    searchedSchema.getName());
+                schema.getPathElement().add(element);
+            }
+        }
+}
+
+List SearchPath() :
+{
+    List list = new ArrayList();
+}
+{
+    <PATH> SearchPathElement(list) (<COMMA> SearchPathElement(list))*
+        {
+            return list;
+        }
+}
+
+void SearchPathElement(List list) :
+{
+    SqlIdentifier id;
+}
+{
+    id = CompoundIdentifier2()
+        {
+            FemLocalSchema searchedSchema =
+                farragoParser.getStmtValidator().findSchema(id);
+            list.add(searchedSchema);
+        }
+}
 
 // TODO:  support non-topological order of table element definition, e.g. a
 // referencing constraint definition before a referenced column definition
 
-CwmTable TableDefinition(CwmSchema schema) :
+CwmTable TableDefinition() :
 {
     FemStoredTable table;
     FemDataServer server = null;
 }
 {
     (
-        table = UnscopedTableDefinition(schema)
+        table = UnscopedTableDefinition()
         |
-        table = ScopedTableDefinition(schema)
+        table = ScopedTableDefinition()
     )
         {
         }
@@ -206,7 +301,7 @@ CwmTable TableDefinition(CwmSchema schema) :
     OptionalStorageOptions(table)
         {
         }
-    (LOOKAHEAD(2) <CREATE> IndexDefinition(schema,table))*
+    (LOOKAHEAD(2) <CREATE> IndexDefinition(table))*
         {
         }
     {
@@ -219,7 +314,7 @@ CwmTable TableDefinition(CwmSchema schema) :
     }
 }
 
-FemLocalTable UnscopedTableDefinition(CwmSchema schema) :
+FemLocalTable UnscopedTableDefinition() :
 {
     FemLocalTable table;
     SqlIdentifier qualifiedTableName;
@@ -232,7 +327,7 @@ FemLocalTable UnscopedTableDefinition(CwmSchema schema) :
     qualifiedTableName = CompoundIdentifier2()
         {
             farragoParser.getDdlValidator().setSchemaObjectName(
-                schema,table,qualifiedTableName);
+                table,qualifiedTableName);
         }
     <LPAREN> TableElementList(table) <RPAREN>
         {
@@ -242,7 +337,7 @@ FemLocalTable UnscopedTableDefinition(CwmSchema schema) :
     }
 }
 
-FemLocalTable ScopedTableDefinition(CwmSchema schema) :
+FemLocalTable ScopedTableDefinition() :
 {
     FemLocalTable table;
     String scope;
@@ -250,7 +345,7 @@ FemLocalTable ScopedTableDefinition(CwmSchema schema) :
 }
 {
     <GLOBAL> <TEMPORARY>
-    table = UnscopedTableDefinition(schema)
+    table = UnscopedTableDefinition()
         {
             table.setTemporary(true);
             
@@ -281,7 +376,7 @@ FemLocalTable ScopedTableDefinition(CwmSchema schema) :
     }
 }
 
-CwmView ViewDefinition(CwmSchema schema) :
+CwmView ViewDefinition() :
 {
     CwmView view;
     SqlIdentifier qualifiedViewName;
@@ -296,7 +391,7 @@ CwmView ViewDefinition(CwmSchema schema) :
     qualifiedViewName = CompoundIdentifier2()
         {
             farragoParser.getDdlValidator().setSchemaObjectName(
-                schema,view,qualifiedViewName);
+                view,qualifiedViewName);
         }
     [<LPAREN> columnNameList = SimpleIdentifierCommaList() 
         {
@@ -324,7 +419,7 @@ CwmView ViewDefinition(CwmSchema schema) :
 }
 
 
-CwmSqlindex IndexDefinition(CwmSchema schema,CwmTable table) :
+CwmSqlindex IndexDefinition(CwmTable table) :
 {
     CwmSqlindex index;
     SqlIdentifier indexName;
@@ -332,10 +427,6 @@ CwmSqlindex IndexDefinition(CwmSchema schema,CwmTable table) :
     List columnNameList;
     boolean unique = false;
     boolean clustered = false;
-
-    if ((schema == null) && (table != null)) {
-        schema = (CwmSchema) table.getNamespace();
-    }
 }
 {
     [ <UNIQUE> { unique = true; } ]
@@ -352,7 +443,7 @@ CwmSqlindex IndexDefinition(CwmSchema schema,CwmTable table) :
         {
             index.setName(indexName.names[0]);
         }
-    <ON> specifiedTable = TableIdentifier(schema)
+    <ON> specifiedTable = TableIdentifier()
         {
             if (table == null) {
                 table = specifiedTable;
@@ -394,7 +485,7 @@ CwmSqlindex IndexDefinition(CwmSchema schema,CwmTable table) :
     }
 }
 
-CwmTable TableIdentifier(CwmSchema schema) :
+CwmTable TableIdentifier() :
 {
     SqlIdentifier qualifiedTableName;
     CwmTable table;
@@ -404,7 +495,6 @@ CwmTable TableIdentifier(CwmSchema schema) :
         {
             table = (CwmTable)
             farragoParser.getStmtValidator().findSchemaObject(
-                schema,
                 qualifiedTableName,
                 getRepos().relationalPackage.getCwmTable());
         }
@@ -413,7 +503,7 @@ CwmTable TableIdentifier(CwmSchema schema) :
     }
 }
 
-CwmView ViewReference(CwmSchema schema) :
+CwmView ViewReference() :
 {
     SqlIdentifier qualifiedViewName;
     CwmView view;
@@ -422,12 +512,64 @@ CwmView ViewReference(CwmSchema schema) :
     <VIEW> qualifiedViewName = CompoundIdentifier2()
         {
             view = (CwmView) farragoParser.getStmtValidator().findSchemaObject(
-                schema,
                 qualifiedViewName,
                 getRepos().relationalPackage.getCwmView());
         }
     {
         return view;
+    }
+}
+
+FemRoutine RoutineReference() :
+{
+    SqlIdentifier qualifiedRoutineName;
+    FemRoutine routine;
+    boolean specific = false;
+    ProcedureType routineType;
+}
+{
+    [ <SPECIFIC> { specific = true; } ]
+    (
+        <ROUTINE>
+    {
+        routineType = null;
+    }
+        | <FUNCTION>
+    {
+        routineType = ProcedureTypeEnum.FUNCTION;
+    }
+        | <PROCEDURE>
+    {
+        routineType = ProcedureTypeEnum.PROCEDURE;
+    }
+    )
+        qualifiedRoutineName = CompoundIdentifier2()
+        {
+            // TODO jvs 24-Dec-2004: implement lookup by invocation name
+            // and signature when !specific
+            routine = (FemRoutine)
+            farragoParser.getStmtValidator().findSchemaObject(
+                qualifiedRoutineName,
+                getRepos().getSql2003Package().getFemRoutine());
+
+            // REVIEW jvs 29-Dec-2004:  localization in message below
+            // is iffy
+
+            // if they specifically asked for a FUNCTION or PROCEDURE,
+            // and the object found does not match, pretend we
+            // found nothing
+            if ((routineType != null) && (routineType != routine.getType())) {
+                throw FarragoResource.instance().newValidatorUnknownObject(
+                    routineType.toString() + " " +
+                    getRepos().getLocalizedObjectName(
+                        routine.getNamespace().getName(),
+                        routine.getName(),
+                        null),
+                    getCurrentPosition().toString());
+            }
+        }
+    {
+        return routine;
     }
 }
 
@@ -462,9 +604,6 @@ CwmModelElement TableElement(CwmTable table) :
 void BasicColumnDefinition(CwmNamedColumnSet table,CwmColumn column) :
 {
     SqlIdentifier columnName;
-    SqlIdentifier typeName;
-    int precision,scale;
-    String charSetName;
 }
 {
     columnName = SimpleIdentifier()
@@ -472,36 +611,32 @@ void BasicColumnDefinition(CwmNamedColumnSet table,CwmColumn column) :
             table.getFeature().add(column);
             column.setName(columnName.names[0]);
         }
-    typeName = TypeName()
+    TypedElement(column)
+}
+
+void TypedElement(CwmColumn column) :
+{
+    SqlDataTypeSpec dataType;
+}
+{
+    dataType = DataType()
+    [
+        <MULTISET>
         {
-            CwmSqldataType type =
-                farragoParser.getStmtValidator().findSqldataType(
-                    typeName.getSimple());
-            column.setType(type);
+            FemSqlmultisetType colType = getRepos().newFemSqlmultisetType();
+            colType.setName("MULTISET");
+            FemSqltypeAttribute componentType =
+                                            getRepos().newFemSqltypeAttribute();
+            componentType.setName("COMPONENT");
+            colType.setComponentType(componentType);
+            SqlDataTypeSpecToCwmColumnType(dataType, componentType);
+            column.setType(colType);
+            return;
         }
-    (
-        <LPAREN>
-        precision = IntLiteral()
-        {
-            // NOTE:  we always set precision here; later, validation may
-            // convert this to length instead
-            column.setPrecision(new Integer(precision));
-        }
-        (
-            <COMMA>
-            scale = IntLiteral()
-            {
-                column.setScale(new Integer(scale));
-            }
-        )? <RPAREN>
-    )?
-    (
-        <CHARACTER> <SET>
-        charSetName = Identifier()
-        {
-            column.setCharacterSetName(charSetName);
-        }
-    )?
+    ]
+    {
+        SqlDataTypeSpecToCwmColumnType(dataType, column);
+    }
 }
 
 CwmColumn ColumnDefinition(CwmTable table) :
@@ -661,7 +796,7 @@ void ColumnConstraint(CwmNamedColumnSet table,CwmColumn column) :
 CwmModelElement SchemaDrop() :
 {
     SqlIdentifier schemaName;
-    CwmSchema schema;
+    FemLocalSchema schema;
 }
 {
     schema = SchemaReference()
@@ -685,7 +820,7 @@ CwmCatalog CatalogReference() :
         }
 }
 
-CwmSchema SchemaReference() :
+FemLocalSchema SchemaReference() :
 {
     SqlIdentifier schemaName;
 }
@@ -701,7 +836,7 @@ CwmModelElement TableDrop() :
     CwmModelElement table;
 }
 {
-    <TABLE> table = TableIdentifier(null)
+    <TABLE> table = TableIdentifier()
         {
         }
     CascadeOption()
@@ -715,12 +850,26 @@ CwmModelElement ViewDrop() :
     CwmModelElement view;
 }
 {
-    view = ViewReference(null)
+    view = ViewReference()
         {
         }
     CascadeOption()
         {
             return view;
+        }
+}
+
+CwmModelElement RoutineDrop() :
+{
+    CwmModelElement routine;
+}
+{
+    routine = RoutineReference()
+        {
+        }
+    CascadeOption()
+        {
+            return routine;
         }
 }
 
@@ -732,7 +881,6 @@ CwmModelElement IndexDrop() :
     <INDEX> qualifiedIndexName = CompoundIdentifier2()
         {
             return farragoParser.getStmtValidator().findSchemaObject(
-                null,
                 qualifiedIndexName,
                 getRepos().relationalPackage.getCwmSqlindex());
         }
@@ -957,6 +1105,220 @@ FemDataServer DataServerDefinition() :
     }
 }
 
+FemRoutine FunctionDefinition() :
+{
+    FemRoutine function;
+    SqlIdentifier qualifiedName;
+    FemRoutineParameter returnParam;
+}
+{
+    <FUNCTION> 
+        {
+            function = getRepos().newFemRoutine();
+            function.setType(ProcedureTypeEnum.FUNCTION);
+            returnParam = getRepos().newFemRoutineParameter();
+            function.setCalledOnNullInput(true);
+            function.setParameterStyle(RoutineParameterStyleEnum.RPS_SQL);
+        }
+    qualifiedName = CompoundIdentifier2()
+        {
+            // REVIEW jvs 27-Dec-2004:  SQL standard says that
+            // specific name is implementation-defined when unspecified.
+            // The behavior here is to use the invocation name, which
+            // means if there's a conflict with an existing specific name,
+            // the CREATE statement will fail.  This forces users to
+            // provide specific names when overloads are defined.  An
+            // alternative is to generate unique specific names automatically
+            // in case of conflict.
+            farragoParser.getDdlValidator().setSchemaObjectName(
+                function,qualifiedName);
+            function.setInvocationName(function.getName());
+        }
+    <LPAREN> [ RoutineParamList(function) ] <RPAREN>
+        {
+        }
+    <RETURNS> TypedElement(returnParam)
+        {
+            returnParam.setName("RETURN");
+            returnParam.setKind(ParameterDirectionKindEnum.PDK_RETURN);
+            function.getParameter().add(returnParam);
+        }
+    RoutineCharacteristics(function)
+        {
+        }
+    [ <STATIC> <DISPATCH> ]
+        {
+            function.setStaticDispatch(true);
+        }
+    RoutineBody(function)
+        {
+        }
+    {
+        return function;
+    }
+}
+
+void RoutineBody(FemRoutine routine) :
+{
+    SqlNode expr;
+}
+{
+    [ <SQL> <SECURITY>
+        (
+            <INVOKER>
+        {
+            routine.setImpersonateDefiner(false);
+        }
+            | <DEFINER>
+        {
+            routine.setImpersonateDefiner(true);
+        }
+        )
+    ]
+        {
+        }
+        <RETURN> expr = Expression(EXPR_ACCEPT_NONQUERY)
+    {
+        // TODO jvs 24-Dec-2004: eventually allow subqueries, non-functional
+        // routine bodies, and external routines.
+        farragoParser.getDdlValidator().setProcedureText(routine, expr);
+    }
+}
+
+void RoutineCharacteristics(FemRoutine routine) :
+{
+    SqlIdentifier specificName;
+}
+{
+// TODO jvs 24-Dec-2004:  prevent conflicting declarations
+    (
+        (<LANGUAGE> (<JAVA> | <SQL>))
+    {
+        // TODO jvs 24-Dec-2004:  cross-check this with body and sql-access
+    }
+        | (<PARAMETER> <STYLE>
+            (
+                <SQL>
+            {
+                routine.setParameterStyle(
+                    RoutineParameterStyleEnum.RPS_SQL);
+            }
+                | <GENERAL>
+            {
+                routine.setParameterStyle(
+                    RoutineParameterStyleEnum.RPS_GENERAL);
+            }
+            )
+        )
+    {
+    }
+        | (<SPECIFIC> specificName = CompoundIdentifier2())
+    {
+        if (specificName.names.length > 1) {
+            assert(specificName.names.length == 2);
+            if (!specificName.names[0].equals(routine.getNamespace().getName()))
+            {
+                throw FarragoResource.instance().
+                    newValidatorRoutineSchemaMismatch(
+                        specificName.names[0], 
+                        routine.getNamespace().getName(),
+                        farragoParser.getDdlValidator().getParserPosString(
+                            routine));
+            }
+            routine.setName(specificName.names[1]);
+        } else {
+            routine.setName(specificName.getSimple());
+        }
+    }
+        | ( <DETERMINISTIC> )
+    {
+        routine.setDeterministic(true);
+    }
+        | ( <NOT> <DETERMINISTIC> )
+    {
+        routine.setDeterministic(false);
+    }
+        | (<NO> <SQL>)
+    {
+        routine.setDataAccess(RoutineDataAccessEnum.RDA_NO_SQL);
+    }
+        | (<CONTAINS> <SQL>)
+    {
+        routine.setDataAccess(RoutineDataAccessEnum.RDA_CONTAINS_SQL);
+    }
+        | (<READS> <SQL> <DATA>)
+    {
+        routine.setDataAccess(RoutineDataAccessEnum.RDA_READS_SQL_DATA);
+    }
+        | (<MODIFIES> <SQL> <DATA>)
+    {
+        routine.setDataAccess(RoutineDataAccessEnum.RDA_MODIFIES_SQL_DATA);
+    }
+        | (<RETURNS> <NULL> <ON> <NULL> <INPUT>)
+    {
+        routine.setCalledOnNullInput(false);
+    }
+        | (<CALLED> <ON> <NULL> <INPUT>)
+    {
+        routine.setCalledOnNullInput(true);
+    }
+// TODO jvs 24-Dec-2004:  add characteristics for dynamic result sets
+// and savepoint level
+    )*
+}
+
+void RoutineParamList(FemRoutine routine) :
+{
+}
+{
+    RoutineParam(routine)
+    (
+        <COMMA>
+        RoutineParam(routine)
+    )*
+}
+
+FemRoutineParameter RoutineParam(FemRoutine routine) :
+{
+    FemRoutineParameter param;
+    SqlIdentifier name;
+    
+    param = getRepos().newFemRoutineParameter();
+    routine.getParameter().add(param);
+}
+{
+    {
+    }
+    [
+        (
+            <IN>
+        {
+            param.setKind(ParameterDirectionKindEnum.PDK_IN);
+        }
+            | <OUT>
+        {
+            param.setKind(ParameterDirectionKindEnum.PDK_OUT);
+        }
+            | <INOUT>
+        {
+            param.setKind(ParameterDirectionKindEnum.PDK_INOUT);
+        }
+        )
+    ]
+        {
+        }
+    name = SimpleIdentifier()
+        {
+            param.setName(name.getSimple());
+        }
+    TypedElement(param)
+        {
+        }
+    {
+        return param;
+    }
+}
+
 FemDataServer DataServerReference() :
 {
     SqlIdentifier name;
@@ -968,7 +1330,7 @@ FemDataServer DataServerReference() :
         }
 }
 
-FemForeignTable ForeignTableDefinition(CwmSchema schema) :
+FemForeignTable ForeignTableDefinition() :
 {
     FemForeignTable table;
     FemDataServer server;
@@ -982,7 +1344,7 @@ FemForeignTable ForeignTableDefinition(CwmSchema schema) :
     qualifiedTableName = CompoundIdentifier2()
         {
             farragoParser.getDdlValidator().setSchemaObjectName(
-                schema,table,qualifiedTableName);
+                table,qualifiedTableName);
         }
     [ <LPAREN> ForeignTableElementList(table) <RPAREN> ]
         {
@@ -999,7 +1361,7 @@ FemForeignTable ForeignTableDefinition(CwmSchema schema) :
     }
 }
 
-FemForeignTable ForeignTableReference(CwmSchema schema) :
+FemForeignTable ForeignTableReference() :
 {
     SqlIdentifier qualifiedTableName;
     FemForeignTable table;
@@ -1009,7 +1371,6 @@ FemForeignTable ForeignTableReference(CwmSchema schema) :
         {
             table = (FemForeignTable)
             farragoParser.getStmtValidator().findSchemaObject(
-                schema,
                 qualifiedTableName,
                 getRepos().medPackage.getFemForeignTable());
         }
@@ -1099,7 +1460,7 @@ CwmModelElement ForeignTableDrop() :
     CwmModelElement table;
 }
 {
-    table = ForeignTableReference(null)
+    table = ForeignTableReference()
         {
         }
     CascadeOption()
@@ -1115,19 +1476,30 @@ TOKEN :
 {
   < ALTER: "alter" >
 | < AUTHORIZATION: "authorization" >
+| < CALLED: "called" >
 | < CASCADE: "cascade" >
 | < CATALOG: "catalog" >
 | < CHECKPOINT: "checkpoint" >
 | < CLUSTERED: "clustered" >
 | < COMMIT: "commit" >
 | < CONSTRAINT: "constraint" >
+| < CONTAINS: "contains" >
 | < CREATE: "create" >
 | < DATA: "data" >
 | < DEFAULT_KW: "default" >
+| < DEFINER: "definer" >
+| < DETERMINISTIC: "deterministic" >
+| < DISPATCH: "dispatch" >
 | < DROP: "drop" >
+| < EXTERNAL: "external" >
 | < FOREIGN: "foreign" >
+| < FUNCTION: "function" >
+| < GENERAL: "general" >
 | < GLOBAL: "global" >
 | < INDEX: "index" >
+| < INOUT: "inout" >
+| < INPUT: "input" >
+| < INVOKER: "invoker" >
 | < JAVA: "java" >
 | < MAX: "max" >
 | < MIN: "min" >
@@ -1135,15 +1507,31 @@ TOKEN :
 | < LANGUAGE: "language" >
 | < LIBRARY: "library" >
 | < LOCAL: "local" >
+| < MODIFIES: "modifies" >
 | < OPTIONS: "options" >
+| < NAME: "name" >
+| < NO: "no" >
+| < OUT: "out" >
+| < PARAMETER: "parameter" >
+| < PATH: "path" >
 | < PRESERVE: "preserve" >
 | < PRIMARY: "primary" >
-| < ROLLBACK: "rollback" >
+| < PROCEDURE: "procedure" >
+| < READS: "reads" >
 | < RELEASE: "release" >
 | < RESTRICT: "restrict" >
+| < RETURN: "return" >
+| < RETURNS: "returns" >
+| < ROLLBACK: "rollback" >
+| < ROUTINE: "routine" >
 | < SAVEPOINT: "savepoint" >
 | < SCHEMA: "schema" >
+| < SECURITY: "security" >
 | < SERVER: "server" >
+| < SPECIFIC: "specific" >
+| < SQL: "sql" >
+| < STATIC: "static" >
+| < STYLE: "style" >
 | < SYSTEM: "system" >
 | < TEMPORARY: "temporary" >
 | < TRUNCATE: "truncate" >
@@ -1164,20 +1552,41 @@ String DdlNonReservedKeyWord() :
 }
 {
     (
-        <CASCADE>
+        <CALLED>
+        | <CASCADE>
         | <CATALOG>
+        | <CONTAINS>
         | <DATA>
+        | <DEFINER>
+        | <DETERMINISTIC>
+        | <DISPATCH>
+        | <EXTERNAL>
+        | <GENERAL>
         | <INDEX>
+        | <INPUT>
+        | <INVOKER>
         | <JAVA>
         | <KEY>
         | <LIBRARY>
         | <MAX>
         | <MIN>
+        | <MODIFIES>
+        | <NAME>
+        | <NO>
         | <OPTIONS>
+        | <PARAMETER>
+        | <PATH>
         | <PRESERVE>
+        | <READS>
         | <RESTRICT>
+        | <RETURN>
+        | <RETURNS>
         | <SCHEMA>
+        | <SECURITY>
         | <SERVER>
+        | <SPECIFIC>
+        | <STATIC>
+        | <STYLE>
         | <TEMPORARY>
         | <VERSION>
         | <VIEW>

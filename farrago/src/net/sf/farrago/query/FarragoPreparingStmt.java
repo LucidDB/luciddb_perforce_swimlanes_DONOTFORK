@@ -56,10 +56,12 @@ import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.rex.RexNode;
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.util.*;
 import org.eigenbase.sql.parser.*;
 import org.eigenbase.sql2rel.*;
 import org.eigenbase.util.*;
 
+import java.util.List;
 
 /**
  * FarragoPreparingStmt subclasses OJPreparingStmt to implement the
@@ -93,6 +95,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     private FarragoSqlValidator sqlValidator;
     private Set directDependencies;
     private Set allDependencies;
+    private SqlOperatorTable sqlOperatorTable;
 
     /**
      * Name of Java package containing code generated for this statement.
@@ -170,13 +173,21 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     // implement FarragoSessionPreparingStmt
     public SqlOperatorTable getSqlOperatorTable()
     {
-        return getSession().getSqlOperatorTable();
-    }
+        if (sqlOperatorTable != null) {
+            return sqlOperatorTable;
+        }
+        
+        SqlOperatorTable systemOperators = getSession().getSqlOperatorTable();
+        SqlOperatorTable userOperators =
+            new FarragoUserDefinedRoutineLookup(stmtValidator);
+        
+        // REVIEW jvs 1-Jan-2004:  precedence of UDF's vs. builtins?
+        ChainedSqlOperatorTable table = new ChainedSqlOperatorTable();
+        table.add(systemOperators);
+        table.add(userOperators);
 
-    // implement FarragoSessionPreparingStmt
-    public SqlNode validate(SqlNode sqlNode)
-    {
-        return getSqlValidator().validate(sqlNode);
+        sqlOperatorTable = table;
+        return sqlOperatorTable;
     }
 
     // implement FarragoSessionPreparingStmt
@@ -333,17 +344,52 @@ public class FarragoPreparingStmt extends OJPreparingStmt
     }
 
     // implement FarragoSessionPreparingStmt
-    public void prepareViewInfo(
+    public void analyzeSql(
         SqlNode sqlNode,
-        FarragoSessionViewInfo info)
+        final FarragoSessionAnalyzedSql analyzedSql)
     {
+        // Round up all the dependencies on UDF's.  We can't do this
+        // during function lookup because overloads need to be resolved
+        // first.  And we can't do this any later because we stop
+        // collecting direct dependencies during SqlToRelConverter.
+        SqlVisitor udfInvocationFinder = new SqlBasicVisitor() 
+            {
+                public void visit(SqlCall call)
+                {
+                    if (call.operator instanceof FarragoUserDefinedRoutine) {
+                        FarragoUserDefinedRoutine function =
+                            (FarragoUserDefinedRoutine) call.operator;
+                        addDependency(function.getFemRoutine());
+                    }
+                    super.visit(call);
+                }
+            };
+        sqlNode.accept(udfInvocationFinder);
+        
         getSqlToRelConverter();
-        RelNode rootRel = sqlToRelConverter.convertValidatedQuery(sqlNode);
-        info.resultMetaData =
-            new FarragoResultSetMetaData(rootRel.getRowType());
-        info.parameterMetaData =
-            new FarragoParameterMetaData(getParamRowType());
-        info.dependencies = Collections.unmodifiableSet(directDependencies);
+        if (analyzedSql.paramRowType == null) {
+            // query expression
+            RelNode rootRel = sqlToRelConverter.convertValidatedQuery(sqlNode);
+            analyzedSql.resultType = rootRel.getRowType();
+            analyzedSql.paramRowType = getParamRowType();
+        } else {
+            // parameterized row expression
+            analyzedSql.resultType =
+                getSqlValidator().getValidatedNodeType(sqlNode);
+        }
+        analyzedSql.dependencies =
+            Collections.unmodifiableSet(directDependencies);
+
+        // walk the expression looking for dynamic parameters
+        SqlVisitor dynamicParamFinder = new SqlBasicVisitor() 
+            {
+                public void visit(SqlDynamicParam param)
+                {
+                    analyzedSql.hasDynamicParams = true;
+                    super.visit(param);
+                }
+            };
+        sqlNode.accept(dynamicParamFinder);
     }
 
     private Set getReferencedObjectIds()
@@ -410,9 +456,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
 
     RelNode expandView(String queryString)
     {
-        // once we start expanding views, all objects we encounter
-        // should be treated as indirect dependencies
-        processingDirectDependencies = false;
+        stopCollectingDirectDependencies();
 
         SqlParser parser = new SqlParser(queryString);
         final SqlNode sqlQuery;
@@ -423,6 +467,44 @@ public class FarragoPreparingStmt extends OJPreparingStmt
                 "Error while parsing view definition:  " + queryString);
         }
         return sqlToRelConverter.convertQuery(sqlQuery);
+    }
+
+    RexNode expandFunction(
+        String bodyString,
+        Map paramNameToArgMap, 
+        final Map paramNameToTypeMap)
+    {
+        stopCollectingDirectDependencies();
+        
+        SqlParser parser = new SqlParser(bodyString);
+        SqlNode sqlExpr;
+        try {
+            sqlExpr = parser.parseExpression();
+        } catch (ParseException e) {
+            throw Util.newInternal(e,
+                "Error while parsing routine definition:  " + bodyString);
+        }
+
+        // NOTE jvs 2-Jan-2005: We already validated the expression during DDL,
+        // but we stored the original pre-validation expression, and validation
+        // may have involved rewrites relied on by sqlToRelConverter.  So
+        // we must recapitulate here.
+        sqlExpr = getSqlValidator().validateParameterizedExpression(
+            sqlExpr,
+            paramNameToTypeMap);
+
+        // TODO jvs 1-Jan-2005: support a RexVariableBinding (like "let" in
+        // Lisp), and avoid expansion of parameters which are referenced more
+        // than once
+        
+        return sqlToRelConverter.convertExpression(sqlExpr, paramNameToArgMap);
+    }
+
+    private void stopCollectingDirectDependencies()
+    {
+        // once we start expanding views and functions, all objects we
+        // encounter should be treated as indirect dependencies
+        processingDirectDependencies = false;
     }
 
     protected SqlToRelConverter getSqlToRelConverter(
@@ -439,7 +521,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
                     getEnvironment(),
                     planner,
                     connection,
-                    new FarragoRexBuilder(getFarragoTypeFactory()));
+                    new FarragoRexBuilder(this));
             sqlToRelConverter.setDefaultValueFactory(
                 new ReposDefaultValueFactory());
         }

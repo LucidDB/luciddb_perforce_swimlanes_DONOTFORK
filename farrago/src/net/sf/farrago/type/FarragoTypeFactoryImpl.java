@@ -32,6 +32,7 @@ import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.cwm.datatypes.CwmTypeAlias;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.resource.*;
 import net.sf.farrago.runtime.*;
 import net.sf.farrago.type.runtime.*;
@@ -96,55 +97,66 @@ public class FarragoTypeFactoryImpl extends OJTypeFactoryImpl
     }
 
     // implement FarragoTypeFactory
-    public RelDataType createColumnType(CwmColumn column)
+    public RelDataType createCwmElementType(FemSqltypedElement element)
     {
-        CwmClassifier classifier = column.getType();
+        CwmClassifier classifier = element.getType();
+        RelDataType type = null;
 
-        // TODO jvs 15-Dec-2004:  support multisets, UDT's, intervals
-        assert (classifier instanceof CwmSqlsimpleType);
-        CwmSqlsimpleType simpleType = (CwmSqlsimpleType) classifier;
-        
-        SqlTypeName typeName = SqlTypeName.get(simpleType.getName());
-        assert(typeName != null);
+        if (classifier instanceof CwmSqlsimpleType) {
+            CwmSqlsimpleType simpleType = (CwmSqlsimpleType) classifier;
 
-        Integer pPrecision = column.getLength();
-        if (pPrecision == null) {
-            pPrecision = column.getPrecision();
-        }
-        Integer pScale = column.getScale();
+            SqlTypeName typeName = SqlTypeName.get(simpleType.getName());
+            assert(typeName != null);
 
-        RelDataType type;
-        if (pScale != null) {
-            assert(pPrecision != null);
-            type = createSqlType(
-                typeName,
-                pPrecision.intValue(),
-                pScale.intValue());
-        } else if (pPrecision != null) {
-            type = createSqlType(
-                typeName,
-                pPrecision.intValue());
+            Integer pPrecision = element.getLength();
+            if (pPrecision == null) {
+                pPrecision = element.getPrecision();
+            }
+            Integer pScale = element.getScale();
+
+            if (pScale != null) {
+                assert(pPrecision != null);
+                type = createSqlType(
+                    typeName,
+                    pPrecision.intValue(),
+                    pScale.intValue());
+            } else if (pPrecision != null) {
+                type = createSqlType(
+                    typeName,
+                    pPrecision.intValue());
+            } else {
+                type = createSqlType(
+                    typeName);
+            }
+
+            String charsetName = element.getCharacterSetName();
+            SqlCollation collation;
+            if (!charsetName.equals("")) {
+                // TODO:  collation in CWM
+                collation = new SqlCollation(SqlCollation.Coercibility.Implicit);
+
+                Charset charSet = Charset.forName(charsetName);
+                type = createTypeWithCharsetAndCollation(
+                    type,
+                    charSet,
+                    collation);
+            }
+        } else if (classifier instanceof FemSqlcollectionType) {
+            FemSqlcollectionType collectionType =
+                (FemSqlcollectionType) classifier;
+            RelDataType componentType =
+                createCwmElementType(collectionType.getComponentType());
+            assert(collectionType instanceof FemSqlmultisetType) :
+                   "todo array type creation not yet implemented";
+            type = createMultisetType(componentType, -1);
         } else {
-            type = createSqlType(
-                typeName);
+            Util.permAssert(false,"TODO jvs 15-Dec-2004:  UDT's, intervals");
         }
-        
-        String charsetName = column.getCharacterSetName();
-        SqlCollation collation;
-        if (!charsetName.equals("")) {
-            // TODO:  collation in CWM
-            collation = new SqlCollation(SqlCollation.Coercibility.Implicit);
 
-            Charset charSet = Charset.forName(charsetName);
-            type = createTypeWithCharsetAndCollation(
-                type,
-                charSet,
-                collation);
-        }
 
         type = createTypeWithNullability(
             type, 
-            getRepos().isNullable(column));
+            getRepos().isNullable(element));
 
         return type;
     }
@@ -172,9 +184,9 @@ public class FarragoTypeFactoryImpl extends OJTypeFactoryImpl
 
                 public RelDataType getFieldType(int index)
                 {
-                    final CwmColumn column =
-                        (CwmColumn) featureList.get(index);
-                    return createColumnType(column);
+                    final FemSqltypedElement element =
+                        (FemSqltypedElement) featureList.get(index);
+                    return createCwmElementType(element);
                 }
             });
     }

@@ -16,46 +16,44 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
-package net.sf.farrago.ddl;
+package net.sf.farrago.fennel;
 
-import net.sf.farrago.cwm.core.*;
-
+import org.eigenbase.util.Util;
 
 /**
- * DdlSetQualifierStmt represents a statement that establishes a default
- * qualifier, such as SET SCHEMA or SET CATALOG.
+ * FennelPseudoUuidGenerator handles JNI calls to Fennel that generate
+ * universal unique identifiers (UUIDs).  Fennel generates these in a
+ * way that abstracts away OS and hardware dependencies.
  *
- * @author John V. Sichi
+ * <p>Depends on Fennel's libfarrago.
+ *
+ * @author Stephan Zuercher
  * @version $Id$
  */
-public class DdlSetQualifierStmt extends DdlStmt
+public class FennelPseudoUuidGenerator
 {
-    //~ Constructors ----------------------------------------------------------
+    private static final int UUID_LENGTH = 16;
 
-    /**
-     * Construct a new DdlSetQualifierStmt.
-     *
-     * @param qualifier reference to qualifier to set
-     */
-    public DdlSetQualifierStmt(CwmModelElement qualifier)
-    {
-        super(qualifier);
+    static {
+        Util.loadLibrary("farrago");
     }
 
-    //~ Methods ---------------------------------------------------------------
-
-    // override DdlStmt
-    public boolean requiresCommit()
+    /** Inaccessible constrcutor. */
+    private FennelPseudoUuidGenerator()
     {
-        return false;
     }
 
-    // implement DdlStmt
-    public void visit(DdlVisitor visitor)
+    public static byte[] validUuid()
     {
-        visitor.visit(this);
+        return nativeGenerate();
     }
+
+    public static byte[] invalidUuid()
+    {
+        return nativeGenerateInvalid();
+    }
+
+    private static native byte[] nativeGenerate();
+
+    private static native byte[] nativeGenerateInvalid();
 }
-
-
-// End DdlSetQualifierStmt.java

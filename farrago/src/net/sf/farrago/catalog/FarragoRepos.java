@@ -35,10 +35,10 @@ import net.sf.farrago.cwm.keysindexes.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.fem.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fem.config.*;
 import net.sf.farrago.fem.fennel.*;
 import net.sf.farrago.fem.med.*;
-import net.sf.farrago.fennel.*;
 import net.sf.farrago.resource.*;
 import net.sf.farrago.trace.*;
 import net.sf.farrago.util.*;
@@ -46,8 +46,6 @@ import net.sf.farrago.util.*;
 import org.eigenbase.util.SaffronProperties;
 import org.netbeans.api.mdr.*;
 import org.netbeans.mdr.*;
-import org.netbeans.mdr.util.*;
-import org.netbeans.mdr.persistence.jdbcimpl.*;
 
 import java.util.logging.Logger;
 
@@ -149,6 +147,8 @@ public class FarragoRepos extends FarragoMetadataFactory
                 FarragoProperties.instance().homeDir.getPath());
         }
         this.modelLoader = modelLoader;
+
+        MdrUtil.integrateTracing(FarragoTrace.getMdrTracer());
 
         if (!userRepos) {
             File reposFile = modelLoader.getSystemReposFile();
@@ -428,7 +428,15 @@ public class FarragoRepos extends FarragoMetadataFactory
 
         // TODO:  actual localization, quoting, etc.
         if (refClass != null) {
-            sb.append(refClass.refMetaObject().refGetValue("name"));
+            String className =
+                refClass.refMetaObject().refGetValue("name").toString();
+            if (className.equals("LocalSchema")) {
+                // TODO jvs 8-Jan-2005:  temporary hack to avoid
+                // breaking logs multiple times; remove as part of
+                // fixing localization and quoting
+                className = "Schema";
+            }
+            sb.append(className);
             sb.append(" ");
         }
         if (qualifierName != null) {
@@ -462,6 +470,28 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
+     * Search a collection for a FemSqlcollectionType by name.
+     *
+     * @param collection the collection to search
+     * @param name name of element to find
+     *
+     * @return FemSqlcollectionType found, or null if not found
+     */
+    public FemSqlcollectionType getCollectionModelElement(
+        Collection collection,
+        String name)
+    {
+        Iterator iter = collection.iterator();
+        while (iter.hasNext()) {
+            FemSqlcollectionType element = (FemSqlcollectionType) iter.next();
+            if (element.getName().equals(name)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Search a collection for a CwmModelElement by name and type.
      *
      * @param collection the collection to search
@@ -486,6 +516,27 @@ public class FarragoRepos extends FarragoMetadataFactory
             }
         }
         return null;
+    }
+
+    /**
+     * Filter a collection fo all CwmModelElements of a given type.
+     *
+     * @param inCollection the collection to search
+     * @param outCollection receives matching objects
+     * @param type class which sought objects must instantiate
+     */
+    public void filterTypedModelElements(
+        Collection inCollection,
+        Collection outCollection,
+        Class type)
+    {
+        Iterator iter = inCollection.iterator();
+        while (iter.hasNext()) {
+            CwmModelElement element = (CwmModelElement) iter.next();
+            if (type.isInstance(element)) {
+                outCollection.add(element);
+            }
+        }
     }
 
     /**
@@ -582,14 +633,14 @@ public class FarragoRepos extends FarragoMetadataFactory
      *
      * @return schema definition, or null if not found
      */
-    public CwmSchema getSchema(
+    public FemLocalSchema getSchema(
         CwmCatalog catalog,
         String schemaName)
     {
-        return (CwmSchema) getTypedModelElement(
+        return (FemLocalSchema) getTypedModelElement(
             catalog.getOwnedElement(),
             schemaName,
-            CwmSchema.class);
+            FemLocalSchema.class);
     }
 
     /**
@@ -848,7 +899,7 @@ public class FarragoRepos extends FarragoMetadataFactory
 
     private void createSystemTypes()
     {
-        CwmSqlsimpleType type;
+        CwmSqlsimpleType simpleType;
 
         // This is where all the builtin types are defined.  To add a new
         // builtin type, you have to:
@@ -859,83 +910,83 @@ public class FarragoRepos extends FarragoMetadataFactory
         // FennelRelUtil.convertSqlTypeNumberToFennelTypeOrdinal
         // (4) since I've already done all the easy cases, you'll probably
         // need lots of extra fancy semantics elsewhere
-        type = newCwmSqlsimpleType();
-        type.setName("BOOLEAN");
-        type.setTypeNumber(new Integer(Types.BOOLEAN));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("BOOLEAN");
+        simpleType.setTypeNumber(new Integer(Types.BOOLEAN));
 
-        type = newCwmSqlsimpleType();
-        type.setName("TINYINT");
-        type.setTypeNumber(new Integer(Types.TINYINT));
-        type.setNumericPrecision(new Integer(8));
-        type.setNumericPrecisionRadix(new Integer(2));
-        type.setNumericScale(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("TINYINT");
+        simpleType.setTypeNumber(new Integer(Types.TINYINT));
+        simpleType.setNumericPrecision(new Integer(8));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
+        simpleType.setNumericScale(new Integer(0));
 
-        type = newCwmSqlsimpleType();
-        type.setName("SMALLINT");
-        type.setTypeNumber(new Integer(Types.SMALLINT));
-        type.setNumericPrecision(new Integer(16));
-        type.setNumericPrecisionRadix(new Integer(2));
-        type.setNumericScale(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("SMALLINT");
+        simpleType.setTypeNumber(new Integer(Types.SMALLINT));
+        simpleType.setNumericPrecision(new Integer(16));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
+        simpleType.setNumericScale(new Integer(0));
 
-        type = newCwmSqlsimpleType();
-        type.setName("INTEGER");
-        type.setTypeNumber(new Integer(Types.INTEGER));
-        type.setNumericPrecision(new Integer(32));
-        type.setNumericPrecisionRadix(new Integer(2));
-        type.setNumericScale(new Integer(0));
-        defineTypeAlias("INT", type);
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("INTEGER");
+        simpleType.setTypeNumber(new Integer(Types.INTEGER));
+        simpleType.setNumericPrecision(new Integer(32));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
+        simpleType.setNumericScale(new Integer(0));
+        defineTypeAlias("INT", simpleType);
 
-        type = newCwmSqlsimpleType();
-        type.setName("BIGINT");
-        type.setTypeNumber(new Integer(Types.BIGINT));
-        type.setNumericPrecision(new Integer(64));
-        type.setNumericPrecisionRadix(new Integer(2));
-        type.setNumericScale(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("BIGINT");
+        simpleType.setTypeNumber(new Integer(Types.BIGINT));
+        simpleType.setNumericPrecision(new Integer(64));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
+        simpleType.setNumericScale(new Integer(0));
 
-        type = newCwmSqlsimpleType();
-        type.setName("REAL");
-        type.setTypeNumber(new Integer(Types.REAL));
-        type.setNumericPrecision(new Integer(23));
-        type.setNumericPrecisionRadix(new Integer(2));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("REAL");
+        simpleType.setTypeNumber(new Integer(Types.REAL));
+        simpleType.setNumericPrecision(new Integer(23));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
 
-        type = newCwmSqlsimpleType();
-        type.setName("DOUBLE");
-        type.setTypeNumber(new Integer(Types.DOUBLE));
-        type.setNumericPrecision(new Integer(52));
-        type.setNumericPrecisionRadix(new Integer(2));
-        defineTypeAlias("DOUBLE PRECISION", type);
-        defineTypeAlias("FLOAT", type);
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("DOUBLE");
+        simpleType.setTypeNumber(new Integer(Types.DOUBLE));
+        simpleType.setNumericPrecision(new Integer(52));
+        simpleType.setNumericPrecisionRadix(new Integer(2));
+        defineTypeAlias("DOUBLE PRECISION", simpleType);
+        defineTypeAlias("FLOAT", simpleType);
 
-        type = newCwmSqlsimpleType();
-        type.setName("VARCHAR");
-        type.setTypeNumber(new Integer(Types.VARCHAR));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("VARCHAR");
+        simpleType.setTypeNumber(new Integer(Types.VARCHAR));
 
         // NOTE: this is an upper bound based on usage of 2-byte length
         // indicators in stored tuples; there are further limits based on page
         // size (imposed during table creation)
-        type.setCharacterMaximumLength(new Integer(65535));
-        defineTypeAlias("CHARACTER VARYING", type);
+        simpleType.setCharacterMaximumLength(new Integer(65535));
+        defineTypeAlias("CHARACTER VARYING", simpleType);
 
-        type = newCwmSqlsimpleType();
-        type.setName("VARBINARY");
-        type.setTypeNumber(new Integer(Types.VARBINARY));
-        type.setCharacterMaximumLength(new Integer(65535));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("VARBINARY");
+        simpleType.setTypeNumber(new Integer(Types.VARBINARY));
+        simpleType.setCharacterMaximumLength(new Integer(65535));
 
-        type = newCwmSqlsimpleType();
-        type.setName("CHAR");
-        type.setTypeNumber(new Integer(Types.CHAR));
-        type.setCharacterMaximumLength(new Integer(65535));
-        defineTypeAlias("CHARACTER", type);
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("CHAR");
+        simpleType.setTypeNumber(new Integer(Types.CHAR));
+        simpleType.setCharacterMaximumLength(new Integer(65535));
+        defineTypeAlias("CHARACTER", simpleType);
 
-        type = newCwmSqlsimpleType();
-        type.setName("BINARY");
-        type.setTypeNumber(new Integer(Types.BINARY));
-        type.setCharacterMaximumLength(new Integer(65535));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("BINARY");
+        simpleType.setTypeNumber(new Integer(Types.BINARY));
+        simpleType.setCharacterMaximumLength(new Integer(65535));
 
-        type = newCwmSqlsimpleType();
-        type.setName("DATE");
-        type.setTypeNumber(new Integer(Types.DATE));
-        type.setDateTimePrecision(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("DATE");
+        simpleType.setTypeNumber(new Integer(Types.DATE));
+        simpleType.setDateTimePrecision(new Integer(0));
 
         // TODO jvs 26-July-2004: Support fractional precision for TIME and
         // TIMESTAMP.  Currently, most of the support is there for up to
@@ -944,26 +995,32 @@ public class FarragoRepos extends FarragoMetadataFactory
         // TIMESTAMP is microseconds, so some more work is required to
         // support that.  Default precision for TIME is seconds,
         // which is already the case.
-        type = newCwmSqlsimpleType();
-        type.setName("TIME");
-        type.setTypeNumber(new Integer(Types.TIME));
-        type.setDateTimePrecision(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("TIME");
+        simpleType.setTypeNumber(new Integer(Types.TIME));
+        simpleType.setDateTimePrecision(new Integer(0));
 
-        type = newCwmSqlsimpleType();
-        type.setName("TIMESTAMP");
-        type.setTypeNumber(new Integer(Types.TIMESTAMP));
-        type.setDateTimePrecision(new Integer(0));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("TIMESTAMP");
+        simpleType.setTypeNumber(new Integer(Types.TIMESTAMP));
+        simpleType.setDateTimePrecision(new Integer(0));
 
-        type = newCwmSqlsimpleType();
-        type.setName("BIT");
-        type.setTypeNumber(new Integer(Types.BIT));
-        type.setCharacterMaximumLength(new Integer(65535));
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("BIT");
+        simpleType.setTypeNumber(new Integer(Types.BIT));
+        simpleType.setCharacterMaximumLength(new Integer(65535));
 
-        type = newCwmSqlsimpleType();
-        type.setName("DECIMAL");
-        type.setTypeNumber(new Integer(Types.DECIMAL));
-        type.setNumericPrecision(new Integer(39));
-        defineTypeAlias("DEC", type);
+        simpleType = newCwmSqlsimpleType();
+        simpleType.setName("DECIMAL");
+        simpleType.setTypeNumber(new Integer(Types.DECIMAL));
+        simpleType.setNumericPrecision(new Integer(39));
+        defineTypeAlias("DEC", simpleType);
+
+        FemSqlcollectionType collectType;
+        collectType = newFemSqlmultisetType();
+        collectType.setName("MULTISET");
+        // a multiset has the same type# as an array for now
+        collectType.setTypeNumber(new Integer(Types.ARRAY));
     }
 
     /**

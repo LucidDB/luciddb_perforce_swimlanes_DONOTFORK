@@ -28,6 +28,7 @@ import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.cwm.datatypes.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.fem.med.*;
+import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fennel.*;
 import net.sf.farrago.namespace.util.*;
 import net.sf.farrago.type.*;
@@ -89,11 +90,6 @@ public interface FarragoSessionDdlValidator extends FarragoAllocation
     public FarragoSessionParser getParser();
 
     /**
-     * @return default qualifiers to use
-     */
-    public FarragoSessionVariables getSessionVariables();
-
-    /**
      * @return is a DROP RESTRICT being executed?
      */
     public boolean isDropRestrict();
@@ -151,14 +147,11 @@ public interface FarragoSessionDdlValidator extends FarragoAllocation
      * Sets the name of a new object being defined, and adds the object to
      * the correct schema.
      *
-     * @param schema containing schema or null for none
-     *
      * @param schemaElement the object being named
      *
      * @param qualifiedName the (possibly) qualified name of the object
      */
     public void setSchemaObjectName(
-        CwmSchema schema,
         CwmModelElement schemaElement,
         SqlIdentifier qualifiedName);
 
@@ -226,12 +219,22 @@ public interface FarragoSessionDdlValidator extends FarragoAllocation
     /**
      * Sets the SQL statement of a view from a given SQL parse tree.
      *
-     * @param view   View to modify
-     * @param query  SQL parse tree
+     * @param view view to modify
+     * @param query SQL parse tree
      */
     public void setViewText(
         CwmView view,
         SqlNode query);
+
+    /**
+     * Sets the SQL body of a routine from a given SQL parse tree.
+     *
+     * @param routine routine to modify
+     * @param body SQL parse tree
+     */
+    public void setProcedureText(
+        CwmProcedure routine,
+        SqlNode body);
 
     /**
      * Defines the handlers to be used to validate and execute DDL actions
@@ -242,6 +245,14 @@ public interface FarragoSessionDdlValidator extends FarragoAllocation
      * @return list of handler objects
      */
     public List defineHandlers();
+
+    /**
+     * Sets the context for a compound CREATE SCHEMA statement to be used
+     * by all object definitions in the new schema.
+     *
+     * @param schema new schema being created
+     */
+    public void setCreatedSchemaContext(FemLocalSchema schema);
 }
 
 

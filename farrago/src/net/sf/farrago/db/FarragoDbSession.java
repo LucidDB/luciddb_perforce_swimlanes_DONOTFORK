@@ -40,7 +40,9 @@ import net.sf.farrago.util.*;
 import org.eigenbase.oj.rex.*;
 import org.eigenbase.oj.stmt.*;
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.fun.*;
 import org.eigenbase.relopt.*;
+import org.eigenbase.reltype.*;
 import org.eigenbase.util.*;
 
 
@@ -103,7 +105,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
      */
     private Map txnCodeCache;
     private DatabaseMetaData dbMetaData;
-    private FarragoSessionFactory sessionFactory;
+    protected FarragoSessionFactory sessionFactory;
 
     //~ Constructors ----------------------------------------------------------
 
@@ -133,6 +135,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         sessionVariables.sessionUserName = info.getProperty("user");
         sessionVariables.currentUserName = sessionVariables.sessionUserName;
         sessionVariables.systemUserName = System.getProperty("user.name");
+        sessionVariables.schemaSearchPath = Collections.EMPTY_LIST;
 
         // TODO:  authenticate sessionUserName with password
         if (MDR_USER_NAME.equals(sessionVariables.sessionUserName)) {
@@ -189,7 +192,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
     // implement FarragoSession
     public SqlOperatorTable getSqlOperatorTable()
     {
-        return SqlOperatorTable.instance();
+        return SqlStdOperatorTable.instance();
     }
 
     // implement FarragoSession
@@ -246,7 +249,8 @@ public class FarragoDbSession extends FarragoCompoundAllocation
     }
     
     // implement FarragoSession
-    public FarragoSession cloneSession()
+    public FarragoSession cloneSession(
+        FarragoSessionVariables inheritedVariables)
     {
         // TODO:  keep track of clones and make sure they aren't left hanging
         // around by the time stmt finishes executing
@@ -255,7 +259,10 @@ public class FarragoDbSession extends FarragoCompoundAllocation
             clone.isClone = true;
             clone.allocations = new LinkedList();
             clone.savepointList = new ArrayList();
-            clone.sessionVariables = sessionVariables.cloneVariables();
+            if (inheritedVariables == null) {
+                inheritedVariables = sessionVariables;
+            }
+            clone.sessionVariables = inheritedVariables.cloneVariables();
             return clone;
         } catch (CloneNotSupportedException ex) {
             throw Util.newInternal(ex);
@@ -360,12 +367,16 @@ public class FarragoDbSession extends FarragoCompoundAllocation
     }
 
     // implement FarragoSession
-    public FarragoSessionViewInfo analyzeViewQuery(String sql)
+    public FarragoSessionAnalyzedSql analyzeSql(
+        String sql, RelDataType paramRowType)
     {
-        FarragoSessionViewInfo info = new FarragoSessionViewInfo();
-        FarragoSessionExecutableStmt stmt = prepare(sql, null, false, info);
+        FarragoSessionAnalyzedSql analyzedSql =
+            new FarragoSessionAnalyzedSql();
+        analyzedSql.paramRowType = paramRowType;
+        FarragoSessionExecutableStmt stmt = prepare(
+            sql, null, false, analyzedSql);
         assert (stmt == null);
-        return info;
+        return analyzedSql;
     }
 
     public FarragoDatabase getDatabase()
@@ -560,7 +571,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         String sql,
         FarragoAllocationOwner owner,
         boolean isExecDirect,
-        FarragoSessionViewInfo viewInfo)
+        FarragoSessionAnalyzedSql analyzedSql)
     {
         tracer.info(sql);
 
@@ -586,7 +597,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
             FarragoSessionExecutableStmt stmt = null;
             try {
                 stmt =
-                    prepareImpl(sql, owner, isExecDirect, viewInfo,
+                    prepareImpl(sql, owner, isExecDirect, analyzedSql,
                         stmtValidator, reposTxnContext, pRollback);
             } finally {
                 if (stmtValidator != null) {
@@ -607,7 +618,7 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         String sql,
         FarragoAllocationOwner owner,
         boolean isExecDirect,
-        FarragoSessionViewInfo viewInfo,
+        FarragoSessionAnalyzedSql analyzedSql,
         FarragoSessionStmtValidator stmtValidator,
         FarragoReposTxnContext reposTxnContext,
         boolean [] pRollback)
@@ -619,7 +630,14 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         FarragoSessionDdlValidator ddlValidator =
             newDdlValidator(stmtValidator);
         FarragoSessionParser parser = stmtValidator.getParser();
-        Object parsedObj = parser.parseSqlStatement(ddlValidator, sql);
+        
+        boolean expectStatement = true;
+        if ((analyzedSql != null) && (analyzedSql.paramRowType != null)) {
+            expectStatement = false;
+        }
+        Object parsedObj = parser.parseSqlText(
+            ddlValidator, sql, expectStatement);
+        
         if (parsedObj instanceof SqlNode) {
             SqlNode sqlNode = (SqlNode) parsedObj;
             pRollback[0] = false;
@@ -627,9 +645,11 @@ public class FarragoDbSession extends FarragoCompoundAllocation
             ddlValidator = null;
             validate(stmtValidator, sqlNode);
             FarragoSessionExecutableStmt stmt =
-                database.prepareStmt(stmtValidator, sqlNode, owner, viewInfo);
+                database.prepareStmt(
+                    stmtValidator, sqlNode, owner, analyzedSql);
             if (isExecDirect
-                    && (stmt.getDynamicParamRowType().getFieldList().size() > 0)) {
+                && (stmt.getDynamicParamRowType().getFieldList().size() > 0))
+            {
                 owner.closeAllocation();
                 throw FarragoResource.instance()
                     .newSessionNoExecuteImmediateParameters(sql);
@@ -727,21 +747,31 @@ public class FarragoDbSession extends FarragoCompoundAllocation
         }
 
         // implement DdlVisitor
-        public void visit(DdlSetQualifierStmt stmt)
+        public void visit(DdlSetCatalogStmt stmt)
         {
-            CwmModelElement qualifier = stmt.getModelElement();
-            if (qualifier instanceof CwmCatalog) {
-                sessionVariables.catalogName = qualifier.getName();
+            SqlIdentifier id = stmt.getCatalogName();
+            sessionVariables.catalogName = id.getSimple();
+        }
+        
+        // implement DdlVisitor
+        public void visit(DdlSetSchemaStmt stmt)
+        {
+            SqlIdentifier id = stmt.getSchemaName();
+            if (id.isSimple()) {
+                sessionVariables.schemaName = id.getSimple();
             } else {
-                assert (qualifier instanceof CwmSchema);
-                sessionVariables.schemaName = qualifier.getName();
-                sessionVariables.catalogName =
-                    qualifier.getNamespace().getName();
-                sessionVariables.schemaCatalogName =
-                    sessionVariables.catalogName;
+                sessionVariables.catalogName = id.names[0];
+                sessionVariables.schemaName = id.names[1];
             }
         }
-
+        
+        // implement DdlVisitor
+        public void visit(DdlSetPathStmt stmt)
+        {
+            sessionVariables.schemaSearchPath =
+                Collections.unmodifiableList(stmt.getSchemaList());
+        }
+        
         // implement DdlVisitor
         public void visit(DdlSetSystemParamStmt stmt)
         {

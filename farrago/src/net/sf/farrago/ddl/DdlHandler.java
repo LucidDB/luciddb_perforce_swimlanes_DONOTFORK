@@ -22,6 +22,7 @@ package net.sf.farrago.ddl;
 import org.eigenbase.util.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
+import org.eigenbase.sql.*;
 import org.eigenbase.sql.type.*;
 
 import net.sf.farrago.catalog.*;
@@ -37,6 +38,7 @@ import net.sf.farrago.namespace.util.*;
 import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
+import net.sf.farrago.cwm.behavioral.*;
 import net.sf.farrago.fem.med.*;
 import net.sf.farrago.fem.sql2003.*;
 
@@ -73,7 +75,7 @@ public class DdlHandler
             true);
     }
     
-    public void validateDefinition(CwmSchema schema)
+    public void validateDefinition(FemLocalSchema schema)
     {
         validator.validateUniqueNames(
             schema,
@@ -337,8 +339,10 @@ public class DdlHandler
         } catch (Throwable ex) {
             // TODO: if ex has parser position information in it, need to
             // either delete it or adjust it
-            throw validator.res.newValidatorInvalidViewDefinition(
-                view.getName(),
+            throw validator.res.newValidatorInvalidObjectDefinition(
+                validator.getRepos().getLocalizedObjectName(
+                    view,
+                    validator.getRepos().getRelationalPackage().getCwmView()), 
                 ex);
         } finally {
             validator.releaseReentrantSession(session);
@@ -353,8 +357,8 @@ public class DdlHandler
         String sql = view.getQueryExpression().getBody();
 
         tracer.fine(sql);
-        FarragoSessionViewInfo viewInfo = session.analyzeViewQuery(sql);
-        ResultSetMetaData metaData = viewInfo.resultMetaData;
+        FarragoSessionAnalyzedSql analyzedSql = session.analyzeSql(sql, null);
+        RelDataType rowType = analyzedSql.resultType;
 
         List columnList = view.getFeature();
         boolean implicitColumnNames = true;
@@ -364,18 +368,21 @@ public class DdlHandler
 
             // number of explicitly specified columns needs to match the number
             // of columns produced by the query
-            if (metaData.getColumnCount() != columnList.size()) {
+            if (rowType.getFieldList().size() != columnList.size()) {
                 throw validator.res.newValidatorViewColumnCountMismatch();
             }
         }
 
-        if (viewInfo.parameterMetaData.getParameterCount() != 0) {
+        if (analyzedSql.hasDynamicParams) {
             throw validator.res.newValidatorInvalidViewDynamicParam();
+        }
+
+        if (analyzedSql.hasTopLevelOrderBy) {
+            throw FarragoResource.instance().newValidatorInvalidViewOrderBy();
         }
 
         // Derive column information from result set metadata
         FarragoTypeFactory typeFactory = validator.getTypeFactory();
-        RelDataType rowType = typeFactory.createResultSetType(metaData);
         RelDataTypeField [] fields = rowType.getFields();
         for (int i = 0; i < fields.length; ++i) {
             FemViewColumn column;
@@ -394,9 +401,10 @@ public class DdlHandler
             view.getFeature(),
             false);
 
-        view.getQueryExpression().setBody(viewInfo.validatedSql);
+        view.getQueryExpression().setBody(analyzedSql.canonicalString);
 
-        validator.createDependency(view, viewInfo.dependencies, "ViewUsage");
+        validator.createDependency(
+            view, analyzedSql.dependencies, "ViewUsage");
     }
 
     public void validateDefinition(CwmColumn column)
@@ -427,7 +435,7 @@ public class DdlHandler
     }
     
     protected void validateDefaultClause(
-        CwmColumn column,
+        FemStoredColumn column,
         FarragoSession session,
         String defaultExpression)
     {
@@ -448,7 +456,7 @@ public class DdlHandler
         RelDataTypeFamily sourceTypeFamily = sourceType.getFamily();
 
         RelDataType targetType =
-            validator.getTypeFactory().createColumnType(column);
+            validator.getTypeFactory().createCwmElementType(column);
         RelDataTypeFamily targetTypeFamily = targetType.getFamily();
 
         if (sourceTypeFamily != targetTypeFamily) {
@@ -470,27 +478,32 @@ public class DdlHandler
         assert (ordinal != -1);
         column.setOrdinal(ordinal);
 
-        if (column.getInitialValue() == null) {
+        validateTypedElement(column);
+    }
+    
+    protected void validateTypedElement(FemSqltypedElement element)
+    {
+        if (element.getInitialValue() == null) {
             CwmExpression nullExpression =
                 validator.getRepos().newCwmExpression();
             nullExpression.setLanguage("SQL");
             nullExpression.setBody("NULL");
-            column.setInitialValue(nullExpression);
+            element.setInitialValue(nullExpression);
         }
 
         // if NOT NULL not specified, default to nullable
-        if (column.getIsNullable() == null) {
-            column.setIsNullable(NullableTypeEnum.COLUMN_NULLABLE);
+        if (element.getIsNullable() == null) {
+            element.setIsNullable(NullableTypeEnum.COLUMN_NULLABLE);
         }
 
         SqlTypeName typeName = SqlTypeName.get(
-            column.getType().getName());
+            element.getType().getName());
 
         // NOTE: parser only generates precision, but CWM discriminates
         // precision from length, so we take care of it below
-        Integer precision = column.getPrecision();
+        Integer precision = element.getPrecision();
         if (precision == null) {
-            precision = column.getLength();
+            precision = element.getLength();
         }
 
         // TODO:  break this method up
@@ -504,26 +517,26 @@ public class DdlHandler
             }
             if ((precision == null) && !typeName.allowsNoPrecNoScale()) {
                 throw validator.res.newValidatorPrecRequired(
-                    getLocalizedTypeName(column),
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
+                    getLocalizedTypeName(element),
+                    getLocalizedName(element),
+                    validator.getParserPosString(element));
             }
         } else {
             if (precision != null) {
                 throw validator.res.newValidatorPrecUnexpected(
-                    getLocalizedTypeName(column),
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
+                    getLocalizedTypeName(element),
+                    getLocalizedName(element),
+                    validator.getParserPosString(element));
             }
         }
         if ((typeName != null) && typeName.allowsScale()) {
             // assume scale is always optional
         } else {
-            if (column.getScale() != null) {
+            if (element.getScale() != null) {
                 throw validator.res.newValidatorScaleUnexpected(
-                    getLocalizedTypeName(column),
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
+                    getLocalizedTypeName(element),
+                    getLocalizedName(element),
+                    validator.getParserPosString(element));
             }
         }
         SqlTypeFamily typeFamily = null;
@@ -534,95 +547,112 @@ public class DdlHandler
             || (typeFamily == SqlTypeFamily.Binary))
         {
             // convert precision to length
-            if (column.getLength() == null) {
-                column.setLength(column.getPrecision());
-                column.setPrecision(null);
+            if (element.getLength() == null) {
+                element.setLength(element.getPrecision());
+                element.setPrecision(null);
             }
         }
         if (typeFamily == SqlTypeFamily.Character) {
             // TODO jvs 18-April-2004:  Should be inheriting these defaults
             // from schema/catalog.
-            if (JmiUtil.isBlank(column.getCharacterSetName())) {
+            if (JmiUtil.isBlank(element.getCharacterSetName())) {
                 // NOTE: don't leave character set name implicit, since if the
                 // default ever changed, that would invalidate existing data
-                column.setCharacterSetName(
+                element.setCharacterSetName(
                     validator.getRepos().getDefaultCharsetName());
             } else {
-                if (!Charset.isSupported(column.getCharacterSetName())) {
+                if (!Charset.isSupported(element.getCharacterSetName())) {
                     throw validator.res.newValidatorCharsetUnsupported(
-                        column.getCharacterSetName(),
-                        getLocalizedName(column),
-                        validator.getParserPosString(column));
+                        element.getCharacterSetName(),
+                        getLocalizedName(element),
+                        validator.getParserPosString(element));
                 }
             }
-            Charset charSet = Charset.forName(column.getCharacterSetName());
+            Charset charSet = Charset.forName(element.getCharacterSetName());
             if (charSet.newEncoder().maxBytesPerChar() > 1) {
                 // TODO:  implement multi-byte character sets
                 throw Util.needToImplement(charSet);
             }
         } else {
-            if (!JmiUtil.isBlank(column.getCharacterSetName())) {
+            if (!JmiUtil.isBlank(element.getCharacterSetName())) {
                 throw validator.res.newValidatorCharsetUnexpected(
-                    getLocalizedTypeName(column),
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
+                    getLocalizedTypeName(element),
+                    getLocalizedName(element),
+                    validator.getParserPosString(element));
             }
         }
 
         // now, enforce type-defined limits
         CwmSqldataType cwmType = validator.getStmtValidator().findSqldataType(
-            column.getType().getName());
+            element.getType().getName());
 
-        // TODO jvs 15-Dec-2004:  non-simple types
-        assert(cwmType instanceof CwmSqlsimpleType) : cwmType;
-        CwmSqlsimpleType simpleType = (CwmSqlsimpleType) cwmType;
-        
-        if (column.getLength() != null) {
-            Integer maximum = simpleType.getCharacterMaximumLength();
-            assert (maximum != null);
-            if (column.getLength().intValue() > maximum.intValue()) {
-                throw validator.res.newValidatorLengthExceeded(
-                    column.getLength(),
-                    maximum,
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
-            }
-        }
-        if (column.getPrecision() != null) {
-            Integer maximum = simpleType.getNumericPrecision();
-            if (maximum == null) {
-                maximum = simpleType.getDateTimePrecision();
-            }
-            assert (maximum != null);
-            if (column.getPrecision().intValue() > maximum.intValue()) {
-                throw validator.res.newValidatorPrecisionExceeded(
-                    column.getPrecision(),
-                    maximum,
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
-            }
-        }
-        if (column.getScale() != null) {
-            Integer maximum = simpleType.getNumericScale();
-            assert (maximum != null);
-            if (column.getScale().intValue() > maximum.intValue()) {
-                throw validator.res.newValidatorScaleExceeded(
-                    column.getScale(),
-                    maximum,
-                    getLocalizedName(column),
-                    validator.getParserPosString(column));
-            }
-        }
+        if (cwmType instanceof CwmSqlsimpleType) {
+            CwmSqlsimpleType simpleType = (CwmSqlsimpleType) cwmType;
 
-        // REVIEW jvs 18-April-2004: I had to put these in because CWM declares
-        // them as mandatory.  This is stupid, since CWM also says these fields
-        // are inapplicable for non-character columns.
-        if (column.getCollationName() == null) {
-            column.setCollationName("");
-        }
+            if (element.getLength() != null) {
+                Integer maximum = simpleType.getCharacterMaximumLength();
+                assert (maximum != null);
+                if (element.getLength().intValue() > maximum.intValue()) {
+                    throw validator.res.newValidatorLengthExceeded(
+                        element.getLength(),
+                        maximum,
+                        getLocalizedName(element),
+                        validator.getParserPosString(element));
+                }
+            }
+            if (element.getPrecision() != null) {
+                Integer maximum = simpleType.getNumericPrecision();
+                if (maximum == null) {
+                    maximum = simpleType.getDateTimePrecision();
+                }
+                assert (maximum != null);
+                if (element.getPrecision().intValue() > maximum.intValue()) {
+                    throw validator.res.newValidatorPrecisionExceeded(
+                        element.getPrecision(),
+                        maximum,
+                        getLocalizedName(element),
+                        validator.getParserPosString(element));
+                }
+            }
+            if (element.getScale() != null) {
+                Integer maximum = simpleType.getNumericScale();
+                assert (maximum != null);
+                if (element.getScale().intValue() > maximum.intValue()) {
+                    throw validator.res.newValidatorScaleExceeded(
+                        element.getScale(),
+                        maximum,
+                        getLocalizedName(element),
+                        validator.getParserPosString(element));
+                }
+            }
 
-        if (column.getCharacterSetName() == null) {
-            column.setCharacterSetName("");
+            // REVIEW jvs 18-April-2004: I had to put these in because CWM declares
+            // them as mandatory.  This is stupid, since CWM also says these fields
+            // are inapplicable for non-character types.
+            if (element.getCollationName() == null) {
+                element.setCollationName("");
+            }
+
+            if (element.getCharacterSetName() == null) {
+                element.setCharacterSetName("");
+            }
+        } else if (cwmType instanceof FemSqlcollectionType) {
+            FemSqlcollectionType collectionType =
+                (FemSqlcollectionType) element.getType();
+            FemSqltypedElement componentType =
+                collectionType.getComponentType();
+            validateTypedElement(componentType);
+            // REVIEW wael 04-Jan-2005: see comment by jvs 18-April-2004 above
+            if (element.getCollationName() == null) {
+                element.setCollationName("");
+            }
+
+            if (element.getCharacterSetName() == null) {
+                element.setCharacterSetName("");
+            }
+        } else {
+            Util.permAssert(false,
+                "only simple and collection types are supported");
         }
     }
 
@@ -724,6 +754,127 @@ public class DdlHandler
                     repos.getLocalizedObjectName(femWrapper, null));
             }
         }
+    }
+
+    public void validateDefinition(FemRoutine routine)
+    {
+        Iterator iter = routine.getParameter().iterator();
+        int iOrdinal = 0;
+        FemRoutineParameter returnParam = null;
+        while (iter.hasNext()) {
+            FemRoutineParameter param = (FemRoutineParameter) iter.next();
+            if (param.getKind() == ParameterDirectionKindEnum.PDK_RETURN) {
+                returnParam = param;
+            } else {
+                if (param.getKind() != ParameterDirectionKindEnum.PDK_IN) {
+                    throw validator.res.newValidatorFunctionOutputParam(
+                        validator.getRepos().getLocalizedObjectName(
+                            routine, null),
+                        validator.getParserPosString(param));
+                }
+                param.setOrdinal(iOrdinal);
+                ++iOrdinal;
+            }
+            validateRoutineParam(param);
+        }
+        if (routine.getDataAccess() == null) {
+            throw validator.res.newValidatorRoutineDataAccessUnspecified(
+                validator.getRepos().getLocalizedObjectName(routine, null),
+                validator.getParserPosString(routine));
+        }
+
+        if (routine.getBody() != null) {
+            if (routine.getDataAccess() == RoutineDataAccessEnum.RDA_NO_SQL) {
+                throw validator.res.newValidatorRoutineNoSql(
+                    validator.getRepos().getLocalizedObjectName(routine, null),
+                    validator.getParserPosString(routine));
+            }
+            FarragoSession session = validator.newReentrantSession();
+            try {
+                validateRoutineBody(session, routine, returnParam);
+            } catch (FarragoUnvalidatedDependencyException ex) {
+                // pass this one through
+                throw ex;
+            } catch (Throwable ex) {
+                // TODO: if ex has parser position information in it, need to
+                // either delete it or adjust it
+                throw validator.res.newValidatorInvalidObjectDefinition(
+                    validator.getRepos().getLocalizedObjectName(
+                        routine,
+                        validator.getRepos().
+                        getSql2003Package().getFemRoutine()), 
+                    ex);
+            } finally {
+                validator.releaseReentrantSession(session);
+            }
+        }
+    }
+
+    protected void validateRoutineBody(
+        FarragoSession session, 
+        FemRoutine routine,
+        FemRoutineParameter returnParam)
+        throws SQLException
+    {
+        final FarragoTypeFactory typeFactory = validator.getTypeFactory();
+        final List params = routine.getParameter();
+
+        RelDataType paramRowType = typeFactory.createStructType(
+            new RelDataTypeFactory.FieldInfo() 
+            {
+                public int getFieldCount()
+                {
+                    // minus one to leave out return type
+                    return params.size() - 1;
+                }
+                
+                public String getFieldName(int index)
+                {
+                    FemRoutineParameter param =
+                        (FemRoutineParameter) params.get(index);
+                    return param.getName();
+                }
+
+                public RelDataType getFieldType(int index)
+                {
+                    FemRoutineParameter param =
+                        (FemRoutineParameter) params.get(index);
+                    return typeFactory.createCwmElementType(param);
+                }
+            });
+
+        tracer.fine(routine.getBody().getBody());
+        
+        FarragoSessionAnalyzedSql analyzedSql = session.analyzeSql(
+            routine.getBody().getBody(), paramRowType);
+        
+        if (analyzedSql.hasDynamicParams) {
+            // TODO jvs 29-Dec-2004:  add a test for this; currently
+            // hits an earlier assertion in SqlValidator
+            throw validator.res.newValidatorInvalidRoutineDynamicParam();
+        }
+
+        // TODO jvs 28-Dec-2004:  CAST FROM
+        
+        RelDataType declaredReturnType =
+            typeFactory.createCwmElementType(returnParam);
+        RelDataType actualReturnType = analyzedSql.resultType;
+        if (!SqlTypeUtil.canAssignFrom(declaredReturnType, actualReturnType)) {
+            throw validator.res.newValidatorFunctionReturnType(
+                actualReturnType.toString(),
+                validator.getRepos().getLocalizedObjectName(routine, null),
+                declaredReturnType.toString());
+        }
+
+        validator.createDependency(
+            routine, analyzedSql.dependencies, "RoutineUsage");
+        
+        routine.getBody().setBody(analyzedSql.canonicalString);
+    }
+
+    protected void validateRoutineParam(FemRoutineParameter param)
+    {
+        validateTypedElement(param);
     }
 
     protected String getLocalizedName(CwmColumn column)
