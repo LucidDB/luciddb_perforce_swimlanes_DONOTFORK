@@ -293,27 +293,6 @@ public class VolcanoPlanner implements RelOptPlanner
         return canConvert;
     }
 
-    public RelNode changeConvention(
-        final RelNode rel,
-        CallingConvention toConvention)
-    {
-        assert (rel.getConvention() != toConvention);
-        RelSubset rel2 = registerImpl(rel, null);
-        if (rel2.getConvention() == toConvention) {
-            return rel2;
-        }
-        RelNode rel3 = changeConventionUsingConverters(rel2, toConvention);
-        if (rel3 != null) {
-            return rel3;
-        }
-        final AbstractConverter converter =
-            new AbstractConverter(
-                rel.getCluster(),
-                rel,
-                toConvention);
-        return register(converter, rel);
-    }
-
     public RelNode changeTraits(final RelNode rel, RelTraitSet toTraits)
     {
         assert(!rel.getTraits().equals(toTraits));
@@ -561,13 +540,6 @@ public class VolcanoPlanner implements RelOptPlanner
             return null;
         }
         return set.getSubset(traits);
-    }
-
-    RelNode changeConventionUsingConverters(
-        RelNode rel,
-        CallingConvention toConvention)
-    {
-        return changeTraitsUsingConverters(rel, new RelTraitSet(toConvention));
     }
 
     RelNode changeTraitsUsingConverters(
@@ -1023,6 +995,10 @@ loop:
                 + " has calling-convention " + convention
                 + " but does not implement the required interface '"
                 + convention.interfaze + "' of that convention");
+        }
+        if (traits.size() != traitDefs.size()) {
+            throw Util.newInternal("Relational expression " + rel
+                + " does not have the correct number of traits");
         }
 
         // Ensure that its sub-expressions are registered.
