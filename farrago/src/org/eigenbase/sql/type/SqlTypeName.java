@@ -38,6 +38,8 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     private static final int PrecNoScaleNo = 1;
     private static final int PrecYesScaleNo = 2;
     private static final int PrecYesScaleYes = 4;
+
+    // SQL Type Definitions ------------------
     public static final int Boolean_ordinal = 0;
     public static final SqlTypeName Boolean =
         new SqlTypeName("BOOLEAN", Boolean_ordinal, PrecNoScaleNo);
@@ -111,6 +113,9 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     public static final int Symbol_ordinal = 22;
     public static final SqlTypeName Symbol =
         new SqlTypeName("SYMBOL", Symbol_ordinal, PrecNoScaleNo);
+    public static final int Multiset_ordinal = 23;
+    public static final SqlTypeName Multiset =
+        new SqlTypeName("MULTISET", Multiset_ordinal, PrecNoScaleNo);
 
     /**
      * List of all allowable {@link SqlTypeName} values.
@@ -120,7 +125,7 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
             Boolean, Integer, Varchar, Date, Time, Timestamp, Null, Decimal,
             Any, Char, Binary, Varbinary, Tinyint, Smallint, Bigint, Real,
             Double, Bit, Symbol, IntervalYearToMonth, IntervalDayTime,
-            Float
+            Float, Multiset
         });
 
     //~ Instance fields -------------------------------------------------------
@@ -131,9 +136,9 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     private final int signatures;
 
     public static final SqlTypeName [] booleanTypes =
-        { Boolean };
-    public static final SqlTypeName [] booleanNullableTypes =
-        makeNullable(booleanTypes);
+            { Boolean };
+        public static final SqlTypeName [] booleanNullableTypes =
+            makeNullable(booleanTypes);
 
     public static final SqlTypeName [] binaryTypes =
         { Bit, Binary, Varbinary };
@@ -145,13 +150,18 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     public static final SqlTypeName [] intNullableTypes =
         makeNullable(intTypes);
 
+    public static final SqlTypeName[] exactTypes =
+        combine(intTypes, new SqlTypeName[]{ Decimal } );
+    public static final SqlTypeName[] exactNullableTypes =
+        makeNullable(exactTypes);
+
     public static final SqlTypeName[] approxTypes =
         { Float, Real, Double };
     public static final SqlTypeName[] approxNullableTypes =
         makeNullable(approxTypes);
 
     public static final SqlTypeName [] numericTypes =
-        combine(intTypes, approxTypes);
+        combine(exactTypes, approxTypes);
     public static final SqlTypeName [] numericNullableTypes =
         makeNullable(numericTypes);
 
@@ -172,6 +182,12 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
         { IntervalDayTime, IntervalYearToMonth };
     public static final SqlTypeName [] timeIntervalNullableTypes =
         makeNullable(timeIntervalTypes);
+
+    public static final SqlTypeName [] multisetType =
+            { Multiset };
+        public static final SqlTypeName [] multisetNullableType =
+            makeNullable(multisetType);
+
 
 
     //~ Constructors ----------------------------------------------------------
@@ -258,8 +274,8 @@ public class SqlTypeName extends EnumeratedValues.BasicValue
     }
 
     /**
-     * Returns true if not of a standard sql type.
-     * Non standard types are {@link #Any}, {@link #Null} and {@link #Symbol}
+     * Returns true if not of a "pure" standard sql type.
+     * "Inpure" types are {@link #Any}, {@link #Null} and {@link #Symbol}
      */
     public boolean isSpecial()
     {

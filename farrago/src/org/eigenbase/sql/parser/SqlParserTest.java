@@ -24,6 +24,7 @@ package org.eigenbase.sql.parser;
 import java.util.regex.Pattern;
 
 import junit.framework.TestCase;
+import junit.framework.AssertionFailedError;
 
 import org.eigenbase.sql.SqlNode;
 import org.eigenbase.util.Util;
@@ -42,7 +43,7 @@ public class SqlParserTest extends TestCase
 {
     //~ Static fields/initializers --------------------------------------------
 
-    private static final String NL = System.getProperty("line.separator");
+    protected static final String NL = System.getProperty("line.separator");
 
     //~ Constructors ----------------------------------------------------------
 
@@ -53,37 +54,48 @@ public class SqlParserTest extends TestCase
 
     //~ Methods ---------------------------------------------------------------
 
-    //Helper functions-------------------------------------------------------------------
-    private void check(
+    // Helper functions -------------------------------------------------------
+    protected void check(
         String sql,
         String expected)
     {
         final SqlNode sqlNode;
         try {
-            sqlNode = new SqlParser(sql).parseStmt();
+            sqlNode = parseStmt(sql);
         } catch (ParseException e) {
-            throw Util.newInternal(e, "Error while parsing SQL '" + sql + "'");
+            String message = "Received error while parsing SQL '" + sql +
+                    "'; error is:" + NL + e.toString();
+            throw new AssertionFailedError(message);
         }
         final String actual = sqlNode.toSqlString(null);
         assertEqualsUnabridged(expected, actual);
     }
 
-    private void checkExp(
+    protected SqlNode parseStmt(String sql) throws ParseException {
+        return new SqlParser(sql).parseStmt();
+    }
+
+    protected void checkExp(
         String sql,
         String expected)
     {
         final SqlNode sqlNode;
         try {
-            sqlNode = new SqlParser(sql).parseExpression();
+            sqlNode = parseExpression(sql);
         } catch (ParseException e) {
-            throw Util.newInternal(e,
-                "Error while parsing SQL expression '" + sql + "'");
+            String message = "Received error while parsing SQL '" + sql +
+                    "'; error is:" + NL + e.toString();
+            throw new AssertionFailedError(message);
         }
         final String actual = sqlNode.toSqlString(null);
         assertEqualsUnabridged(expected, actual);
     }
 
-    private void checkExpSame(String sql)
+    protected SqlNode parseExpression(String sql) throws ParseException {
+        return new SqlParser(sql).parseExpression();
+    }
+
+    protected void checkExpSame(String sql)
     {
         checkExp(sql, sql);
     }
@@ -105,12 +117,12 @@ public class SqlParserTest extends TestCase
         }
     }
 
-    private void checkFails(
+    protected void checkFails(
         String sql,
         String exceptionPattern)
     {
         try {
-            final SqlNode sqlNode = new SqlParser(sql).parseStmt();
+            final SqlNode sqlNode = parseStmt(sql);
             Util.discard(sqlNode);
             fail("Expected query '" + sql + "' to throw exception matching '"
                 + exceptionPattern + "'");
@@ -287,13 +299,13 @@ public class SqlParserTest extends TestCase
             "(VALUES (ROW((((`A` BETWEEN ASYMMETRIC `C` AND `D`) AND `E`) AND (`F` BETWEEN ASYMMETRIC `G` AND `H`)))))");
 
         checkFails("values a between b or c",
-            ".*BETWEEN operator has no terminating AND, at line 1, column 18");
+            ".*BETWEEN operator has no terminating AND; at line 1, column 18");
 
         checkFails("values a between",
             "(?s).*Encountered \"between <EOF>\" at line 1, column 10.*");
 
         checkFails("values a between symmetric 1",
-            ".*BETWEEN operator has no terminating AND, at line 1, column 18");
+            ".*BETWEEN operator has no terminating AND; at line 1, column 18");
 
         // precedence of BETWEEN is higher than AND and OR, but lower than '+'
         check("values a between b and c + 2 or d and e",
@@ -603,11 +615,43 @@ public class SqlParserTest extends TestCase
             + "FROM `DEPT`))) AND FALSE)");
     }
 
-    public void testUnionAll()
+    public void testUnion()
     {
-        check("select * from emp union all select * from emp",
-            "((SELECT *" + NL + "FROM `EMP`) UNION ALL (SELECT *" + NL
-            + "FROM `EMP`))");
+        check("select * from a union select * from a",
+            "((SELECT *" + NL + "FROM `A`) UNION (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a union all select * from a",
+            "((SELECT *" + NL + "FROM `A`) UNION ALL (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a union distinct select * from a",
+            "((SELECT *" + NL + "FROM `A`) UNION (SELECT *" + NL
+            + "FROM `A`))");
+    }
+
+    public void testExcept()
+    {
+        check("select * from a except select * from a",
+            "((SELECT *" + NL + "FROM `A`) EXCEPT (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a except all select * from a",
+            "((SELECT *" + NL + "FROM `A`) EXCEPT ALL (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a except distinct select * from a",
+            "((SELECT *" + NL + "FROM `A`) EXCEPT (SELECT *" + NL
+            + "FROM `A`))");
+    }
+
+    public void testIntersect()
+    {
+        check("select * from a intersect select * from a",
+            "((SELECT *" + NL + "FROM `A`) INTERSECT (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a intersect all select * from a",
+            "((SELECT *" + NL + "FROM `A`) INTERSECT ALL (SELECT *" + NL
+            + "FROM `A`))");
+        check("select * from a intersect distinct select * from a",
+            "((SELECT *" + NL + "FROM `A`) INTERSECT (SELECT *" + NL
+            + "FROM `A`))");
     }
 
     public void testJoinCross()
@@ -844,7 +888,7 @@ public class SqlParserTest extends TestCase
 
     public void testPrecedence2()
     {
-        checkExp("- - 1", "(- (- 1))"); // two prefix
+        checkExp("- - 1", "(- (- 1))"); // two prefices
     }
 
     public void testPrecedence3()
@@ -854,13 +898,13 @@ public class SqlParserTest extends TestCase
 
     public void testPrecedence4()
     {
-        checkExp("1 - -2", "(1 - (- 2))"); // potential confusion between infix, prefix '-'
+        checkExp("1 - -2", "(1 - (- 2))"); // infix, prefix '-'
     }
 
     public void testPrecedence5()
     {
-        checkExp("1++2", "(1 + (+ 2))"); // potential confusion between infix, prefix '+'
-        checkExp("1+ +2", "(1 + (+ 2))"); // potential confusion between infix, prefix '+'
+        checkExp("1++2", "(1 + (+ 2))"); // infix, prefix '+'
+        checkExp("1+ +2", "(1 + (+ 2))"); // infix, prefix '+'
     }
 
     public void testPrecedenceSetOps()
@@ -869,12 +913,14 @@ public class SqlParserTest extends TestCase
             + "select * from c intersect " + "select * from d except "
             + "select * from e except " + "select * from f union "
             + "select * from g",
-            "(((SELECT *" + NL + "FROM `A`) UNION (((((SELECT *" + NL
+              "(((((SELECT *" + NL
+            + "FROM `A`) UNION (((SELECT *" + NL
             + "FROM `B`) INTERSECT (SELECT *" + NL
             + "FROM `C`)) INTERSECT (SELECT *" + NL
-            + "FROM `D`)) EXCEPT (SELECT *" + NL
+            + "FROM `D`))) EXCEPT (SELECT *" + NL
             + "FROM `E`)) EXCEPT (SELECT *" + NL
-            + "FROM `F`))) UNION (SELECT *" + NL + "FROM `G`))");
+            + "FROM `F`)) UNION (SELECT *" + NL
+            + "FROM `G`))");
     }
 
     public void testQueryInFrom()
@@ -937,11 +983,11 @@ public class SqlParserTest extends TestCase
             "SELECT DISTINCT `FOO`" + NL + "FROM `BAR`");
     }
 
-    public void testSelectUnique()
+    public void testSelectAll()
     {
         // "unique" is the default -- so drop the keyword
-        check("select * from (select unique foo from bar) as xyz",
-            "SELECT *" + NL + "FROM (SELECT `FOO`" + NL
+        check("select * from (select all foo from bar) as xyz",
+            "SELECT *" + NL + "FROM (SELECT ALL `FOO`" + NL
             + "FROM `BAR`) AS `XYZ`");
     }
 
@@ -1333,7 +1379,94 @@ public class SqlParserTest extends TestCase
         checkExp("{   FN\t\r\n apa()}", "{fn APA() }");
         checkExp("{fn insert()}", "{fn INSERT() }");
     }
+
+    public void _testOver()
+    {
+        checkExp("sum(sal) over ()", "x");
+        checkExp("sum(sal) over (partition by x, y)", "x");
+        checkExp("sum(sal) over (order by x desc, y asc)", "x");
+        checkExp("sum(sal) over (rows 5 preceding)", "x");
+        checkExp("sum(sal) over (range between interval '1' second preceding and interval '1' second following)",
+            "sum(sal) over (`emp` over (range between (interval '1' second preceding) and (interval '1' second following)))");
+        checkExp("sum(sal) over (range between interval '1:03' hour preceding and interval '2' minute following)",
+            "sum(sal) over (`emp` over (range between (interval '1:03' hour preceding) and (interval '2' minute following)))");
+        checkExp("sum(sal) over (range between interval '5' day preceding and current row)",
+            "sum(sal) over (`emp` over (range between (interval '5' day preceding) and current row))");
+        checkExp("sum(sal) over (range interval '5' day preceding)",
+            "sum(sal) over (`emp` over (range (interval '5' day preceding)))");
+        checkExp("sum(sal) over (range between unbounded preceding and current row)",
+            "sum(sal) over (`emp` over (range between unbounded preceding and current row))");
+        checkExp("sum(sal) over (range unbounded preceding)",
+            "sum(sal) over (`emp` over (range unbounded preceding))");
+        checkExp("sum(sal) over (range between current row and unbounded preceding)",
+            "sum(sal) over (`emp` over (range between current row and unbounded preceding))");
+        checkExp("sum(sal) over (range between current row and unbounded following)",
+            "sum(sal) over (`emp` over (range between current row and unbounded following))");
+        checkExp("sum(sal) over (range between 6 preceding and interval '1:03' hour preceding)",
+            "sum(sal) over (`emp` over (range between (6 preceding) and (interval '1:03' hour preceding)))");
+        checkExp("sum(sal) over (range between interval '1' second following and interval '5' day following)",
+            "sum(sal) over (`emp` over (range between (interval '1' second following) and (interval '5' day following)))");
+    }
+
+    public void testElementFunc() {
+        checkExp("element(a)", "ELEMENT(`A`)");
+    }
+
+    public void testCardinalityFunc() {
+        checkExp("cardinality(a)", "CARDINALITY(`A`)");
+    }
+
+    public void testMemberOf() {
+        checkExp("a member of b", "(`A` MEMBER OF `B`)");
+        checkExp("a member of multiset[b]", "(`A` MEMBER OF (MULTISET[`B`]))");
+    }
+
+    public void testSubMultisetrOf() {
+        checkExp("a submultiset of b", "(`A` SUBMULTISET OF `B`)");
+    }
+
+    public void testIsASet() {
+        checkExp("b is a set", "(`B` IS A SET)");
+        checkExp("a is a set", "(`A` IS A SET)");
+    }
+
+    public void testMultiset() {
+        checkExp("multiset[1]", "(MULTISET[1])");
+        checkExp("multiset[1,2.3]", "(MULTISET[1, 2.3])");
+        checkExp("multiset[1,    '2']", "(MULTISET[1, '2'])");
+        checkExp("multiset[ROW(1,2)]", "(MULTISET[(ROW(1, 2))])");
+        checkExp("multiset[ROW(1,2),ROW(3,4)]", "(MULTISET[(ROW(1, 2)), (ROW(3, 4))])");
+    }
+
+    public void testMultisetUnion()
+    {
+        checkExp("a multiset union b","(`A` MULTISET UNION `B`)");
+        checkExp("a multiset union all b","(`A` MULTISET UNION ALL `B`)");
+        checkExp("a multiset union distinct b","(`A` MULTISET UNION `B`)");
+    }
+
+    public void testMultisetExcept()
+    {
+        checkExp("a multiset EXCEPT b","(`A` MULTISET EXCEPT `B`)");
+        checkExp("a multiset EXCEPT all b","(`A` MULTISET EXCEPT ALL `B`)");
+        checkExp("a multiset EXCEPT distinct b","(`A` MULTISET EXCEPT `B`)");
+    }
+
+    public void testMultisetIntersect()
+    {
+        checkExp("a multiset INTERSECT b","(`A` MULTISET INTERSECT `B`)");
+        checkExp("a multiset INTERSECT all b","(`A` MULTISET INTERSECT ALL `B`)");
+        checkExp("a multiset INTERSECT distinct b","(`A` MULTISET INTERSECT `B`)");
+    }
+
+    public void testMulisetMixed() {
+        checkExp("multiset[1] MULTISET union b", "((MULTISET[1]) MULTISET UNION `B`)");
+        checkExp("a MULTISET union b multiset intersect c multiset except d multiset union e",
+            "(((`A` MULTISET UNION (`B` MULTISET INTERSECT `C`)) MULTISET EXCEPT `D`) MULTISET UNION `E`)");
+    }
+
 }
 
 
 // End SqlParserTest.java
+

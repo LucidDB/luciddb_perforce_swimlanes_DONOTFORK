@@ -652,4 +652,28 @@ public class SqlOperatorTests
         tester.checkNull("trim(cast(null as varchar) from 'a')");
         tester.checkNull("trim('a' from cast(null as varchar))");
     }
+
+    public static void testWindow(SqlTester tester) {
+        tester.check("select sum(1) over () from values (true)", "1",
+                SqlTypeName.Integer);
+    }
+
+    public static void testElementFunc(SqlTester tester)
+    {
+//        tester.checkString("element(multiset['abc']))","abc");
+//        tester.checkNull("element(multiset[cast(null as integer)]))");
+    }
+
+    public static void testCardinalityFunc(SqlTester tester) {
+//        tester.checkScalarExact("cardinality(multiset[cast(null as integer),2]))","2");
+    }
+
+    public static void testMemberOfOperator(SqlTester tester) {
+//        tester.checkBoolean("1 member of multiset[1]",Boolean.TRUE);
+//        tester.checkBoolean("'2' member of multiset['1']",Boolean.FALSE);
+//        tester.checkBoolean("cast(null as double) member of multiset[cast(null as double)]",Boolean.TRUE);
+//        tester.checkBoolean("cast(null as double) member of multiset[1.1]",Boolean.FALSE);
+//        tester.checkBoolean("1.1 member of multiset[cast(null as double)]",Boolean.FALSE);
+    }
 }
+

@@ -36,6 +36,7 @@ import org.eigenbase.sql.type.SqlTypeName;
 import org.eigenbase.sql.type.UnknownParamInference;
 import org.eigenbase.sql.type.ReturnTypeInference;
 import org.eigenbase.util.Util;
+import net.sf.farrago.util.FarragoException;
 
 
 /**
@@ -426,9 +427,9 @@ public class SqlValidator
                 new SqlNodeList(ParserPosition.ZERO);
             selectList.add(new SqlIdentifier("*", ParserPosition.ZERO));
             SqlSelect wrapperNode =
-                SqlOperatorTable.std().selectOperator.createCall(false,
-                    selectList, node, null, null, null, null,
-                    ParserPosition.ZERO);
+                SqlOperatorTable.std().selectOperator.createCall(null,
+                    selectList, node, null, null, null, null, null,
+                        ParserPosition.ZERO);
             return wrapperNode;
         } else if (node.isA(SqlKind.OrderBy)) {
             SqlCall orderBy = (SqlCall) node;
@@ -451,8 +452,9 @@ public class SqlValidator
                 new SqlNodeList(ParserPosition.ZERO);
             selectList.add(new SqlIdentifier("*", null));
             SqlSelect wrapperNode =
-                SqlOperatorTable.std().selectOperator.createCall(false,
-                    selectList, query, null, null, null, orderList, null);
+                SqlOperatorTable.std().selectOperator.createCall(null,
+                    selectList, query, null, null, null, null, orderList,
+                        ParserPosition.ZERO);
             return wrapperNode;
         } else if (node.isA(SqlKind.ExplicitTable)) {
             // (TABLE t) is equivalent to (SELECT * FROM t)
@@ -461,9 +463,9 @@ public class SqlValidator
                 new SqlNodeList(ParserPosition.ZERO);
             selectList.add(new SqlIdentifier("*", null));
             SqlSelect wrapperNode =
-                SqlOperatorTable.std().selectOperator.createCall(false,
+                SqlOperatorTable.std().selectOperator.createCall(null,
                     selectList, call.getOperands()[0], null, null, null, null,
-                    null);
+                    null, ParserPosition.ZERO);
             return wrapperNode;
         } else if (node.isA(SqlKind.Insert)) {
             SqlInsert call = (SqlInsert) node;
@@ -476,15 +478,9 @@ public class SqlValidator
                 new SqlNodeList(ParserPosition.ZERO);
             selectList.add(new SqlIdentifier("*", null));
             SqlSelect select =
-                SqlOperatorTable.std().selectOperator.createCall(
-                    false,
-                    selectList,
-                    call.getTargetTable(),
-                    call.getCondition(),
-                    null,
-                    null,
-                    null,
-                    null);
+                SqlOperatorTable.std().selectOperator.createCall(null,
+                    selectList, call.getTargetTable(), call.getCondition(),
+                    null, null, null, null, ParserPosition.ZERO);
             call.setOperand(SqlDelete.SOURCE_SELECT_OPERAND, select);
         } else if (node.isA(SqlKind.Update)) {
             SqlUpdate call = (SqlUpdate) node;
@@ -508,15 +504,9 @@ public class SqlValidator
                 ++ordinal;
             }
             SqlSelect select =
-                SqlOperatorTable.std().selectOperator.createCall(
-                    false,
-                    selectList,
-                    call.getTargetTable(),
-                    call.getCondition(),
-                    null,
-                    null,
-                    null,
-                    null);
+                SqlOperatorTable.std().selectOperator.createCall(null,
+                    selectList, call.getTargetTable(), call.getCondition(),
+                    null, null, null, null, ParserPosition.ZERO);
             call.setOperand(SqlUpdate.SOURCE_SELECT_OPERAND, select);
         }
         return node;
@@ -638,19 +628,9 @@ public class SqlValidator
                         // one of the tables.
                         ;
                     } else {
-                        // REVIEW jvs 9-Feb-2004: I changed this into a
-                        // validation error instead of an internal error
-                        // because validateExpression isn't currently throwing
-                        // any exception for unknown identifiers.  Someone
-                        // should probably arrange for that instead.  Also,
-                        // this is a case where SqlNode parse position is
-                        // definitely needed.  I took off the "in scope" part
-                        // because the internal information is not wanted
-                        // after I made this a non-internal error.
-                        throw EigenbaseResource.instance()
-                            .newUnknownIdentifier(
-                                name,
-                                id.getParserPosition().toString());
+                        throw newValidationError(id,
+                            EigenbaseResource.instance().newUnknownIdentifier(
+                                name));
                     }
                 } else {
                     RelDataType fieldType = lookupField(type, name);
@@ -752,18 +732,19 @@ public class SqlValidator
                             opTab.lookupFunctionsByName(call.operator.name);
                         if ((null == overloads)
                                 || (Collections.EMPTY_LIST == overloads)) {
-                            throw EigenbaseResource.instance()
+                            throw newValidationError(call,
+                                EigenbaseResource.instance()
                                 .newValidatorUnknownFunction(
-                                    call.operator.name,
-                                    call.getParserPosition().toString());
+                                    call.operator.name));
                         }
                         SqlFunction fun = (SqlFunction) overloads.get(0);
-                        throw EigenbaseResource.instance()
-                            .newInvalidNbrOfArgument(
+                        final Integer expectedArgCount = (Integer)
+                            fun.getOperandsCountDescriptor()
+                            .getPossibleNumOfOperands().get(0);
+                        throw newValidationError(call,
+                            EigenbaseResource.instance().newInvalidArgCount(
                                 call.operator.name,
-                                call.getParserPosition().toString(),
-                                (Integer) fun.getOperandsCountDescriptor()
-                                .getPossibleNumOfOperands().get(0));
+                                expectedArgCount));
                     }
                     call.operator = function;
                 }
@@ -1287,6 +1268,7 @@ public class SqlValidator
                 for (int i = 0; i < operands.length; i++) {
                     validateExpression(operands[i]);
                 }
+                call.operator.validateCall(call, this);
             } else if (node instanceof SqlNodeList) {
                 SqlNodeList nodeList = (SqlNodeList) node;
                 Iterator iter = nodeList.getList().iterator();
@@ -1397,8 +1379,8 @@ public class SqlValidator
         if (orderList != null) {
             if (!shouldAllowIntermediateOrderBy()) {
                 if (select != outermostNode) {
-                    throw EigenbaseResource.instance().newInvalidOrderByPos(
-                        select.getParserPosition().toString());
+                    throw newValidationError(select,
+                        EigenbaseResource.instance().newInvalidOrderByPos());
                 }
             }
             validateExpression(orderList);
@@ -1430,9 +1412,9 @@ public class SqlValidator
             SqlIdentifier id = (SqlIdentifier) iter.next();
             int iColumn = baseRowType.getFieldOrdinal(id.getSimple());
             if (iColumn == -1) {
-                throw EigenbaseResource.instance().newUnknownTargetColumn(
-                    id.getSimple(),
-                    id.getParserPosition().toString());
+                throw newValidationError(id,
+                    EigenbaseResource.instance().newUnknownTargetColumn(
+                        id.getSimple()));
             }
             fieldNames[iTarget] = targetFields[iColumn].getName();
             types[iTarget] = targetFields[iColumn].getType();
@@ -1508,11 +1490,7 @@ public class SqlValidator
         RelDataType targetRowType)
     {
         assert node.isA(SqlKind.Values);
-        // TODO: validate that all rows have the same number of columns
-        //   and that expressions in each column are union-compatible.
-        // jhyde: Having the same number of columns is a pre-requisite for
-        //   being union-compatible. So just check that they're
-        //   union-compatible.
+
         final SqlNode [] operands = node.getOperands();
         for (int i = 0; i < operands.length; i++) {
             SqlNode operand = operands[i];
@@ -1536,8 +1514,10 @@ public class SqlValidator
                 rowConstructor);
         }
 
-        // validate that all rows have the same number of columns
+        // validate that all row types have the same number of columns
         //  and that expressions in each column are compatible.
+        // A values expression is turned into something that looks like
+        // ROW(type00, type01,...), ROW(type11,...),...
         final int numOfRows = operands.length;
         if (numOfRows >= 2) {
             SqlCall firstRow = (SqlCall) operands[0];
@@ -1547,9 +1527,9 @@ public class SqlValidator
             for (int row = 0; row < numOfRows; row++) {
                 SqlCall thisRow = (SqlCall) operands[row];
                 if (numOfColumns != thisRow.operands.length) {
-                    throw EigenbaseResource.instance()
-                        .newIncompatibleValueType(
-                            node.getParserPosition().toString());
+                    throw newValidationError(node,
+                        EigenbaseResource.instance()
+                        .newIncompatibleValueType());
                 }
             }
 
@@ -1569,9 +1549,9 @@ public class SqlValidator
                         types);
 
                 if (null == type) {
-                    throw EigenbaseResource.instance()
-                        .newIncompatibleValueType(
-                            node.getParserPosition().toString());
+                    throw newValidationError(node,
+                        EigenbaseResource.instance()
+                        .newIncompatibleValueType());
                 }
             }
         }
@@ -1611,6 +1591,32 @@ public class SqlValidator
         }
         throw EigenbaseResource.instance().newArgumentMustBePositiveInteger(
                 call.operator.name);
+    }
+
+    /**
+     * Adds "line x, column y" context to a validator exception.
+     *
+     * <p>Note that the input exception is checked (it derives from
+     * {@link Exception}) and the output exception is unchecked (it derives
+     * from {@link RuntimeException}). This is intentional -- it should remind
+     * code authors to provide context for their validation errors.
+     *
+     * @param e The validation error
+     * @param node The place where the exception occurred
+     * @return
+     *
+     * @pre node != null
+     * @post return != null
+     */
+    public FarragoException newValidationError(SqlNode node,
+        SqlValidatorException e)
+    {
+        Util.pre(node != null, "node != null");
+        final ParserPosition pos = node.getParserPosition();
+        return EigenbaseResource.instance().newValidatorContext(
+            new Integer(pos.getBeginLine()),
+            new Integer(pos.getBeginColumn()),
+            e);
     }
 
     //~ Inner Interfaces ------------------------------------------------------
@@ -1699,9 +1705,9 @@ public class SqlValidator
                 final String tableName = identifier.names[0];
                 final Scope fromScope = resolve(tableName, null, null);
                 if (fromScope == null) {
-                    throw EigenbaseResource.instance().newTableNameNotFound(
-                        tableName,
-                        identifier.getParserPosition().toString());
+                    throw newValidationError(identifier,
+                        EigenbaseResource.instance().newTableNameNotFound(
+                            tableName));
                 }
                 final String columnName = identifier.names[1];
                 if (lookupField(
@@ -1925,9 +1931,9 @@ public class SqlValidator
         {
             table = catalogReader.getTable(id.names);
             if (table == null) {
-                throw EigenbaseResource.instance().newTableNameNotFound(
-                    "" + id,
-                    id.getParserPosition().toString());
+                throw newValidationError(id,
+                    EigenbaseResource.instance().newTableNameNotFound(
+                        id.toString()));
             }
             if (shouldExpandIdentifiers()) {
                 // TODO:  expand qualifiers for column references also
@@ -1982,9 +1988,9 @@ public class SqlValidator
                 for (int i = 0; i < call.operands.length; i++) {
                     SqlNode operand = call.operands[i];
                     if (!operand.getKind().isA(SqlKind.Query)) {
-                        throw EigenbaseResource.instance().newNeedQueryOp(
-                            "" + operand,
-                            operand.getParserPosition().toString());
+                        throw newValidationError(operand,
+                            EigenbaseResource.instance().newNeedQueryOp(
+                                operand.toString()));
                     }
                     validateQuery(operand);
                 }
