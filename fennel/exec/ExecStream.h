@@ -55,9 +55,10 @@ protected:
      */
     bool isOpen;
 
-    // REVIEW:  make this a weak_ptr?
     /**
-     * Dataflow graph containing this stream.
+     * Dataflow graph containing this stream.  Note that we don't use
+     * a weak_ptr for this because it needs to be accessed frequently during
+     * execution, and the extra locking overhead would be frivolous.
      */
     ExecStreamGraph *pGraph;
     
@@ -103,6 +104,16 @@ protected:
     virtual void closeImpl();
     
 public:
+    /**
+     * @return reference to containing graph
+     */
+    inline ExecStreamGraph &getGraph() const;
+    
+    /**
+     * @return the identifier for this stream within containing graph
+     */
+    inline ExecStreamId getStreamId() const;
+    
     /**
      * Initializes the buffer accessors for inputs to this stream.  This
      * method is only ever called once, before prepare.
@@ -150,12 +161,16 @@ public:
         ExecStreamResourceQuantity &optQuantity);
 
     /**
-     * Sets current resource allocation for this stream.
+     * Sets current resource allocation for this stream.  If called while the
+     * stream is open, this indicates a request for the stream to dynamically
+     * adjust its memory usage.  If the stream is incapable of honoring
+     * the request, it should update quantity with the actual amounts still
+     * in use.
      *
      * @param quantity allocated resource quantity
      */
     virtual void setResourceAllocation(
-        ExecStreamResourceQuantity const &quantity);
+        ExecStreamResourceQuantity &quantity);
         
     /**
      * Opens this stream, acquiring any resources needed in order to be able to
@@ -168,11 +183,6 @@ public:
     virtual void open(bool restart);
     
     /**
-     * @return the identifier for this stream within its graph
-     */
-    virtual ExecStreamId getStreamId() const;
-    
-    /**
      * Sets unique name of this stream.
      */
     virtual void setName(std::string const &);
@@ -183,11 +193,11 @@ public:
     virtual std::string const &getName() const;
         
     /**
-     * Executes this stream until the supplied quantum expires.
+     * Executes this stream.
      *
-     * @param quantum governs the amount of execution to perform
+     * @param quantum governs the maximum amount of execution to perform
      *
-     * @return code indicating effect of execution
+     * @return code indicating reason execution ceased
      */
     virtual ExecStreamResult execute(ExecStreamQuantum const &quantum) = 0;
     
@@ -217,6 +227,17 @@ public:
      */
     virtual ExecStreamBufProvision getInputBufProvision() const;
 };
+
+inline ExecStreamId ExecStream::getStreamId() const
+{
+    return id;
+}
+
+inline ExecStreamGraph &ExecStream::getGraph() const
+{
+    assert(pGraph);
+    return *pGraph;
+}
 
 FENNEL_END_NAMESPACE
 

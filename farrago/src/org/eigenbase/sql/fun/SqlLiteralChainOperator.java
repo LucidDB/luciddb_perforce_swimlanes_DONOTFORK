@@ -39,7 +39,7 @@ import org.eigenbase.util.NlsString;
  * type, collected as the operands of an {@link SqlCall} using this operator.
  * After validation, the fragments will be concatenated into a single literal.
  *
- * <p>For a chain of {@link SqlLiteral.CharString} objects, a
+ * <p>For a chain of {@link org.eigenbase.sql.SqlCharStringLiteral} objects, a
  * {@link SqlCollation} object is attached only to the head of the chain.
  *
  * @author Marc Berkowitz
@@ -83,14 +83,19 @@ public class SqlLiteralChainOperator extends SqlInternalOperator {
         return true;
     }
 
-    protected void checkArgTypes(
+    protected boolean checkArgTypes(
         SqlCall call,
         SqlValidator validator,
-        SqlValidator.Scope scope)
+        SqlValidator.Scope scope,
+        boolean throwOnFailure)
     {
         if (!argTypesValid(call, validator, scope)) {
-            throw call.newValidationSignatureError(validator, scope);
+            if (throwOnFailure) {
+                throw call.newValidationSignatureError(validator, scope);
+            }
+            return false;
         }
+        return true;
     }
 
     // Result type is the same as all the args, but its size is the
@@ -124,7 +129,8 @@ public class SqlLiteralChainOperator extends SqlInternalOperator {
 
     public void validateCall(
         SqlCall call,
-        SqlValidator validator)
+        SqlValidator validator,
+        SqlValidator.Scope scope)
     {
         // per the SQL std, each string fragment must be on a different line
         for (int i = 1; i < call.operands.length; i++) {
@@ -150,9 +156,9 @@ public class SqlLiteralChainOperator extends SqlInternalOperator {
                 writer.print(" ");
             }
             SqlLiteral rand = (SqlLiteral) rands[i];
-            if (rand instanceof SqlLiteral.CharString) {
+            if (rand instanceof SqlCharStringLiteral) {
                 NlsString nls =
-                    ((SqlLiteral.CharString) rand).getNlsString();
+                    ((SqlCharStringLiteral) rand).getNlsString();
                 if (i == 0) {
                     collation = nls.getCollation();
                     writer.print(nls.asSql(true, false)); // print with prefix

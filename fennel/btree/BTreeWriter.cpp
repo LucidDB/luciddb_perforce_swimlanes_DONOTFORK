@@ -64,6 +64,9 @@ uint BTreeWriter::insertTupleFromBuffer(
 {
     BTreeNodeAccessor &nodeAccessor = *pLeafNodeAccessor;
     nodeAccessor.tupleAccessor.setCurrentTupleBuf(pTupleBuffer);
+
+    validateTupleSize(nodeAccessor.tupleAccessor);
+    
     uint cbTuple = nodeAccessor.tupleAccessor.getCurrentByteCount();
 
     nodeAccessor.unmarshalKey(searchKeyData);
@@ -119,7 +122,6 @@ bool BTreeWriter::attemptInsertWithoutSplit(
 {
     BTreeNode *pNode = &(targetPageLock.getNodeForWrite());
     BTreeNodeAccessor &nodeAccessor = getNodeAccessor(*pNode);
-    // TODO:  assertion on maximum tuple size (like half of page or whatever)
     switch(nodeAccessor.calculateCapacity(*pNode,cbTuple)) {
     case BTreeNodeAccessor::CAN_FIT:
         break;
@@ -210,7 +212,7 @@ void BTreeWriter::splitNode(
     // invalid, so don't use them.
     if (!attemptInsertWithoutSplit(
             *pLockForNewTuple,pTupleBuffer,cbTuple,iNewTuple)) {
-        assert(false);
+        permAssert(false);
     }
 
     // TODO:  parent update
@@ -327,8 +329,7 @@ bool BTreeWriter::updateCurrent(TupleData const &tupleData)
     case BTreeNodeAccessor::CAN_NOT_FIT:
         return false;
     default:
-        assert(false);
-        break;
+        permAssert(false);
     }
 
     pTupleBuf = nodeAccessor.allocateEntry(*pNode,iTupleOnLeaf,cbTuple);
@@ -408,8 +409,7 @@ void BTreeWriter::undoLogicalAction(
         insertLogged(logStream);
         break;
     default:
-        assert(false);
-        break;
+        permAssert(false);
     }
 }
 
@@ -425,8 +425,7 @@ void BTreeWriter::redoLogicalAction(
         deleteLogged(logStream);
         break;
     default:
-        assert(false);
-        break;
+        permAssert(false);
     }
 }
 

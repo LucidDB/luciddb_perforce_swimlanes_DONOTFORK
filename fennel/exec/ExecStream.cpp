@@ -24,10 +24,15 @@
 
 FENNEL_BEGIN_CPPFILE("$Id$");
 
+ExecStreamParams::ExecStreamParams()
+{
+    enforceQuotas = true;
+}
+
 ExecStreamParams::~ExecStreamParams()
 {
 }
-    
+
 ExecStream::ExecStream()
 {
     pGraph = NULL;
@@ -72,7 +77,7 @@ void ExecStream::getResourceRequirements(
 }
 
 void ExecStream::setResourceAllocation(
-    ExecStreamResourceQuantity const &quantity)
+    ExecStreamResourceQuantity &quantity)
 {
     resourceAllocation = quantity;
     if (pQuotaAccessor) {
@@ -90,7 +95,7 @@ void ExecStream::open(bool restart)
     } else {
         // NOTE: this assertion is bad because in case of multiple
         // inheritance, open can be called twice.  So we rely on the
-        // corresponding assertion in TupleStreamGraph instead, unless
+        // corresponding assertion in ExecStreamGraph instead, unless
         // someone can come up with something better.
 #if 0
         assert(!isOpen);
@@ -100,14 +105,9 @@ void ExecStream::open(bool restart)
     }
 }
 
-ExecStreamId ExecStream::getStreamId() const
+void ExecStream::setName(std::string const &nameInit)
 {
-    return id;
-}
-
-void ExecStream::setName(std::string const &nameIn)
-{
-    name = nameIn;
+    name = nameInit;
 }
 
 std::string const &ExecStream::getName() const

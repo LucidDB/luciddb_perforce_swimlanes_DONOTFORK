@@ -21,15 +21,15 @@
 
 package org.eigenbase.sql;
 
+import org.eigenbase.sql.type.SqlTypeName;
+import org.eigenbase.util.BarfingInvocationHandler;
+import org.eigenbase.util.Util;
+
 import java.lang.reflect.Proxy;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import org.eigenbase.sql.type.SqlTypeName;
-import org.eigenbase.util.BarfingInvocationHandler;
-import org.eigenbase.util.Util;
 
 
 /**
@@ -52,23 +52,6 @@ public abstract class SqlUtil
         new SqlDialect(dummyDatabaseMetaData());
 
     //~ Methods ---------------------------------------------------------------
-
-    /**
-     * Returns the input with a given alias.
-     */
-    public static SqlNode getFromNode(
-        SqlSelect query,
-        String alias)
-    {
-        ArrayList list = flatten(query.getFrom());
-        for (int i = 0; i < list.size(); i++) {
-            SqlNode node = (SqlNode) list.get(i);
-            if (getAlias(node).equals(alias)) {
-                return node;
-            }
-        }
-        return null;
-    }
 
     static SqlNode andExpressions(
         SqlNode node1,
@@ -97,16 +80,6 @@ public abstract class SqlUtil
         ArrayList list = new ArrayList();
         flatten(node, list);
         return list;
-    }
-
-    public static String getAlias(SqlNode node)
-    {
-        if (node instanceof SqlIdentifier) {
-            String [] names = ((SqlIdentifier) node).names;
-            return names[names.length - 1];
-        } else {
-            throw Util.newInternal("cannot derive alias for '" + node + "'");
-        }
     }
 
     /**
@@ -259,6 +232,27 @@ public abstract class SqlUtil
             null,
             new Class [] { DatabaseMetaData.class },
             new DatabaseMetaDataInvocationHandler());
+    }
+
+    /**
+     * Concatenates string literals.
+     *
+     * <p>This method takes an array of arguments,
+     * since pairwise concatenation means too much string copying.
+     *
+     * @param lits an array of {@link SqlLiteral}, not empty, all of the same
+     *     class
+     * @return a new {@link SqlLiteral}, of that same class, whose value is the
+     *     string concatenation of the values of the literals
+     * @throws ClassCastException if the lits are not homogeneous.
+     * @throws ArrayIndexOutOfBoundsException if lits is an empty array.
+     */
+    public static SqlLiteral concatenateLiterals(SqlLiteral [] lits)
+    {
+        if (lits.length == 1) {
+            return lits[0]; // nothing to do
+        }
+        return ((SqlAbstractStringLiteral) lits[0]).concat1(lits);
     }
 
     //~ Inner Classes ---------------------------------------------------------

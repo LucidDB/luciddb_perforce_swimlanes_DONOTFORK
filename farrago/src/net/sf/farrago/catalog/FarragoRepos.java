@@ -46,7 +46,10 @@ import net.sf.farrago.util.*;
 import org.eigenbase.util.SaffronProperties;
 import org.netbeans.api.mdr.*;
 import org.netbeans.mdr.*;
+import org.netbeans.mdr.util.*;
+import org.netbeans.mdr.persistence.jdbcimpl.*;
 
+import java.util.logging.Logger;
 
 /**
  * FarragoRepos represents a loaded instance of an MDR repository containing
@@ -119,12 +122,15 @@ public class FarragoRepos extends FarragoMetadataFactory
     /** The underlying MDR repository. */
     private final MDRepository mdrRepository;
 
-    /** Immutable parameters read on startup */
-    private FemFarragoConfig immutableConfig;
-
     /** MofId for current instance of FemFarragoConfig. */
     private final String currentConfigMofId;
 
+    private final boolean isFennelEnabled;
+
+    private final FarragoCompoundAllocation allocations;
+    
+    private String memStorageId;
+    
     //~ Constructors ----------------------------------------------------------
 
     /**
@@ -132,20 +138,22 @@ public class FarragoRepos extends FarragoMetadataFactory
      */
     public FarragoRepos(
         FarragoAllocationOwner owner,
+        FarragoModelLoader modelLoader,
         boolean userRepos)
     {
         owner.addAllocation(this);
         tracer.fine("Loading catalog");
+        allocations = new FarragoCompoundAllocation();
         if (FarragoProperties.instance().homeDir.get() == null) {
             throw FarragoResource.instance().newMissingHomeProperty(
                 FarragoProperties.instance().homeDir.getPath());
         }
-        modelLoader = new FarragoModelLoader();
+        this.modelLoader = modelLoader;
 
         if (!userRepos) {
             File reposFile = modelLoader.getSystemReposFile();
             try {
-                new FarragoFileLockAllocation(owner, reposFile, true);
+                new FarragoFileLockAllocation(allocations, reposFile, true);
             } catch (IOException ex) {
                 throw FarragoResource.instance().newCatalogFileLockFailed(
                     reposFile.toString());
@@ -156,56 +164,94 @@ public class FarragoRepos extends FarragoMetadataFactory
         if (farragoPackage == null) {
             throw FarragoResource.instance().newCatalogUninitialized();
         }
+
         super.setRootPackage(farragoPackage);
-        mdrRepository = modelLoader.getMdrRepos();
         cwmPackage = farragoPackage.getCwm();
         corePackage = cwmPackage.getCore();
         relationalPackage = cwmPackage.getRelational();
         indexPackage = cwmPackage.getKeysIndexes();
         datatypesPackage = cwmPackage.getDataTypes();
         femPackage = farragoPackage.getFem();
-        configPackage = femPackage.getConfig();
         medPackage = femPackage.getMed();
+        configPackage = femPackage.getConfig();
 
+        mdrRepository = modelLoader.getMdrRepos();
+        
         // Create special in-memory storage for transient objects
         try {
             NBMDRepositoryImpl nbRepos = (NBMDRepositoryImpl) mdrRepository;
             Map props = new HashMap();
-            String memStorageId =
+            memStorageId =
                 nbRepos.mountStorage(
                     FarragoTransientStorageFactory.class.getName(),
                     props);
             beginReposTxn(true);
-            RefPackage memExtent =
-                nbRepos.createExtent(
-                    "TransientCatalog",
-                    farragoPackage.refMetaObject(),
-                    null,
-                    memStorageId);
-            endReposTxn(false);
+            boolean rollback = true;
+            try {
+                RefPackage memExtent =
+                    nbRepos.createExtent(
+                        "TransientCatalog",
+                        farragoPackage.refMetaObject(),
+                        null,
+                        memStorageId);
+                transientFarragoPackage = (FarragoPackage) memExtent;
+                rollback = false;
+            } finally {
+                endReposTxn(rollback);
+            }
             FarragoTransientStorage.ignoreCommit = true;
-            transientFarragoPackage = (FarragoPackage) memExtent;
             fennelPackage = transientFarragoPackage.getFem().getFennel();
         } catch (Throwable ex) {
             throw FarragoResource.instance().newCatalogInitTransientFailed(ex);
         }
 
-        // TODO jvs 5-May-2004:  do the above for model extensions also
+        // Load configuration
         Collection configs =
             configPackage.getFemFarragoConfig().refAllOfClass();
 
         // TODO: multiple named configurations.  For now, build should have
         // imported exactly one configuration named Current.
         assert (configs.size() == 1);
-        immutableConfig = (FemFarragoConfig) configs.iterator().next();
-        assert (immutableConfig.getName().equals("Current"));
-        currentConfigMofId = immutableConfig.refMofId();
+        FemFarragoConfig defaultConfig =
+            (FemFarragoConfig) configs.iterator().next();
+        assert (defaultConfig.getName().equals("Current"));
+        currentConfigMofId = defaultConfig.refMofId();
+        isFennelEnabled = !defaultConfig.isFennelDisabled();
 
         tracer.info("Catalog successfully loaded");
     }
 
     //~ Methods ---------------------------------------------------------------
 
+    private Map stringToMap(String propString)
+    {
+        // TODO:  find something industrial strength
+        StringTokenizer st = new StringTokenizer(propString, "=;", true);
+        Map map = new HashMap();
+        while (st.hasMoreTokens()) {
+            String name = st.nextToken();
+            if (name.equals(";")) {
+                continue;
+            }
+            if (name.equals("=")) {
+                throw new IllegalArgumentException(propString);
+            }
+            String eq = st.nextToken();
+            if (!eq.equals("=")) {
+                throw new IllegalArgumentException(propString);
+            }
+            String value = st.nextToken();
+            if (value.equals(";")) {
+                value = "";
+            }
+            map.put(
+                "org.netbeans.mdr.persistence.jdbcimpl."
+                + name,
+                value);
+        }
+        return map;
+    }
+    
     /**
      * .
      *
@@ -230,8 +276,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
-     * .
-     *
      * @return CwmCatalog representing this FarragoRepos
      */
     public CwmCatalog getSelfAsCwmCatalog()
@@ -241,8 +285,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
-     * .
-     *
      * @return maximum identifier length in characters
      */
     public int getIdentifierPrecision()
@@ -300,8 +342,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
-     * .
-     *
      * @return the name of the default Charset for this repository
      */
     public String getDefaultCharsetName()
@@ -310,8 +350,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
-     * .
-     *
      * @return the name of the default Collation for this repository
      */
     public String getDefaultCollationName()
@@ -320,13 +358,11 @@ public class FarragoRepos extends FarragoMetadataFactory
     }
 
     /**
-     * .
-     *
      * @return true iff Fennel support should be used
      */
     public boolean isFennelEnabled()
     {
-        return !immutableConfig.isFennelDisabled();
+        return isFennelEnabled;
     }
 
     /**
@@ -638,10 +674,21 @@ public class FarragoRepos extends FarragoMetadataFactory
     // implement FarragoAllocation
     public void closeAllocation()
     {
+        allocations.closeAllocation();
         if (modelLoader == null) {
             return;
         }
         tracer.fine("Closing catalog");
+        NBMDRepositoryImpl nbRepos = (NBMDRepositoryImpl) mdrRepository;
+        if (memStorageId != null) {
+            mdrRepository.beginTrans(true);
+            FarragoTransientStorage.ignoreCommit = false;
+            if (transientFarragoPackage != null) {
+                transientFarragoPackage.refDelete();
+            }
+            mdrRepository.endTrans();
+            memStorageId = null;
+        }
         modelLoader.close();
         modelLoader = null;
         tracer.info("Catalog successfully closed");
@@ -728,10 +775,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     public void beginTransientTxn()
     {
         tracer.fine("Begin transient repository transaction");
-        tracer.throwing(
-            "FOO",
-            "BAR",
-            new Throwable());
         mdrRepository.beginTrans(true);
     }
 
@@ -739,10 +782,6 @@ public class FarragoRepos extends FarragoMetadataFactory
     public void endTransientTxn()
     {
         tracer.fine("End transient repository transaction");
-        tracer.throwing(
-            "FOO",
-            "BAR",
-            new Throwable());
         mdrRepository.endTrans(false);
     }
 
@@ -758,10 +797,6 @@ public class FarragoRepos extends FarragoMetadataFactory
         } else {
             tracer.fine("Begin read-only repository transaction");
         }
-        tracer.throwing(
-            "FOO",
-            "BAR",
-            new Throwable());
         mdrRepository.beginTrans(writable);
     }
 
@@ -777,10 +812,6 @@ public class FarragoRepos extends FarragoMetadataFactory
         } else {
             tracer.fine("Commit repository transaction");
         }
-        tracer.throwing(
-            "FOO",
-            "BAR",
-            new Throwable());
         mdrRepository.endTrans(rollback);
     }
 

@@ -24,53 +24,58 @@
 #include "fennel/exec/ExecStreamGraph.h"
 
 FENNEL_BEGIN_CPPFILE("$Id$");
-
 void ConduitExecStream::setInputBufAccessors(
     std::vector<SharedExecStreamBufAccessor> const &inAccessors)
 {
-    assert(inAccessors.size() == 1);
-    pInAccessor = inAccessors[0];
+    SingleInputExecStream::setInputBufAccessors(inAccessors);
 }
 
 void ConduitExecStream::setOutputBufAccessors(
     std::vector<SharedExecStreamBufAccessor> const &outAccessors)
 {
-    assert(outAccessors.size() == 1);
-    pOutAccessor = outAccessors[0];
+    SingleOutputExecStream::setOutputBufAccessors(outAccessors);
 }
 
-void ConduitExecStream::prepare(ExecStreamParams const &params)
+void ConduitExecStream::prepare(ConduitExecStreamParams const &params)
 {
-    ExecStream::prepare(params);
+    SingleInputExecStream::prepare(params);
     
-    assert(pInAccessor);
-    assert(pOutAccessor);
-
-    assert(pInAccessor->getProvision() == getInputBufProvision());
-    assert(pOutAccessor->getProvision() == getOutputBufProvision());
-
-    pOutAccessor->setTupleShape(
-        pInAccessor->getTupleDesc(),
-        pInAccessor->getTupleFormat());
+    if (params.outputTupleDesc.empty()) {
+        pOutAccessor->setTupleShape(
+            pInAccessor->getTupleDesc(),
+            pInAccessor->getTupleFormat());
+    }
+    
+    SingleOutputExecStream::prepare(params);
 }
 
 void ConduitExecStream::open(bool restart)
 {
-    ExecStream::open(restart);
-    if (restart) {
-        // restart input
-        pGraph->getStreamInput(getStreamId(),0)->open(true);
+    SingleOutputExecStream::open(restart);
+    SingleInputExecStream::open(restart);
+}
+
+ExecStreamResult ConduitExecStream::precheckConduitBuffers()
+{
+    switch (pInAccessor->getState()) {
+    case EXECBUF_EMPTY:
+        pInAccessor->requestProduction();
+        return EXECRC_BUF_UNDERFLOW;
+    case EXECBUF_UNDERFLOW:
+        return EXECRC_BUF_UNDERFLOW;
+    case EXECBUF_EOS:
+        pOutAccessor->markEOS();
+        return EXECRC_EOS;
+    case EXECBUF_NONEMPTY:
+    case EXECBUF_OVERFLOW:
+        break;
+    default:
+        permAssert(false);
     }
-}
-
-ExecStreamBufProvision ConduitExecStream::getOutputBufProvision() const
-{
-    return BUFPROV_CONSUMER;
-}
-
-ExecStreamBufProvision ConduitExecStream::getInputBufProvision() const
-{
-    return BUFPROV_PRODUCER;
+    if (pOutAccessor->getState() == EXECBUF_OVERFLOW) {
+        return EXECRC_BUF_OVERFLOW;
+    }
+    return EXECRC_YIELD;
 }
 
 FENNEL_END_CPPFILE("$Id$");

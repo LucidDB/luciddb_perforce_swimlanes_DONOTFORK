@@ -8,9 +8,11 @@ endif
 
 # NOTE:  tests are ordered roughly from fastest to slowest
 noinst_PROGRAMS= \
+CalcAssemblerTest \
 CalcInstFactoryTest \
 CalcCastTest \
 CalcMiscTest \
+CalcExecStreamTest \
 CalcExtRegExpTest \
 CalcExtStringTest \
 CalcExtContextTest \
@@ -24,11 +26,15 @@ SqlStringAsciiTest
 
 TESTS = $(noinst_PROGRAMS)
 
+CalcAssemblerTest_SOURCES=CalcAssemblerTest.cpp
+
 CalcInstFactoryTest_SOURCES=CalcInstFactoryTest.cpp
 
 CalcCastTest_SOURCES=CalcCastTest.cpp
 
 CalcMiscTest_SOURCES=CalcMiscTest.cpp
+
+CalcExecStreamTest_SOURCES=CalcExecStreamTest.cpp
 
 CalcExtRegExpTest_SOURCES=CalcExtRegExpTest.cpp
 
@@ -54,14 +60,15 @@ SqlStringAsciiTest_SOURCES=SqlStringBuffer.cpp SqlStringAsciiTest.cpp
 
 LDADD = \
 	-L$(top_builddir)/test \
-    -L$(top_builddir)/libfennel \
-    -L$(top_builddir)/disruptivetech/libfennel_dt \
+	-L$(top_builddir)/libfennel \
+	-L$(top_builddir)/disruptivetech/libfennel_dt \
 	-l$(TEST_LIB) \
 	-lfennel_dt_calc \
 	-lfennel_dt_xo \
 	-lfennel_xo \
 	-lfennel_db \
 	-lfennel_btree \
+	-lfennel_exec \
 	-lfennel_tuple \
 	-lfennel_txn \
 	-lfennel_segment \
@@ -69,7 +76,7 @@ LDADD = \
 	-lfennel_device \
 	-lfennel_synch \
 	-lfennel_common \
-    -l$(STLPORT_LIB) \
+	-l$(STLPORT_LIB) \
 	$(EXTRA_LDFLAGS)
 
 check-local:

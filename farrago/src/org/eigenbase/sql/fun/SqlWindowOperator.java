@@ -82,26 +82,29 @@ public class SqlWindowOperator extends SqlOperator {
     }
 
     public SqlCall createCall(
-            SqlNode[] operands,
-            ParserPosition pos) {
+        SqlNode[] operands,
+        ParserPosition pos)
+    {
         return new SqlWindow(this, operands, pos);
     }
 
     public SqlWindow createCall(
-            SqlIdentifier refName,
-            SqlNodeList partitionList,
-            SqlNodeList orderList,
-            boolean isRows,
-            SqlNode lowerBound,
-            SqlNode upperBound,
-            ParserPosition pos) {
+        SqlIdentifier declName,
+        SqlIdentifier refName,
+        SqlNodeList partitionList,
+        SqlNodeList orderList,
+        boolean isRows,
+        SqlNode lowerBound,
+        SqlNode upperBound,
+        ParserPosition pos)
+    {
         return (SqlWindow) createCall(
-                new SqlNode[] {
-                    refName, partitionList, orderList,
-                    SqlLiteral.createBoolean(isRows, pos),
-                    lowerBound, upperBound
-                },
-                pos);
+            new SqlNode[] {
+                declName, refName, partitionList, orderList,
+                SqlLiteral.createBoolean(isRows, pos),
+                lowerBound, upperBound
+            },
+            pos);
     }
 
     public void unparse(
@@ -167,10 +170,29 @@ public class SqlWindowOperator extends SqlOperator {
         writer.print(")");
     }
 
+    public void validateCall(
+        SqlCall call,
+        SqlValidator validator,
+        SqlValidator.Scope scope)
+    {
+        assert call.operator == this;
+        final SqlNode[] operands = call.getOperands();
+        for (int i = 0; i < operands.length; i++) {
+            final SqlNode operand = operands[i];
+            if (operand != null) {
+                operand.validateExpr(validator, scope);
+            }
+        }
+    }
+
     public void test(SqlTester tester) {
         SqlOperatorTests.testWindow(tester);
     }
 
+    /**
+     * An enumeration of types of bounds in a window: <code>CURRENT ROW</code>, 
+     * <code>UNBOUNDED PRECEDING</code>, and <code>UNBOUNDED FOLLOWING</code>.
+     */
     static class Bound extends EnumeratedValues.BasicValue {
         private Bound(String name, int ordinal) {
             super(name, ordinal, null);

@@ -22,6 +22,8 @@
 package org.eigenbase.sql;
 
 import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.util.SqlVisitor;
+import org.eigenbase.util.Util;
 
 
 /**
@@ -95,13 +97,10 @@ public class SqlIdentifier extends SqlNode
 
     public Object clone()
     {
-        if (null != collation) {
-            return new SqlIdentifier(
-                (String []) names.clone(),
-                (SqlCollation) collation.clone(),
-                getParserPosition());
-        }
-        return new SqlIdentifier((String []) names.clone(), null);
+        return new SqlIdentifier(
+            Util.clone(names), 
+            collation,
+            getParserPosition());
     }
 
     public String toString()
@@ -136,6 +135,46 @@ public class SqlIdentifier extends SqlNode
         }
     }
 
+    public void validate(SqlValidator validator, SqlValidator.Scope scope)
+    {
+        validator.validateIdentifier(this, scope);
+    }
+
+    public void validateExpr(SqlValidator validator, SqlValidator.Scope scope)
+    {
+        // First check for builtin functions which don't have parentheses,
+        // like "LOCALTIME".
+        SqlCall call = validator.makeCall(this);
+        if (call != null) {
+            return;
+        }
+
+        final SqlIdentifier fqId = scope.fullyQualify(this);
+        Util.discard(fqId); // todo: store fqId in a map for future reference
+    }
+
+    public boolean equalsDeep(SqlNode node)
+    {
+        if (!(node instanceof SqlIdentifier)) {
+            return false;
+        }
+        SqlIdentifier that = (SqlIdentifier) node;
+        if (this.names.length != that.names.length) {
+            return false;
+        }
+        for (int i = 0; i < names.length; i++) {
+            if (!this.names[i].equals(that.names[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void accept(SqlVisitor visitor)
+    {
+        visitor.visit(this);
+    }
+    
     public SqlCollation getCollation()
     {
         return collation;
@@ -150,6 +189,23 @@ public class SqlIdentifier extends SqlNode
     {
         assert (names.length == 1);
         return names[0];
+    }
+
+    /**
+     * Returns whether this identifier is a star, such as "*" or "foo.bar.*".
+     */ 
+    public boolean isStar()
+    {
+        return names[names.length - 1].equals("*");
+    }
+
+    /**
+     * Returns whether this is a simple identifier. "FOO" is simple; "*",
+     * "FOO.*" and "FOO.BAR" are not.
+     */
+    public boolean isSimple()
+    {
+        return names.length == 1 && !names[0].equals("*");
     }
 }
 

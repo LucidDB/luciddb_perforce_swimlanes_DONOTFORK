@@ -326,10 +326,11 @@ public class SqlJdbcFunctionCall extends SqlFunction
                     getArgCountMismatchMsg()));
         }
 
-        if (!lookupMakeCallObj.operator.checkArgTypesNoThrow(
+        if (!lookupMakeCallObj.operator.checkArgTypes(
                     getLookupCall(),
                     validator,
-                    scope)) {
+                    scope,
+                    false)) {
             throw call.newValidationSignatureError(validator, scope);
         }
         return lookupMakeCallObj.operator.getType(
@@ -550,7 +551,7 @@ public class SqlJdbcFunctionCall extends SqlFunction
                         newOperands[0] =
                             SqlTrimFunction.Flag.createLeading(null);
                         newOperands[1] =
-                            SqlLiteral.CharString.create(" ", null);
+                            SqlLiteral.createCharString(" ", null);
                         newOperands[2] = operands[0];
 
                         return super.createCall(newOperands, null);
@@ -567,7 +568,7 @@ public class SqlJdbcFunctionCall extends SqlFunction
                         newOperands[0] =
                             SqlTrimFunction.Flag.createTrailing(null);
                         newOperands[1] =
-                            SqlLiteral.CharString.create(" ", null);
+                            SqlLiteral.createCharString(" ", null);
                         newOperands[2] = operands[0];
 
                         return super.createCall(newOperands, null);

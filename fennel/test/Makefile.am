@@ -12,6 +12,7 @@ endif
 
 libfenneltest_la_SOURCES=\
 CacheTestBase.cpp \
+ExecStreamTestBase.cpp \
 PagingTestBase.cpp \
 TestBase.cpp \
 SegmentTestBase.cpp \
@@ -24,7 +25,7 @@ ResourceTest \
 LocalConditionTest \
 TupleTest \
 StandardTypeTest \
-SchedulerTest \
+ExecStreamTest \
 DatabaseTest \
 LogicalTxnTest \
 SegStreamTest \
@@ -43,7 +44,7 @@ ResourceTest_SOURCES=ResourceTest.cpp
 
 LocalConditionTest_SOURCES=LocalConditionTest.cpp
 
-SchedulerTest_SOURCES=SchedulerTest.cpp
+ExecStreamTest_SOURCES=ExecStreamTest.cpp
 
 RandomAccessFileDeviceTest_SOURCES=RandomAccessFileDeviceTest.cpp
 
@@ -81,18 +82,19 @@ endif
 
 LDADD = -L$(top_builddir)/test -l$(TEST_LIB) \
     -L$(top_builddir)/libfennel \
+	-lfennel_ftrs \
 	-lfennel_xo \
 	-lfennel_db \
 	-lfennel_btree \
+	-lfennel_exec \
 	-lfennel_tuple \
 	-lfennel_txn \
-	-lfennel_exec \
 	-lfennel_segment \
 	-lfennel_cache \
 	-lfennel_device \
 	-lfennel_synch \
 	-lfennel_common \
-    -l$(STLPORT_LIB) \
+	-l$(STLPORT_LIB) \
 	$(EXTRA_LDFLAGS)
 
 check-local:

@@ -308,17 +308,57 @@ public abstract class SqlOperator
     }
 
     /**
-     * Validate a call to this operator. Called just after the operands have
-     * been validated.
-     * 
-     * @param call the SqlCall node for the call.
-     * @param validator the active validator.
+     * Validates a call to this operator.
+     *
+     * <p>A typical implementation of this method first validates the
+     * operands, then performs some operator-specific logic.
+     * The default implementation just validates the operands.
+     *
+     * <p>This method is the default implementation of
+     * {@link SqlCall#validate}; but note that some sub-classes of
+     * {@link SqlCall} never call this method.
+     *
+     * @param call the call to this operator
+     * @param validator the active validator
+     * @param scope validator scope
      */
     public void validateCall(
         SqlCall call,
-        SqlValidator validator)
+        SqlValidator validator,
+        SqlValidator.Scope scope)
     {
-        return; // default is to do nothing
+        assert call.operator == this;
+        final SqlNode[] operands = call.getOperands();
+        if (scope instanceof SqlValidator.AggregatingScope) {
+            SqlValidator.AggregatingScope aggScope =
+                (SqlValidator.AggregatingScope) scope;
+            if (isAggregator()) {
+                // If we're the 'SUM' node in 'select a + sum(b + c) from t
+                // group by a', then we should validate our arguments in
+                // the non-aggregating scope, where 'b' and 'c' are valid
+                // column references.
+                scope = aggScope.getScopeAboveAggregation();
+            } else {
+                // Check whether expression is constant within the group.
+                //
+                // If not, throws. Example, 'empno' in
+                //    SELECT empno FROM emp GROUP BY deptno
+                //
+                // If it perfectly matches an expression in the GROUP BY
+                // clause, we validate its arguments in the non-aggregating
+                // scope. Example, 'empno + 1' in
+                //
+                //   SELET empno + 1 FROM emp GROUP BY empno + 1
+
+                final boolean matches = aggScope.checkAggregateExpr(call);
+                if (matches) {
+                    scope = aggScope.getScopeAboveAggregation();
+                }
+            }
+        }
+        for (int i = 0; i < operands.length; i++) {
+            operands[i].validateExpr(validator, scope);
+        }
     }
 
     /**
@@ -326,10 +366,10 @@ public abstract class SqlOperator
      * the arguments are already known.
      *
      * <p>Particular operators can affect the behavior of this method in two
-     * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference}, it is used; otherwise, they
-     * must override this method. (Operators with unusual type inference schemes
-     * should override this method; others should generally use a type-inference
-     * strategy to share code.)
+     * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference},
+     * it is used; otherwise, they must override this method. (Operators with
+     * unusual type inference schemes should override this method; others
+     * should generally use a type-inference strategy to share code.)
      */
     public RelDataType getType(
         RelDataTypeFactory typeFactory,
@@ -367,7 +407,8 @@ public abstract class SqlOperator
      * the validator and scope provided.
      *
      * <p>Particular operators can affect the behavior of this method in two
-     * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference}, it is used; otherwise, they
+     * ways. If they have a {@link org.eigenbase.sql.type.ReturnTypeInference},
+     * it is used; otherwise, they
      * must override this method. (Operators with unusual type inference schemes
      * should override this method; others should generally use a type-inference
      * strategy to share code.)
@@ -380,7 +421,7 @@ public abstract class SqlOperator
         // Check that there's the right number of arguments.
         checkNumberOfArg(validator, operandsCheckingRule, call);
 
-        checkArgTypes(call, validator, scope);
+        checkArgTypes(call, validator, scope, true);
 
         // Now infer the result type.
         return inferType(validator, scope, call);
@@ -391,10 +432,10 @@ public abstract class SqlOperator
      * Operators (such as "ROW" and "AS") which do not check their arguments
      * can override this method.
      */
-    protected void checkArgTypes(
+    protected boolean checkArgTypes(
         SqlCall call,
         SqlValidator validator,
-        SqlValidator.Scope scope)
+        SqlValidator.Scope scope, boolean throwOnFailure)
     {
         // Check that all of the arguments are of the right type, or are at
         // least assignable to the right type.
@@ -404,26 +445,7 @@ public abstract class SqlOperator
             throw Util.needToImplement(this);
         }
 
-        operandsCheckingRule.check(validator, scope, call, true);
-    }
-
-    protected boolean checkArgTypesNoThrow(
-        SqlCall call,
-        SqlValidator validator,
-        SqlValidator.Scope scope)
-    {
-        // Check that all of the arguments are of the right type, or are at
-        // least assignable to the right type.
-        try {
-            checkArgTypes(call, validator, scope);
-        } catch (RuntimeException e) {
-            // todo, hack for now. Should not rely on catching exception, instead
-            // refactor so that checkAryTypes and overriding methods returns a
-            // boolean instead.
-            Util.swallow(e, null);
-            return false;
-        }
-        return true;
+        return operandsCheckingRule.check(validator, scope, call, throwOnFailure);
     }
 
     protected void checkNumberOfArg(
@@ -543,6 +565,11 @@ public abstract class SqlOperator
         return paramTypeInference;
     }
 
+    public boolean isAggregator()
+    {
+        return "SUM".equals(name) || "COUNT".equals(name);
+    }
+
     //~ Inner Classes ---------------------------------------------------------
 
     /**
@@ -551,7 +578,18 @@ public abstract class SqlOperator
     public static class OperandsCountDescriptor
     {
         public static final OperandsCountDescriptor variadicCountDescriptor =
-            new OperandsCountDescriptor();
+                    new OperandsCountDescriptor();
+        public static final OperandsCountDescriptor niladicCountDescriptor =
+                    new OperandsCountDescriptor(0);
+        public static final OperandsCountDescriptor One =
+                    new OperandsCountDescriptor(1);
+        public static final OperandsCountDescriptor Two =
+                    new OperandsCountDescriptor(2);
+        public static final OperandsCountDescriptor Three =
+                    new OperandsCountDescriptor(3);
+        public static final OperandsCountDescriptor Four =
+                    new OperandsCountDescriptor(4);
+
         List possibleList;
         boolean isVariadic;
 

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.util.SqlVisitor;
 
 
 /**
@@ -103,6 +104,45 @@ public class SqlCall extends SqlNode
     }
 
     /**
+     * Validates this call.
+     *
+     * <p>The default implementation delegates the validation to the operator's
+     * {@link SqlOperator#validateCall}. Derived classes may override (as do,
+     * for example {@link SqlSelect} and {@link SqlUpdate}).
+     */
+    public void validate(SqlValidator validator, SqlValidator.Scope scope)
+    {
+        validator.validateCall(this, scope);
+    }
+
+    public void accept(SqlVisitor visitor)
+    {
+        visitor.visit(this);
+    }
+
+    public boolean equalsDeep(SqlNode node)
+    {
+        if (!(node instanceof SqlCall)) {
+            return false;
+        }
+        SqlCall that = (SqlCall) node;
+        // Compare operators by name, not identity, because they may not
+        // have been resolved yet.
+        if (!this.operator.name.equals(that.operator.name)) {
+            return false;
+        }
+        if (this.operands.length != that.operands.length) {
+            return false;
+        }
+        for (int i = 0; i < this.operands.length; i++) {
+            if (!this.operands[i].equalsDeep(that.operands[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Returns a string describing the actual argument types of a call, e.g.
      * "SUBSTR(VARCHAR(12), NUMBER(3,2), INTEGER)".
      */
@@ -110,7 +150,7 @@ public class SqlCall extends SqlNode
         SqlValidator validator,
         SqlValidator.Scope scope)
     {
-        StringBuffer buf = new StringBuffer();
+
         ArrayList signatureList = new ArrayList();
         for (int i = 0; i < operands.length; i++) {
             final SqlNode operand = operands[i];
@@ -120,8 +160,8 @@ public class SqlCall extends SqlNode
             }
             signatureList.add(argType.toString());
         }
-        buf.append(operator.getSignature(signatureList));
-        return buf.toString();
+        return operator.getSignature(signatureList);
+
     }
 
     public RuntimeException newValidationSignatureError(

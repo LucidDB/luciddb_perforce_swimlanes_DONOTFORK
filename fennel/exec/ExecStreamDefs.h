@@ -34,12 +34,21 @@ typedef uint ExecStreamId;
 
 enum ExecStreamBufState 
 {
-    EXECBUF_IDLE,
-    EXECBUF_NEED_PRODUCTION,
-    EXECBUF_NEED_CONSUMPTION,
+    EXECBUF_EMPTY,
+    EXECBUF_NONEMPTY,
+    EXECBUF_UNDERFLOW,
+    EXECBUF_OVERFLOW,
     EXECBUF_EOS
 };
 
+static std::string ExecStreamBufState_names[] = {
+    "EXECBUF_EMPTY",
+    "EXECBUF_NONEMPTY",
+    "EXECBUF_UNDERFLOW",
+    "EXECBUF_OVERFLOW",
+    "EXECBUF_EOS"
+};
+    
 enum ExecStreamBufProvision
 {
     BUFPROV_NONE,
@@ -49,11 +58,19 @@ enum ExecStreamBufProvision
 
 enum ExecStreamResult
 {
-    EXECRC_NEED_INPUT,
-    EXECRC_NEED_OUTPUTBUF,
+    EXECRC_BUF_UNDERFLOW,
+    EXECRC_BUF_OVERFLOW,
     EXECRC_EOS,
-    EXECRC_NO_OUTPUT,
-    EXECRC_OUTPUT
+    EXECRC_QUANTUM_EXPIRED,
+    EXECRC_YIELD
+};
+
+static std::string ExecStreamResult_names[] = {
+    "EXECRC_BUF_UNDERFLOW",
+    "EXECRC_BUF_OVERFLOW",
+    "EXECRC_EOS",
+    "EXECRC_QUANTUM_EXPIRED",
+    "EXECRC_YIELD"
 };
     
 /**
@@ -70,17 +87,11 @@ struct ExecStreamQuantum
     uint nTuplesMax;
 
     /**
-     * Maximum number of bytes to process per quantum.
-     */
-    uint nBytesMax;
-
-    /**
      * Creates a new quantum, initially unlimited.
      */
     explicit ExecStreamQuantum()
     {
         nTuplesMax = MAXU;
-        nBytesMax = MAXU;
     }
 };
     
@@ -115,8 +126,6 @@ struct ExecStreamResourceQuantity
  */
 struct ExecStreamParams 
 {
-    virtual ~ExecStreamParams();
-    
     /**
      * CacheAccessor to use for any data access.  This will be singular if the
      * stream should not perform data access.
@@ -133,6 +142,10 @@ struct ExecStreamParams
      * Whether ExecStream should enforce resource quotas.
      */
     bool enforceQuotas;
+
+    explicit ExecStreamParams();
+
+    virtual ~ExecStreamParams();
 };
 
 FENNEL_END_NAMESPACE

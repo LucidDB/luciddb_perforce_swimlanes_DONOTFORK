@@ -5,7 +5,7 @@
  * This class was generated
  * by class mondrian.resource.ResourceGen
  * from /home/jvs/open/dev/fennel/common/FennelResource.xml
- * on Fri Oct 29 13:24:17 PDT 2004.
+ * on Sat Nov 27 23:31:08 PST 2004.
  * It contains a list of messages, and methods to
  * retrieve and format those messages.
  **/
@@ -49,7 +49,8 @@ FennelResource::FennelResource(Locale locale)
       _sysCallFailed(this, "sysCallFailed"),
       _duplicateKeyDetected(this, "duplicateKeyDetected"),
       _internalError(this, "internalError"),
-      _executionAborted(this, "executionAborted")
+      _executionAborted(this, "executionAborted"),
+      _rowTooLong(this, "rowTooLong")
 { }
 
 string FennelResource::sysCallFailed(const std::string &p0) const
@@ -67,6 +68,10 @@ string FennelResource::internalError(const std::string &p0) const
 string FennelResource::executionAborted() const
 {
     return _executionAborted.format();
+}
+string FennelResource::rowTooLong(int p0, int p1, const std::string &p2) const
+{
+    return _rowTooLong.format(p0, p1, p2);
 }
 
 } // end namespace fennel

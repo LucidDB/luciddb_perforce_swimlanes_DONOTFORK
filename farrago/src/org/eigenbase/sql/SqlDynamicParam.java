@@ -22,6 +22,7 @@
 package org.eigenbase.sql;
 
 import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.util.SqlVisitor;
 
 
 /**
@@ -51,13 +52,6 @@ public class SqlDynamicParam extends SqlNode
 
     //~ Methods ---------------------------------------------------------------
 
-    public Object clone()
-    {
-        return new SqlDynamicParam(
-            index,
-            getParserPosition());
-    }
-
     public SqlKind getKind()
     {
         return SqlKind.DynamicParam;
@@ -69,6 +63,25 @@ public class SqlDynamicParam extends SqlNode
         int rightPrec)
     {
         writer.print("?");
+    }
+
+    public void validate(SqlValidator validator, SqlValidator.Scope scope)
+    {
+        validator.validateDynamicParam(this);
+    }
+
+    public void accept(SqlVisitor visitor)
+    {
+        visitor.visit(this);
+    }
+
+    public boolean equalsDeep(SqlNode node)
+    {
+        if (node instanceof SqlDynamicParam) {
+            SqlDynamicParam that = (SqlDynamicParam) node;
+            return this.index == that.index;
+        }
+        return false;
     }
 }
 

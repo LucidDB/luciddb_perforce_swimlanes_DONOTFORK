@@ -21,33 +21,50 @@
 #ifndef Fennel_ConduitExecStream_Included
 #define Fennel_ConduitExecStream_Included
 
-#include "fennel/exec/ExecStream.h"
+#include "fennel/exec/SingleOutputExecStream.h"
+#include "fennel/exec/SingleInputExecStream.h"
 
 FENNEL_BEGIN_NAMESPACE
 
 /**
- * ConduitExecStream is an abstract base for an ExecStream with
+ * ConduitExecStreamParams defines parameters for ConduitExecStream.
+ */
+struct ConduitExecStreamParams
+    : virtual public SingleInputExecStreamParams, 
+        virtual public SingleOutputExecStreamParams
+{
+};
+    
+/**
+ * ConduitExecStream is an abstract base for any ExecStream with exactly
  * one input and one output.
  *
  * @author John V. Sichi
  * @version $Id$
  */
-class ConduitExecStream : public ExecStream
+class ConduitExecStream
+    : virtual public SingleInputExecStream, 
+        virtual public SingleOutputExecStream
 {
 protected:
-    SharedExecStreamBufAccessor pInAccessor;
-    SharedExecStreamBufAccessor pOutAccessor;
+    /**
+     * Checks the state of the input and output buffers.  If input empty,
+     * requests production.  If input EOS, propagates that to output buffer.
+     * If output full, returns EXECRC_OVERFLOW.
+     *
+     * @return result of precheck; anything but EXECRC_YIELD indicates
+     * that execution should terminate immediately with returned code
+     */
+    ExecStreamResult precheckConduitBuffers();
     
 public:
     // implement ExecStream
-    virtual void prepare(ExecStreamParams const &params);
-    virtual void setInputBufAccessors(
-        std::vector<SharedExecStreamBufAccessor> const &inAccessors);
     virtual void setOutputBufAccessors(
+        std::vector<SharedExecStreamBufAccessor> const &inAccessors);
+    virtual void setInputBufAccessors(
         std::vector<SharedExecStreamBufAccessor> const &outAccessors);
+    virtual void prepare(ConduitExecStreamParams const &params);
     virtual void open(bool restart);
-    virtual ExecStreamBufProvision getOutputBufProvision() const;
-    virtual ExecStreamBufProvision getInputBufProvision() const;
 };
 
 FENNEL_END_NAMESPACE

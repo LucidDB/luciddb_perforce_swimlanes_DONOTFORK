@@ -31,6 +31,8 @@
 
 FENNEL_BEGIN_NAMESPACE
 
+// DEPRECATED
+    
 /**
  * ExecutionStreamBuilder builds a prepared ExecutionStreamGraph from its 
  * Java representation.  It builds a graph in three phases:

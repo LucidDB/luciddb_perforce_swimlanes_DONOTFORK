@@ -122,6 +122,10 @@ public class SqlKind extends EnumeratedValues.BasicValue
     /** Window specification */
     public static final SqlKind Window = new SqlKind("Window", WindowORDINAL);
 
+    public static final int WinFunORDINAL = 18;
+    /** Window function specification */
+    public static final SqlKind WindowFun = new SqlKind("WindownFunction", WinFunORDINAL);
+
     // binary operators
     // arithmetic 100 - 109
 
@@ -353,21 +357,19 @@ public class SqlKind extends EnumeratedValues.BasicValue
         new EnumeratedValues(new SqlKind [] {
 
             // the basics
-            Other, Select, Join, Identifier, Literal, Function, Explain, Insert,
-                Update, Delete, Union, Except, Intersect, As, Window,
+            Other, Select, Join, Identifier, Literal, Function, Explain,
+            Insert, Update, Delete, Union, Except, Intersect, As, Over, Window,
             // arithmetic
             Times, Divide, Plus, Minus,
             // comparisons
             In, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual,
-                Equals, NotEquals,
+            Equals, NotEquals,
             // boolean
             Or, And,
             // other infix
             Dot, Overlaps, Like, Similar, Between, Case,
             // prefix
             Not, PlusPrefix, MinusPrefix, Exists, Values, ExplicitTable,
-
-
             // postfix
             Descending, IsTrue, IsFalse, IsNull,
             // row

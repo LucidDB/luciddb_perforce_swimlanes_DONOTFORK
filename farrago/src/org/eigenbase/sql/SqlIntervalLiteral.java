@@ -39,52 +39,82 @@ import org.eigenbase.util.EnumeratedValues;
 public class SqlIntervalLiteral extends SqlLiteral
 {
     protected SqlIntervalLiteral(
-            String value, TimeUnit timeUnit,
+            int[] values, SqlIntervalQualifier intervalQualifier,
             SqlTypeName sqlTypeName, ParserPosition pos) {
-        super(new DayTimeInterval(timeUnit, value), sqlTypeName, pos);
+        super(new IntervalValue(intervalQualifier, values), sqlTypeName, pos);
     }
 
     public void unparse(
             SqlWriter writer,
             int leftPrec,
             int rightPrec) {
-        DayTimeInterval dayTimeInterval = (DayTimeInterval) value;
-        writer.print("INTERVAL '");
-        writer.print(dayTimeInterval.value);
+        IntervalValue interval = (IntervalValue) value;
+        writer.print("(INTERVAL '");
+        writer.print(value.toString());
         writer.print("' ");
-        writer.print(dayTimeInterval.timeUnit.name.toUpperCase());
+        writer.print(interval.intervalQualifier.toString());
+        writer.print(")");
     }
 
     /**
-     * Enumeration of time units used to construct an interval.
+     * A Interval value.
      */
-    public static class TimeUnit extends EnumeratedValues.BasicValue {
-        private TimeUnit(String name, int ordinal) {
-            super(name, ordinal, null);
+    static class IntervalValue {
+        private final SqlIntervalQualifier intervalQualifier;
+        private final int[] values;
+
+        IntervalValue(SqlIntervalQualifier intervalQualifier, int[] values) {
+            this.intervalQualifier = intervalQualifier;
+            this.values = values;
         }
 
-        public static final TimeUnit Year = new TimeUnit("Year", 0);
-        public static final TimeUnit Month = new TimeUnit("Month", 1);
-        public static final TimeUnit Day = new TimeUnit("Day", 2);
-        public static final TimeUnit Hour = new TimeUnit("Hour", 3);
-        public static final TimeUnit Minute = new TimeUnit("Minute", 4);
-        public static final TimeUnit Second = new TimeUnit("Second", 5);
-        public static final EnumeratedValues enumeration =
-                new EnumeratedValues(new TimeUnit[]{
-                    Year, Month, Day, Hour, Minute, Second,
-                });
-    }
+        public SqlIntervalQualifier getIntervalQualifier() {
+            return intervalQualifier;
+        }
 
-    /**
-     * A day-time interval value.
-     */
-    static class DayTimeInterval {
-        private final TimeUnit timeUnit;
-        private final String value;
+        public int[] getValues() {
+            return values;
+        }
 
-        DayTimeInterval(TimeUnit timeUnit, String value) {
-            this.timeUnit = timeUnit;
-            this.value = value;
+        public String toString() {
+            StringBuffer ret = new StringBuffer();
+            if (-1 == values[0]) {
+                ret.append('-');
+            }
+            ret.append(String.valueOf(values[1]));
+            if (intervalQualifier.isYearMonth() && 3==values.length) {
+                ret.append("-");
+                ret.append(String.valueOf(values[2]));
+            } else if (values.length > 2) {
+                SqlIntervalQualifier.TimeUnit start =
+                    intervalQualifier.getStartUnit();
+                SqlIntervalQualifier.TimeUnit end =
+                    intervalQualifier.getEndUnit();
+
+                if (SqlIntervalQualifier.TimeUnit.Day.equals(
+                    intervalQualifier.getStartUnit())) {
+                    ret.append(" ");
+                } else if
+                    (!SqlIntervalQualifier.TimeUnit.Second.equals(start)) {
+                    ret.append(":");
+                }
+
+                if (null == end) {
+                    end = start;
+                }
+
+                for (int i = 2; i < values.length; i++) {
+                    if (SqlIntervalQualifier.TimeUnit.Second.equals(end) &&
+                        ((end.ordinal-start.ordinal)<(i-1))) {
+                            ret.append(".");
+                    } else if (i >= 3) {
+                        ret.append(":");
+                    }
+                    ret.append(String.valueOf(values[i]));
+                }
+            }
+
+            return ret.toString();
         }
     }
 }

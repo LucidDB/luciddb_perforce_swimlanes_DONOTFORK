@@ -21,10 +21,12 @@
 
 package org.eigenbase.sql;
 
+import org.eigenbase.sql.parser.ParserPosition;
+import org.eigenbase.sql.util.SqlVisitor;
+import org.eigenbase.util.*;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
-import org.eigenbase.sql.parser.ParserPosition;
 
 
 /**
@@ -36,7 +38,7 @@ import org.eigenbase.sql.parser.ParserPosition;
  * @version $Id$
  * @since Dec 12, 2003
  */
-public abstract class SqlNode
+public abstract class SqlNode implements Cloneable
 {
     //~ Instance fields -------------------------------------------------------
 
@@ -53,7 +55,15 @@ public abstract class SqlNode
 
     //~ Methods ---------------------------------------------------------------
 
-    public abstract Object clone();
+    // NOTE:  mutable subclasses must override clone()
+    public Object clone()
+    {
+        try {
+            return super.clone();
+        } catch (CloneNotSupportedException ex) {
+            throw Util.newInternal(ex);
+        }
+    }
 
     /**
      * Returns whether this node is a particular kind.
@@ -152,6 +162,51 @@ public abstract class SqlNode
     {
         return pos;
     }
+
+    /**
+     * Validates this node.
+     *
+     * <p>The typical implementation of this method will make a callback to
+     * the validator appropriate to the node type and context. The validator
+     * has methods such as {@link SqlValidator#validateLiteral} for these
+     * purposes.
+     *
+     * @param scope Validator
+     * @param scope Validation scope
+     */
+    public abstract void validate(SqlValidator validator,
+        SqlValidator.Scope scope);
+
+    /**
+     * Validates this node in an expression context.
+     *
+     * <p>Usually, this method does much the same as {@link #validate},
+     * but a {@link SqlIdentifier} can occur in expression and non-expression
+     * contexts.
+     */ 
+    public void validateExpr(SqlValidator validator, SqlValidator.Scope scope)
+    {
+        validate(validator, scope);
+    }
+
+    /**
+     * Accepts a generic visitor. Implementations of this method in subtypes
+     * simply call the appropriate <code>visit</code> method on the
+     * {@link org.eigenbase.sql.util.SqlVisitor visitor object}.
+     */
+    public abstract void accept(SqlVisitor visitor);
+
+    /**
+     * Returns whether this node is structurally equivalent to another node.
+     * Some examples:<ul>
+     *
+     * <li>1 + 2 is structurally equivalent to 1 + 2</li>
+     * <li>1 + 2 + 3 is structurally equivalent to (1 + 2) + 3, but not to
+     *     1 + (2 + 3), because the '+' operator is left-associative</li>
+     * </ul>
+     */
+    public abstract boolean equalsDeep(SqlNode node);
+
 }
 
 

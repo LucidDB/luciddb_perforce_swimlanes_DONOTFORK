@@ -23,11 +23,11 @@ package org.eigenbase.sql.type;
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.reltype.RelDataTypeFactoryImpl;
-import org.eigenbase.sql.SqlValidator;
+import org.eigenbase.resource.EigenbaseResource;
 import org.eigenbase.sql.SqlCall;
 import org.eigenbase.sql.SqlCollation;
+import org.eigenbase.sql.SqlValidator;
 import org.eigenbase.util.Util;
-import org.eigenbase.resource.EigenbaseResource;
 
 /**
  * Strategy to infer the type of an operator call from the type of the
@@ -44,12 +44,13 @@ import org.eigenbase.resource.EigenbaseResource;
  */
 public abstract class ReturnTypeInference
 {
-    // REVIEW jvs 26-May-2004:  I think we should try to eliminate one
-    // of these methods; they are redundant.
-    public abstract RelDataType getType(
+
+    public RelDataType getType(
         SqlValidator validator,
         SqlValidator.Scope scope,
-        SqlCall call);
+        SqlCall call) {
+        return collectTypesFromCall(validator, scope, call);
+    }
 
     public abstract RelDataType getType(
         RelDataTypeFactory typeFactory,
@@ -162,14 +163,6 @@ public abstract class ReturnTypeInference
         }
 
         public RelDataType getType(
-            SqlValidator validator,
-            SqlValidator.Scope scope,
-            SqlCall call)
-        {
-            return collectTypesFromCall(validator, scope, call);
-        }
-
-        public RelDataType getType(
             RelDataTypeFactory typeFactory,
             RelDataType [] argTypes)
         {
@@ -179,6 +172,138 @@ public abstract class ReturnTypeInference
                 ret = transform.getType(typeFactory, argTypes, ret);
             }
             return ret;
+        }
+    }
+
+    /**
+     * Strategy to infer the type of an operator call from the type of the
+     * operands by using a series of {@link ReturnTypeInference} rules in a
+     * given order. If a rule fails to find a return type (by returning NULL),
+     * next rule is tried until there are no more rules in which case NULL will
+     * be returned.
+     */
+    public static class FallbackCascade extends ReturnTypeInference
+    {
+        final ReturnTypeInference[] rules;
+
+        /**
+         * Creates a FallbackCascade from an array of rules
+         *
+         * @pre null!=rules
+         * @pre null!=rules[i]
+         * @pre rules.length > 0
+         */
+        public FallbackCascade(
+            ReturnTypeInference[] rules)
+        {
+            Util.pre(null != rules, "null!=rules");
+            Util.pre(rules.length > 0, "rules.length>0");
+            for (int i = 0; i < rules.length; i++) {
+                Util.pre(rules[i] != null, "transforms[i] != null");
+            }
+            this.rules = rules;
+        }
+
+        /**
+         * Creates a FallbackCascade from two rules
+         */
+        public FallbackCascade(
+            ReturnTypeInference rule1,
+            ReturnTypeInference rule2)
+        {
+            this(new ReturnTypeInference[] { rule1, rule2 });
+        }
+
+        public RelDataType getType(
+            RelDataTypeFactory typeFactory,
+            RelDataType [] argTypes)
+        {
+            RelDataType ret = null;
+            for (int i = 0; i < rules.length; i++) {
+                ReturnTypeInference rule = rules[i];
+                ret = rule.getType(typeFactory, argTypes);
+                if (null!=ret) {
+                    break;
+                }
+            }
+            return ret;
+        }
+    }
+
+    /**
+     * Returns the first type that matches a set of given {@link SqlTypeName}s.
+     * If not match could be found, null is returned
+     */
+    private static class TypeMatchReturnTypeInference extends ReturnTypeInference {
+        private final int start;
+        private final SqlTypeName[] typeNames;
+
+        /**
+         * Returns the type at element start (zero based)
+         * @see {@link TypeMatchReturnTypeInference(int, SqlTypeName[])}
+         */
+        public TypeMatchReturnTypeInference(int start) {
+            this(start, SqlTypeName.Any);
+        }
+
+        /**
+         * Returns the first type of typeName at or after position start
+         * (zero based)
+         * @see {@link TypeMatchReturnTypeInference(int, SqlTypeName[])}
+         */
+        public TypeMatchReturnTypeInference(int start, SqlTypeName typeName) {
+            this(start, new SqlTypeName[]{typeName});
+        }
+
+        /**
+         * Returns the first type matching any type in typeNames at or after
+         * postition start (zero based)
+         * @pre start>=0
+         * @pre null!=typeNames
+         * @pre typeNames.length>0
+         */
+        public TypeMatchReturnTypeInference(int start, SqlTypeName[] typeNames) {
+            Util.pre(start>=0,"start>=0");
+            Util.pre(null!=typeNames,"null!=typeNames");
+            Util.pre(typeNames.length>0,"typeNames.length>0");
+            this.start = start;
+            this.typeNames = typeNames;
+        }
+
+        public RelDataType getType(
+            RelDataTypeFactory typeFactory,
+            RelDataType[] argTypes) {
+            for (int i = start; i < argTypes.length; i++) {
+                RelDataType argType = argTypes[i];
+                if (TypeUtil.isOfSameTypeName(typeNames, argType)) {
+                    return argType;
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Returns the type of position ordinal (zero based)
+     */
+    public static class OrdinalReturnTypeInference extends ReturnTypeInference {
+        int ordinal;
+
+        public OrdinalReturnTypeInference(int ordinal) {
+            this.ordinal = ordinal;
+        }
+
+        public RelDataType getType(
+            SqlValidator validator,
+            SqlValidator.Scope scope,
+            SqlCall call) {
+            return validator.deriveType(scope, call.operands[ordinal]);
+        }
+
+        public RelDataType getType(
+            RelDataTypeFactory typeFactory,
+            RelDataType[] argTypes) {
+            return argTypes[ordinal];
         }
     }
 
@@ -263,6 +388,35 @@ public abstract class ReturnTypeInference
                     typeToTransform);
             }
         };
+
+    /**
+     * Parameter type-inference transform strategy where a derived INTERVAL type
+     * is transformed into the same type but possible with a different
+     * {@link org.eigenbase.sql.SqlIntervalQualifier}.
+     * If the type to transform is not of a INTERVAL type, this transformation
+     * does nothing.
+     * @see {@link RelDataTypeFactoryImpl.IntervalSqlType}
+     */
+    public static final Transform toLeastRestrictiveInterval =
+        new Transform() {
+            public RelDataType getType(
+                RelDataTypeFactory typeFactory,
+                RelDataType [] argTypes,
+                RelDataType typeToTransform)
+            {
+                if (typeToTransform instanceof
+                    RelDataTypeFactoryImpl.IntervalSqlType) {
+                    RelDataTypeFactoryImpl.IntervalSqlType it =
+                       (RelDataTypeFactoryImpl.IntervalSqlType) typeToTransform;
+                    for (int i = 0; i < argTypes.length; i++) {
+                        it = it.combine((RelDataTypeFactoryImpl.IntervalSqlType)
+                            argTypes[i]);
+                    }
+                    return it;
+                }
+                return typeToTransform;
+            }
+        };
     /**
      * Type-inference strategy whereby the result type of a call is VARYING
      * the type given.
@@ -318,10 +472,10 @@ public abstract class ReturnTypeInference
             }
         };
      /**
-     * Parameter type-inference transform strategy where a derived type is
+     * Parameter type-inference transform strategy where a derived type
      * must be a multiset type and the returned type is the multiset's
      * element type.
-     * @see {@link RelDataTypeFactoryImpl.MultisetSqlType#getElementType}
+     * @see {@link RelDataTypeFactoryImpl.MultisetSqlType#getComponentType}
      */
     public static final Transform toMultisetElementType =
         new Transform() {
@@ -330,9 +484,7 @@ public abstract class ReturnTypeInference
                 RelDataType [] argTypes,
                 RelDataType typeToTransform)
             {
-                RelDataTypeFactoryImpl.MultisetSqlType mt =
-                    (RelDataTypeFactoryImpl.MultisetSqlType) typeToTransform;
-                return mt.getElementType();
+                return typeToTransform.getComponentType();
             }
         };
 
@@ -341,22 +493,7 @@ public abstract class ReturnTypeInference
      * the first operand.
      */
     public static final ReturnTypeInference useFirstArgType =
-        new ReturnTypeInference() {
-            public RelDataType getType(
-                SqlValidator validator,
-                SqlValidator.Scope scope,
-                SqlCall call)
-            {
-                return validator.deriveType(scope, call.operands[0]);
-            }
-
-            public RelDataType getType(
-                RelDataTypeFactory typeFactory,
-                RelDataType [] argTypes)
-            {
-                return argTypes[0];
-            }
-        };
+        new OrdinalReturnTypeInference(0);
 
     /**
      * Type-inference strategy whereby the result type of a call is the type of
@@ -365,6 +502,12 @@ public abstract class ReturnTypeInference
      */
     public static final ReturnTypeInference useNullableFirstArgType =
         new TransformCascade(useFirstArgType, toNullable);
+
+    public static final ReturnTypeInference useFirstInterval =
+        new TypeMatchReturnTypeInference(0, SqlTypeName.timeIntervalTypes);
+
+    public static final ReturnTypeInference useNullableFirstInterval =
+        new TransformCascade(useFirstInterval, toNullable);
 
     /**
      * Type-inference strategy whereby the result type of a call is VARYING
@@ -384,22 +527,16 @@ public abstract class ReturnTypeInference
      * the second operand.
      */
     public static final ReturnTypeInference useSecondArgType =
-        new ReturnTypeInference() {
-            public RelDataType getType(
-                SqlValidator validator,
-                SqlValidator.Scope scope,
-                SqlCall call)
-            {
-                return validator.deriveType(scope, call.operands[1]);
-            }
+        new OrdinalReturnTypeInference(1);
 
-            public RelDataType getType(
-                RelDataTypeFactory typeFactory,
-                RelDataType [] argTypes)
-            {
-                return argTypes[1];
-            }
-        };
+    /**
+     * Type-inference strategy whereby the result type of a call is the type of
+     * the third operand.
+     */
+    public static final ReturnTypeInference useThirdArgType =
+        new OrdinalReturnTypeInference(2);
+
+
 
     /**
      * Type-inference strategy whereby the result type of a call is Boolean.
@@ -427,7 +564,7 @@ public abstract class ReturnTypeInference
         new FixedReturnTypeInference(SqlTypeName.Time, 0);
 
     /**
-     * Type-inference strategy whereby the result type of a call is nullable Time.
+     * Type-inference strategy whereby the result type of a call is nullable Time(0).
      */
      public static final ReturnTypeInference useNullableTime =
         new TransformCascade(useTime, toNullable);
@@ -473,16 +610,8 @@ public abstract class ReturnTypeInference
      * <p>For example, the expression <code>(500000000000 + 3.0e-3)</code> has
      * the operands INTEGER and DOUBLE. Its biggest type is double.
      */
-    public static final ReturnTypeInference useBiggest =
+    private static final ReturnTypeInference useLeastRestrictive =
         new ReturnTypeInference() {
-            public RelDataType getType(
-                SqlValidator validator,
-                SqlValidator.Scope scope,
-                SqlCall call)
-            {
-                return collectTypesFromCall(validator, scope, call);
-            }
-
             public RelDataType getType(
                 RelDataTypeFactory typeFactory,
                 RelDataType [] argTypes)
@@ -500,11 +629,20 @@ public abstract class ReturnTypeInference
         };
 
     /**
+     * Same as {@link #useLeastRestrictive} but with INTERVAL aswell.
+     */
+    public static final ReturnTypeInference useBiggest =
+        new TransformCascade(useLeastRestrictive, toLeastRestrictiveInterval);
+
+    /**
      * Type-inference strategy similar to {@link #useBiggest}, except that the
      * result is nullable if any of the arguments is nullable.
      */
     public static final ReturnTypeInference useNullableBiggest =
-        new TransformCascade(useBiggest, toNullable);
+        new TransformCascade(useLeastRestrictive, toLeastRestrictiveInterval, toNullable);
+
+    public static final ReturnTypeInference useNullableMutliplyDivison =
+        new FallbackCascade(useNullableFirstInterval, useNullableBiggest);
 
     /**
      * Type-inference strategy where by the
@@ -520,14 +658,6 @@ public abstract class ReturnTypeInference
      */
     public static final ReturnTypeInference useDyadicStringSumPrecision =
         new ReturnTypeInference() {
-            public RelDataType getType(
-                SqlValidator validator,
-                SqlValidator.Scope scope,
-                SqlCall call)
-            {
-                return collectTypesFromCall(validator, scope, call);
-            }
-
             /**
              * @pre argTypes[0].isSameType(argTypes[1])
              */
@@ -599,8 +729,8 @@ public abstract class ReturnTypeInference
 
     /**
      * Type-inference strategy where the expression is assumed to be registered
-     * as a {@link SqlValidator.Scope}, and therefore the result type of the
-     * call is the type of that scope.
+     * as a {@link SqlValidator.Namespace}, and therefore the result type of
+     * the call is the type of that namespace.
      */
     public static final ReturnTypeInference useScope =
         new ReturnTypeInference() {
@@ -609,7 +739,7 @@ public abstract class ReturnTypeInference
                 SqlValidator.Scope scope,
                 SqlCall call)
             {
-                return validator.getScope(call).getRowType();
+                return validator.getNamespace(call).getRowType();
             }
 
             public RelDataType getType(
@@ -627,23 +757,12 @@ public abstract class ReturnTypeInference
     public static final ReturnTypeInference useMultiset =
         new ReturnTypeInference() {
             public RelDataType getType(
-                SqlValidator validator,
-                SqlValidator.Scope scope,
-                SqlCall call)
-            {
-                return getType(validator.typeFactory,
-                    TypeUtil.collectTypes(validator, scope, call.operands));
-            }
-
-            public RelDataType getType(
                 RelDataTypeFactory typeFactory,
                 RelDataType [] argTypes)
             {
                 RelDataType[] argElementTypes = new RelDataType[argTypes.length];
                 for (int i = 0; i < argTypes.length; i++) {
-                    argElementTypes[i] =
-                        ((RelDataTypeFactoryImpl.MultisetSqlType) argTypes[i]).
-                        getElementType();
+                    argElementTypes[i] = argTypes[i].getComponentType();
                 }
 
                 RelDataType biggestElementType = ReturnTypeInference.useBiggest.

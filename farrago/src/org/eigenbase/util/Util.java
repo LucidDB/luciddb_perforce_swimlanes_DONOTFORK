@@ -45,9 +45,6 @@ import openjava.ptree.StatementList;
 
 import org.eigenbase.runtime.ThreadIterator;
 import org.eigenbase.runtime.TimeoutIteratorTest;
-import org.eigenbase.runtime.TimeoutQueueIterator;
-import org.eigenbase.sql.parser.ParserPosition;
-
 
 /**
  * Miscellaneous utility functions.
@@ -128,11 +125,11 @@ public class Util extends Toolbox
     }
 
     /**
-     * Returns whether two strings are equal or are both null.
+     * Returns whether two objects are equal or are both null.
      */
     public static final boolean equal(
-        String s0,
-        String s1)
+        Object s0,
+        Object s1)
     {
         if (s0 == null) {
             return s1 == null;
@@ -320,16 +317,16 @@ public class Util extends Toolbox
             pw.print("}");
         } else if (o instanceof Enumeration) {
             pw.print(clazz.getName());
-            Enumeration enum = (Enumeration) o;
+            Enumeration e = (Enumeration) o;
             pw.print(" {");
             int i = 0;
-            while (enum.hasMoreElements()) {
+            while (e.hasMoreElements()) {
                 if (i++ > 0) {
                     pw.println(",");
                 }
                 print(
                     pw,
-                    enum.nextElement(),
+                    e.nextElement(),
                     indent + 1);
             }
             pw.print("}");
@@ -460,6 +457,17 @@ public class Util extends Toolbox
                 0,
                 Math.min(truncateAt, len));
         ret.append(unscaled.charAt(0));
+        if (scale == 0) {
+            // trim trailing zeroes since they aren't significant
+            int i = unscaled.length();
+            while (i > 1) {
+                if (unscaled.charAt(i - 1) != '0') {
+                    break;
+                }
+                --i;
+            }
+            unscaled = unscaled.substring(0, i);
+        }
         if (unscaled.length() > 1) {
             ret.append(".");
             ret.append(unscaled.substring(1));
@@ -637,7 +645,7 @@ public class Util extends Toolbox
     }
 
     /**
-     * @deprecated Use {@link java.util.Arrays.asList(Object[])} instead
+     * @deprecated Use {@link java.util.Arrays#asList(Object[])} instead
      * 
      * Converts the elements of an array into a {@link java.util.List}
      */
@@ -684,6 +692,13 @@ public class Util extends Toolbox
     {
         int modifiers = member.getModifiers();
         return java.lang.reflect.Modifier.isStatic(modifiers);
+    }
+
+    /**
+     * @return true if s==null or if s.length()==0
+     */
+    public static boolean isNullOrEmpty(String s) {
+        return (null==s) || (s.length()==0);
     }
 
     /**
@@ -746,46 +761,20 @@ public class Util extends Toolbox
     }
 
     /**
-     * Returns the {@link java.nio.charset.Charset} object representing
+     * Returns the {@link Charset} object representing
      * the value of {@link SaffronProperties#defaultCharset}
-     * @throws java.nio.charset.IllegalCharsetNameException - If the given charset name is illegal
-     * @throws java.nio.charset.UnsupportedCharsetException - If no support for the named charset is available in this instance of the Java virtual machine
+     *
+     * @throws  java.nio.charset.IllegalCharsetNameException
+     *          If the given charset name is illegal
+     *
+     * @throws  java.nio.charset.UnsupportedCharsetException
+     *          If no support for the named charset is available
+     *          in this instance of the Java virtual machine
      */
     public static Charset getDefaultCharset()
     {
         return Charset.forName(
             SaffronProperties.instance().defaultCharset.get());
-    }
-
-    /**
-     * Simply returns a string saying "encounted at line ?, column ?" using
-     * {@link ParserPosition#getBeginLine} and {@link ParserPosition#getBeginColumn}
-     * respectively
-     */
-    public static String encountedAt(ParserPosition pos)
-    {
-        StringBuffer ret = new StringBuffer();
-        ret.append("encountered at line ");
-        ret.append(pos.getBeginLine());
-        ret.append(", column");
-        ret.append(pos.getBeginColumn());
-        return ret.toString();
-    }
-
-    /**
-     * Returns whether two objects are equal. Either may be null.
-     */
-    public static boolean equals(
-        Object o0,
-        Object o1)
-    {
-        if (o0 == o1) {
-            return true;
-        }
-        if ((o0 == null) || (o1 == null)) {
-            return false;
-        }
-        return o0.equals(o1);
     }
 
     public static Error newInternal()
@@ -817,12 +806,41 @@ public class Util extends Toolbox
         return ae;
     }
 
+    /**
+     * Checks a pre-condition.
+     *
+     * <p>For example,
+     *
+     * <pre>
+     * /**
+     *   * @ pre x != 0
+     *   * /
+     * void foo(int x) {
+     *     Util.pre(x != 0, "x != 0");
+     * }
+     * @param b Result of evaluating the pre-condition.
+     * @param description Description of the pre-condition.
+     */
     public static void pre(boolean b, String description)
     {
         if (!b) {
             throw newInternal("pre-condition failed: " + description);
         }
     }
+
+    /**
+     * Checks an invariant.
+     *
+     * <p>This is similar to <code>assert</code> keyword, except that the
+     * condition is always evaluated even if asserts are disabled.
+     */
+    public static void permAssert(boolean b, String description)
+    {
+        if (!b) {
+            throw newInternal("invariant violated: " + description);
+        }
+    }
+
     /**
      * Returns a {@link java.lang.RuntimeException} indicating that a
      * particular feature has not been implemented, but should be.

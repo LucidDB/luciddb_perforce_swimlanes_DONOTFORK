@@ -34,7 +34,10 @@ import java.text.NumberFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 
 
 /**
@@ -225,6 +228,141 @@ public final class ParserUtil
     }
 
     /**
+     * Parses a INTERVAL value.
+     * @return an int array where each element in the array represents a time
+     * unit in the input string.<br>
+     * NOTE: that the first element in the array indicates the sign of the value
+     * E.g<br>
+     * An input string of: <code>'364 23:59:59.9999' INTERVAL DAY TO SECOND'</code><br>
+     * would make this method return<br>
+     * <code>int[] {1, 364, 23, 59, 59, 9999 }</code><br>
+     * An negative interval value: <code>'-364 23:59:59.9999' INTERVAL DAY TO SECOND'</code><br>
+     * would make this method return<br>
+     * <code>int[] {-1, 364, 23, 59, 59, 9999 }</code><br>
+     * @return null if the interval value is illegal.
+     * Illegal values are:
+     * <ul>
+     *  <li>non digit character (except optional minus '-'
+     *                          at the first character in the input string.)
+     *  </li>
+     *  <li>the number of time units described in
+     *      intervalQualifer doesn't match the parsed number of time units.
+     *  </li>
+     * </ul>
+     */
+    public static int[] parseIntervalValue(String value,
+        SqlIntervalQualifier intervalQualifier) {
+        value = value.trim();
+        if (Util.isNullOrEmpty(value)) {
+            return null;
+        }
+
+        int sign = 1;
+        if ('-' == value.charAt(0)) {
+            sign = -1;
+            if (value.length()==1) {
+                // handles the case when we have a single input value of '-'
+                return null;
+            }
+            value = value.substring(1);
+        }
+
+        try {
+            if (intervalQualifier.isYearMonth()) {
+                //~------ YEAR-MONTH INTERVAL
+                int years = 0;
+                int months = 0;
+                String[] valArray = value.split("-");
+                if (2 == valArray.length) {
+                    years = parsePositiveInt(valArray[0]);
+                    months = parsePositiveInt(valArray[1]);
+                    return new int[] { sign, years, months };
+                } else if (1 == valArray.length) {
+                    return new int[] { sign, parsePositiveInt(valArray[0]) };
+                }
+                return null;
+            } else {
+                //~------ DAY-TIME INTERVAL
+                String[] withDayPattern = {
+                    "(\\d) (\\d+):(\\d+):(\\d+)\\.(\\d+)"  //same trice
+                    ,"(\\d) (\\d+):(\\d+):(\\d+)\\.(\\d+)" //same trice
+                    ,"(\\d) (\\d+):(\\d+):(\\d+)\\.(\\d+)" //same trice
+                    ,"(\\d+)"
+                    ,"(\\d+) (\\d+)"
+                    ,"(\\d+) (\\d+):(\\d+)"
+                    ,"(\\d+) (\\d+):(\\d+):(\\d+)"
+                };
+
+                String[] withoutDayPattern = {
+                    "(\\d+):(\\d+):(\\d+)\\.(\\d+)"
+                    ,"(\\d+):(\\d+)\\.(\\d+)"
+                    ,"(\\d+)\\.(\\d+)"
+                    ,"(\\d+)"
+                    ,"(\\d+):(\\d+)"
+                    ,"(\\d+):(\\d+):(\\d+)"
+                };
+
+                String[] ps;
+                if (SqlIntervalQualifier.TimeUnit.Day.equals(
+                    intervalQualifier.getStartUnit())) {
+                    ps = withDayPattern;
+                } else {
+                    ps = withoutDayPattern;
+                }
+                
+                for (int iPattern = 0; iPattern < ps.length; iPattern++) {
+                    String p = ps[iPattern];
+                    Matcher m = Pattern.compile(p).matcher(value);
+                    if (m.matches()) {
+                        int timeUnitsCount = m.groupCount();
+                        int[] ret = new int[timeUnitsCount+1];
+                        ret[0] = sign;
+                        for (int iGroup = 1; iGroup <= m.groupCount(); iGroup++) {
+                            ret[iGroup] = Integer.parseInt(m.group(iGroup));
+                        }
+
+                        if (iPattern < 3) {
+                            timeUnitsCount--;
+                        }
+
+                        SqlIntervalQualifier.TimeUnit start =
+                            intervalQualifier.getStartUnit();
+                        SqlIntervalQualifier.TimeUnit end =
+                            intervalQualifier.getEndUnit();
+                        if (null==end && timeUnitsCount>1) {
+                            return null;
+                        } else if ((null!=end) &&
+                            ((end.ordinal-start.ordinal+1)!=timeUnitsCount)) {
+                            return null;
+                        }
+                        return ret;
+                    }
+                }
+                return null;
+            }
+        } catch (NumberFormatException e) {
+            if (true) {
+                // temporary!!
+                return new int[] {0,0,0,10};
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Parses a positive int. All characters have to be digits.
+     * @see {@link java.lang.Integer#parseInt(String)}
+     */
+    public static int parsePositiveInt(String value) throws NumberFormatException
+    {
+        value = value.trim();
+        if (value.charAt(0) == '-') {
+            throw new NumberFormatException(value);
+        }
+        return Integer.parseInt(value);
+    }
+
+    /**
      * Parses a Binary string. SQL:99 defines a binary string as a hexstring with EVEN nbr of hex digits.
      */
     public static byte [] parseBinaryString(String s)
@@ -409,9 +547,13 @@ public final class ParserUtil
      */
     public static SqlNode toTree(List list)
     {
-        tracer.finer("Attempting to reduce " + list);
+        if (tracer.isLoggable(Level.FINER)) {
+            tracer.finer("Attempting to reduce " + list);
+        }
         final SqlNode node = toTreeEx(list, 0, 0, SqlKind.Other);
-        tracer.fine("Reduced " + node);
+        if (tracer.isLoggable(Level.FINE)) {
+            tracer.fine("Reduced " + node);
+        }
         return node;
     }
 
@@ -438,7 +580,7 @@ public final class ParserUtil
     {
 // Make several passes over the list, and each pass, coalesce the
 // expressions with the highest precedence.
-outer: 
+outer:
         while (true) {
             final int count = list.size();
             if (count <= (start + 1)) {
@@ -508,8 +650,9 @@ outer:
                         SqlNode rightExp = (SqlNode) list.get(i + 1);
                         final SqlCall newExp =
                             current.createCall(leftExp, rightExp, currentPos);
-                        tracer.fine("Reduced infix: " + newExp);
-
+                        if (tracer.isLoggable(Level.FINE)) {
+                            tracer.fine("Reduced infix: " + newExp);
+                        }
                         // Replace elements {i - 1, i, i + 1} with the new
                         // expression.
                         replaceSublist(list, i - 1, i + 2, newExp);
@@ -538,8 +681,9 @@ outer:
 
                         final SqlCall newExp =
                             current.createCall(leftExp, currentPos);
-                        tracer.fine("Reduced postfix: " + newExp);
-
+                        if (tracer.isLoggable(Level.FINE)) {
+                            tracer.fine("Reduced postfix: " + newExp);
+                        }
                         // Replace elements {i - 1, i} with the new expression.
                         list.remove(i);
                         list.set(i - 1, newExp);
@@ -566,11 +710,21 @@ outer:
                         next = null;
                         nextLeft = 0;
                     } else {
-                        next = ((ToTreeListItem) list.get(nextOrdinal)).op;
-                        nextLeft = next.leftPrec;
-                        if ((stopperKind != SqlKind.Other)
-                                && (next.kind == stopperKind)) {
-                            break outer;
+                        // find next op
+                        next = null;
+                        nextLeft = 0;
+                        for (;nextOrdinal < count; nextOrdinal++) {
+                            Object listItem = list.get(nextOrdinal);
+                            if (listItem instanceof ToTreeListItem) {
+                                next = ((ToTreeListItem) listItem).op;
+                                nextLeft = next.leftPrec;
+                                if ((stopperKind != SqlKind.Other)
+                                        && (next.kind == stopperKind)) {
+                                    break outer;
+                                } else {
+                                    break;
+                                }
+                            }
                         }
                     }
                     if (nextLeft < minPrec) {
@@ -578,7 +732,9 @@ outer:
                     }
                     if ((previousRight < left) && (right >= nextLeft)) {
                         i = specOp.reduceExpr(i, list);
-                        tracer.fine("Reduced special op: " + list.get(i));
+                        if (tracer.isLoggable(Level.FINE)) {
+                            tracer.fine("Reduced special op: " + list.get(i));
+                        }
                         break;
                     }
                     i = nextOrdinal;

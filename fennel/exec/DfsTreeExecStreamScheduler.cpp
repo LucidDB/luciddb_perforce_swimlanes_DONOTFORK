@@ -27,27 +27,41 @@
 
 FENNEL_BEGIN_CPPFILE("$Id$");
 
-ExecStreamScheduler::~ExecStreamScheduler()
-{
-}
-    
 DfsTreeExecStreamScheduler::DfsTreeExecStreamScheduler(
-    SharedExecStreamGraph pGraphInit)
+    TraceTarget *pTraceTargetInit,
+    std::string nameInit)
+    : ExecStreamScheduler(pTraceTargetInit, nameInit)
 {
-    pGraph = pGraphInit;
-    assert(pGraph);
 }
     
 DfsTreeExecStreamScheduler::~DfsTreeExecStreamScheduler()
 {
 }
 
+void DfsTreeExecStreamScheduler::addGraph(SharedExecStreamGraph pGraphInit)
+{
+    assert(!pGraph);
+    
+    ExecStreamScheduler::addGraph(pGraphInit);
+    pGraph = pGraphInit;
+}
+
+void DfsTreeExecStreamScheduler::removeGraph(SharedExecStreamGraph pGraphInit)
+{
+    assert(pGraph == pGraphInit);
+    
+    pGraph.reset();
+    ExecStreamScheduler::removeGraph(pGraphInit);
+}
+
 void DfsTreeExecStreamScheduler::start()
 {
+    FENNEL_TRACE(TRACE_FINE,"start");
+    
     ExecStreamGraphImpl &graphImpl = pGraph->getImpl();
     ExecStreamGraphImpl::GraphRep graphRep = graphImpl.getGraphRep();
 
-    // assert that graph is a tree (or forest)
+    // assert that graph is a tree (or forest of trees)
     ExecStreamGraphImpl::VertexIterPair p = boost::vertices(graphRep);
     for (; p.first != p.second; ++(p.first)) {
         assert(boost::out_degree(*(p.first),graphRep) < 2);
@@ -62,25 +76,28 @@ void DfsTreeExecStreamScheduler::makeRunnable(ExecStream &)
     permAssert(false);
 }
 
-void DfsTreeExecStreamScheduler::abort()
+void DfsTreeExecStreamScheduler::abort(ExecStreamGraph &)
 {
+    FENNEL_TRACE(TRACE_FINE,"abort requested");
+    
     aborted = true;
 }
 
 void DfsTreeExecStreamScheduler::stop()
 {
+    FENNEL_TRACE(TRACE_FINE,"stop");
+    
     // nothing to do
     aborted = false;
-}
-
-SharedExecStreamBufAccessor DfsTreeExecStreamScheduler::newBufAccessor()
-{
-    return SharedExecStreamBufAccessor(new ExecStreamBufAccessor());
 }
 
 ExecStreamBufAccessor &DfsTreeExecStreamScheduler::readStream(
     ExecStream &stream)
 {
+    FENNEL_TRACE(
+        TRACE_FINE,
+        "entering readStream " << stream.getName());
+    
     ExecStreamId current = stream.getStreamId();
     ExecStreamQuantum quantum;
 
@@ -103,27 +120,28 @@ ExecStreamBufAccessor &DfsTreeExecStreamScheduler::readStream(
             ExecStreamGraphImpl::Edge edge = *(inEdges.first);
             ExecStreamBufAccessor &bufAccessor =
                 graphImpl.getBufAccessorFromEdge(edge);
-            if (bufAccessor.getState() == EXECBUF_NEED_PRODUCTION) {
+            if (bufAccessor.getState() == EXECBUF_UNDERFLOW) {
                 // move current upstream
                 current = boost::source(edge,graphRep);
                 break;
             }
         }
         if (inEdges.first != inEdges.second) {
-            // hit EXECBUF_NEED_PRODUCTION
+            // hit EXECBUF_UNDERFLOW
             continue;
         }
 
         SharedExecStream pStream = graphImpl.getStreamFromVertex(current);
-        ExecStreamResult rc = pStream->execute(quantum);
+        ExecStreamResult rc = executeStream(*pStream, quantum);
 
         if (aborted) {
+            FENNEL_TRACE(TRACE_FINE,"abort detected");
             throw AbortExcn();
         }
 
         switch(rc) {
         case EXECRC_EOS:
-        case EXECRC_OUTPUT:
+        case EXECRC_BUF_OVERFLOW:
             {
                 // move current downstream
                 assert(boost::out_degree(current,graphRep) == 1);
@@ -131,15 +149,20 @@ ExecStreamBufAccessor &DfsTreeExecStreamScheduler::readStream(
                     *(boost::out_edges(current,graphRep).first);
                 current = boost::target(edge,graphRep);
                 if (boost::out_degree(current,graphRep) == 0) {
-                    // hit the output sentinel
+                    // we've hit the output sentinel
                     assert(!graphImpl.getStreamFromVertex(current));
+                    FENNEL_TRACE(
+                        TRACE_FINE,
+                        "leaving readStream " << stream.getName());
                     return graphImpl.getBufAccessorFromEdge(edge);
                 }
             }
             break;
-        case EXECRC_NEED_INPUT:
+        case EXECRC_BUF_UNDERFLOW:
             // TODO:  assert that at least one input is in state
-            // EXECBUF_NEED_PRODUCTION
+            // EXECBUF_UNDERFLOW
+            break;
+        case EXECRC_QUANTUM_EXPIRED:
             break;
         default:
             permAssert(false);

@@ -226,10 +226,7 @@ void BTreeTxnTest::threadInit()
 
 void BTreeTxnTest::threadTerminate()
 {
-    // NOTE:  see corresponding code in PagingTestBase for why this is
-    // commented out.
-    
-    // pTestThreadData.reset();
+    pTestThreadData.reset();
     ThreadedTestBase::threadTerminate();
 }
     
@@ -382,8 +379,7 @@ bool BTreeTxnTest::testThreadedOp(int iOp)
         testCheckpoint();
         break;
     default:
-        assert(false);
-        return false;
+        permAssert(false);
     }
     return true;
 }

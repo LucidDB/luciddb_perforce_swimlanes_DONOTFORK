@@ -84,7 +84,7 @@ public class SqlCastFunction extends SqlFunction
 
     public OperandsCountDescriptor getOperandsCountDescriptor()
     {
-        return new OperandsCountDescriptor(2);
+        return OperandsCountDescriptor.Two;
     }
 
     protected void checkNumberOfArg(SqlCall call)
@@ -100,22 +100,27 @@ public class SqlCastFunction extends SqlFunction
      * Operators (such as "ROW" and "AS") which do not check their arguments
      * can override this method.
      */
-    protected void checkArgTypes(
+    protected boolean checkArgTypes(
         SqlCall call,
         SqlValidator validator,
-        SqlValidator.Scope scope)
+        SqlValidator.Scope scope,
+        boolean throwOnFailure)
     {
         if (SqlUtil.isNullLiteral(call.operands[0], false)) {
-            return;
+            return true;
         }
         RelDataType validatedNodeType =
             validator.getValidatedNodeType(call.operands[0]);
-        RelDataType returnType = ((SqlDataType) call.operands[1]).getType();
+        RelDataType returnType = validator.deriveType(scope, call.operands[1]);
         if (!returnType.isAssignableFrom(validatedNodeType, true)) {
-            throw EigenbaseResource.instance().newCannotCastValue(
-                validatedNodeType.toString(),
-                returnType.toString());
+            if (throwOnFailure) {
+                throw EigenbaseResource.instance().newCannotCastValue(
+                    validatedNodeType.toString(),
+                    returnType.toString());
+            }
+            return false;
         }
+        return true;
     }
 
     /**
@@ -128,7 +133,7 @@ public class SqlCastFunction extends SqlFunction
         SqlValidator.Scope scope,
         SqlCall call)
     {
-        RelDataType ret = ((SqlDataType) call.getOperands()[1]).getType();
+        RelDataType ret = validator.deriveType(scope, call.operands[1]);
         boolean isNullable;
         if (SqlUtil.isNullLiteral(call.operands[0], false)) {
             isNullable = true;

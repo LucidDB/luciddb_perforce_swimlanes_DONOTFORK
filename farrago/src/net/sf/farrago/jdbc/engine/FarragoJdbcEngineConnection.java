@@ -20,14 +20,19 @@ package net.sf.farrago.jdbc.engine;
 
 import java.sql.*;
 import java.util.*;
-import java.util.logging.*;
 
 import net.sf.farrago.resource.*;
 import net.sf.farrago.session.*;
-import net.sf.farrago.util.*;
+import net.sf.farrago.jdbc.FarragoConnection;
+import net.sf.farrago.jdbc.FarragoMedDataWrapperInfo;
+import net.sf.farrago.namespace.util.FarragoDataWrapperCache;
+import net.sf.farrago.namespace.FarragoMedDataWrapper;
+import net.sf.farrago.db.FarragoDbSession;
+import net.sf.farrago.db.FarragoDatabase;
+import net.sf.farrago.util.FarragoObjectCache;
+import net.sf.farrago.fem.med.FemDataWrapper;
 
-import org.eigenbase.util.*;
-
+import org.eigenbase.sql.SqlIdentifier;
 
 /**
  * FarragoJdbcEngineConnection implements the {@link java.sql.Connection}
@@ -36,7 +41,7 @@ import org.eigenbase.util.*;
  * @author John V. Sichi
  * @version $Id$
  */
-public class FarragoJdbcEngineConnection implements Connection
+public class FarragoJdbcEngineConnection implements FarragoConnection
 {
     //~ Instance fields -------------------------------------------------------
 
@@ -427,7 +432,134 @@ public class FarragoJdbcEngineConnection implements Connection
     {
         throw new UnsupportedOperationException();
     }
-}
 
+    public String findMofId(String wrapperName)
+        throws SQLException
+    {
+        FarragoDbSession session = (FarragoDbSession)getSession();
+        SqlIdentifier wrapperSqlIdent = new SqlIdentifier(wrapperName, null);
+        
+        FemDataWrapper wrapper = 
+            (FemDataWrapper) session.getRepos().getModelElement(
+            session.getRepos().medPackage.getFemDataWrapper().refAllOfType(),
+            wrapperSqlIdent.getSimple()
+            );
+         
+        if (wrapper != null) {
+            if (!wrapper.isForeign()) {
+                wrapper = null;
+            }
+        }
+
+        if (wrapper != null) {
+            return wrapper.refMofId();
+        }
+        else {
+            return null;
+        }
+    }
+
+    public FarragoMedDataWrapperInfo getWrapper(
+        String mofId,
+        String libraryName,
+        Properties options)
+        throws SQLException
+    {
+        return new FleetingMedDataWrapperInfo(mofId, libraryName, options);
+    }
+
+    /**
+     * Implementation of {@link FarragoMedDataWrapperInfo} which fleetingly
+     * grabs a {@link FarragoMedDataWrapper} at the start of a call and unpins
+     * it before the end of the call.
+     */
+    private class FleetingMedDataWrapperInfo
+        implements FarragoMedDataWrapperInfo
+    {
+        private final String mofId;
+        private final String libraryName;
+        private final Properties options;
+
+        FleetingMedDataWrapperInfo(
+            String mofId,
+            String libraryName,
+            Properties options)
+        {
+            this.mofId = mofId;
+            this.libraryName = libraryName;
+            this.options = (Properties) options.clone();
+        }
+
+        private FarragoMedDataWrapper getWrapper()
+        {
+            final FarragoDbSession session = (FarragoDbSession)getSession();
+            final FarragoDatabase db = session.getDatabase();
+            final FarragoObjectCache sharedCache = db.getDataWrapperCache();
+
+            final FarragoDataWrapperCache dataWrapperCache = 
+                new FarragoDataWrapperCache(session, sharedCache, 
+                    session.getRepos(), db.getFennelDbHandle());
+
+            final FarragoMedDataWrapper dataWrapper =
+                dataWrapperCache.loadWrapper(mofId, libraryName, options);
+            return dataWrapper;
+        }
+
+        public DriverPropertyInfo[] getServerPropertyInfo(
+            Locale locale,
+            Properties wrapperProps,
+            Properties serverProps)
+        {
+            FarragoMedDataWrapper dataWrapper = getWrapper();
+            try {
+                return dataWrapper.getServerPropertyInfo(locale, wrapperProps,
+                    serverProps);
+            } finally {
+                dataWrapper.closeAllocation();
+            }
+        }
+
+        public DriverPropertyInfo[] getColumnSetPropertyInfo(
+            Locale locale,
+            Properties wrapperProps,
+            Properties serverProps,
+            Properties tableProps)
+        {
+            FarragoMedDataWrapper dataWrapper = getWrapper();
+            try {
+                return dataWrapper.getColumnSetPropertyInfo(locale,
+                    wrapperProps, serverProps, tableProps);
+            } finally {
+                dataWrapper.closeAllocation();
+            }
+        }
+
+        public DriverPropertyInfo[] getColumnPropertyInfo(
+            Locale locale,
+            Properties wrapperProps,
+            Properties serverProps,
+            Properties tableProps,
+            Properties columnProps)
+        {
+            FarragoMedDataWrapper dataWrapper = getWrapper();
+            try {
+                return dataWrapper.getColumnPropertyInfo(locale, wrapperProps,
+                    serverProps, tableProps, columnProps);
+            } finally {
+                dataWrapper.closeAllocation();
+            }
+        }
+
+        public boolean isForeign()
+        {
+            FarragoMedDataWrapper dataWrapper = getWrapper();
+            try {
+                return dataWrapper.isForeign();
+            } finally {
+                dataWrapper.closeAllocation();
+            }
+        }
+    }
+}
 
 // End FarragoJdbcEngineConnection.java

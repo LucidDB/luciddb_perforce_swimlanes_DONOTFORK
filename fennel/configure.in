@@ -200,7 +200,7 @@ if test "$with_optimization" = "no"
 then
     CXXFLAGS="$CXXFLAGS -g -DDEBUG"
     CXXFLAGS="$CXXFLAGS -D_STLP_DEBUG=1 -D_STLP_DEBUG_UNINITIALIZED=1"
-    BOOST_LIB_SUFFIX=gcc-mt-gdp-1_31
+    BOOST_LIB_SUFFIX=gcc-mt-gdp-1_32
     STLPORT_LIB=${STLPORT_LIB_BASE}_stldebug
 else
     CXXFLAGS="$CXXFLAGS -O3 -g -DNDEBUG -Wno-unused-variable"
@@ -209,7 +209,7 @@ else
         dnl optimized mingw build encounters bogus errors for -Wuninitialized
         CXXFLAGS="$CXXFLAGS -Wno-uninitialized"
     fi
-    BOOST_LIB_SUFFIX=gcc-mt-p-1_31
+    BOOST_LIB_SUFFIX=gcc-mt-p-1_32
     STLPORT_LIB=$STLPORT_LIB_BASE
 fi
 
@@ -241,7 +241,7 @@ AC_CONFIG_FILES([fennelenv.sh build/defineVariables.sh \
 Makefile common/Makefile synch/Makefile \
 device/Makefile cache/Makefile segment/Makefile \
 txn/Makefile tuple/Makefile exec/Makefile btree/Makefile \
-db/Makefile xo/Makefile \
+db/Makefile xo/Makefile ftrs/Makefile \
 libfennel/Makefile test/Makefile farrago/Makefile \
 disruptivetech/Makefile \
 disruptivetech/calc/Makefile \
@@ -252,6 +252,7 @@ disruptivetech/farrago/Makefile \
 redsquare/Makefile \
 redsquare/sorter/Makefile \
 redsquare/libfennel_rs/Makefile \
+redsquare/test/Makefile \
 redsquare/farrago/Makefile \
 ])
 

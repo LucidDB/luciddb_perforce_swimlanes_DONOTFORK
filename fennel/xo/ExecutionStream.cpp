@@ -131,15 +131,13 @@ TupleFormat ExecutionStream::getOutputFormat() const
 
 ByteInputStream &ExecutionStream::getProducerResultStream()
 {
-    assert(false);
-    throw;
+    permAssert(false);
 }
 
 bool ExecutionStream::writeResultToConsumerBuffer(
     ByteOutputStream &resultOutputStream) 
 {
-    assert(false);
-    throw;
+    permAssert(false);
 }
 
 ExecutionStream::BufferProvision 
@@ -155,6 +153,6 @@ void *ExecutionStream::getImpl()
     return NULL;
 }
 
-FENNEL_END_CPPFILE("$Id$");
+FENNEL_END_CPPFILE("$Id: //open/dev/fennel/xo/ExecutionStream.cpp#6 $");
 
 // End ExecutionStream.h
