@@ -20,6 +20,9 @@
 package net.sf.farrago.query;
 
 import net.sf.farrago.session.*;
+import net.sf.farrago.catalog.*;
+import net.sf.farrago.type.*;
+
 import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.cwm.behavioral.*;
@@ -42,30 +45,37 @@ public class FarragoUserDefinedRoutineLookup implements SqlOperatorTable
 {
     private final FarragoSessionStmtValidator stmtValidator;
     
+    private final FarragoPreparingStmt preparingStmt;
+    
     public FarragoUserDefinedRoutineLookup(
-        FarragoSessionStmtValidator stmtValidator)
+        FarragoSessionStmtValidator stmtValidator,
+        FarragoPreparingStmt preparingStmt)
     {
         this.stmtValidator = stmtValidator;
+        this.preparingStmt = preparingStmt;
     }
 
     // implement SqlOperatorTable
-    public List lookupOperatorOverloads(String opName, SqlSyntax syntax)
+    public List lookupOperatorOverloads(SqlIdentifier opName, SqlSyntax syntax)
     {
         if (syntax != SqlSyntax.Function) {
             return Collections.EMPTY_LIST;
         }
         
-        // TODO jvs 1-Jan-2005:  schema qualifier; generalize to
-        // procedure calls as well
         List list = stmtValidator.findRoutineOverloads(
-            null,
             opName,
-            ProcedureTypeEnum.FUNCTION);
+            null);
         List overloads = new ArrayList();
         Iterator iter = list.iterator();
         while (iter.hasNext()) {
-            FemRoutine femFunction = (FemRoutine) iter.next();
-            SqlFunction sqlFunction = convertFunction(femFunction);
+            FemRoutine femRoutine = (FemRoutine) iter.next();
+            if (femRoutine.getVisibility() == null) {
+                // Oops, the referenced routine hasn't been validated yet.
+                // Throw a special exception and someone up above will
+                // figure out what to do.
+                throw new FarragoUnvalidatedDependencyException();
+            }
+            SqlFunction sqlFunction = convertRoutine(femRoutine);
             overloads.add(sqlFunction);
         }
         return overloads;
@@ -78,41 +88,48 @@ public class FarragoUserDefinedRoutineLookup implements SqlOperatorTable
         throw Util.needToImplement(this);
     }
 
-    private SqlFunction convertFunction(FemRoutine femFunction)
+    /**
+     * Converts the validated catalog definition of a routine into
+     * SqlFunction representation.
+     *
+     * @param femRoutine catalog definition
+     *
+     * @return converted function
+     */
+    public FarragoUserDefinedRoutine convertRoutine(FemRoutine femRoutine)
     {
-        if (femFunction.getVisibility() == null) {
-            // Oops, the referenced routine hasn't been validated yet.
-            // Throw a special exception and someone up above will
-            // figure out what to do.
-            throw new FarragoUnvalidatedDependencyException();
-        }
-
-        List parameters = femFunction.getParameter();
-        
-        // minus one because last param represents return type
-        int nParams = parameters.size() - 1;
+        int nParams = FarragoCatalogUtil.getRoutineParamCount(femRoutine);
+        FarragoTypeFactory typeFactory = stmtValidator.getTypeFactory();
 
         RelDataType [] paramTypes = new RelDataType[nParams];
-        Iterator paramIter = parameters.iterator();
+        Iterator paramIter = femRoutine.getParameter().iterator();
         RelDataType returnType = null;
         for (int i = 0; paramIter.hasNext(); ++i) {
             FemRoutineParameter param = (FemRoutineParameter)
                 paramIter.next();
-            RelDataType type =
-                stmtValidator.getTypeFactory().createCwmElementType(
-                    param);
+            RelDataType type = typeFactory.createCwmElementType(param);
+            
             if (param.getKind() == ParameterDirectionKindEnum.PDK_RETURN) {
                 returnType = type;
             } else {
                 paramTypes[i] = type;
             }
         }
-            
-        SqlFunction sqlFunction = new FarragoUserDefinedRoutine(
-            femFunction,
+
+        if (returnType == null) {
+            // for procedures, we make up a dummy return type to allow
+            // invocations to be rewritten as functions
+            returnType = typeFactory.createSqlType(SqlTypeName.Integer);
+            returnType = typeFactory.createTypeWithNullability(
+                returnType, true);
+        }
+        
+        return new FarragoUserDefinedRoutine(
+            stmtValidator,
+            preparingStmt,
+            femRoutine,
             returnType,
             paramTypes);
-        return sqlFunction;
     }
 }
 
