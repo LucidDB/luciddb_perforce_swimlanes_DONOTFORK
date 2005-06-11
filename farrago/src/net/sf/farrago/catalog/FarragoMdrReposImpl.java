@@ -194,7 +194,6 @@ public class FarragoMdrReposImpl extends FarragoReposImpl
             return;
         }
         tracer.fine("Closing catalog");
-//        NBMDRepositoryImpl nbRepos = (NBMDRepositoryImpl) mdrRepository;
         if (memStorageId != null) {
             mdrRepository.beginTrans(true);
             FarragoTransientStorage.ignoreCommit = false;

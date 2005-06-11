@@ -30,9 +30,7 @@ import javax.jmi.reflect.*;
 
 import net.sf.farrago.*;
 import net.sf.farrago.cwm.core.*;
-import net.sf.farrago.cwm.datatypes.*;
 import net.sf.farrago.cwm.relational.*;
-import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.fem.config.*;
 import net.sf.farrago.trace.*;
 import net.sf.farrago.util.*;
@@ -138,7 +136,7 @@ public abstract class FarragoReposImpl extends FarragoMetadataFactoryImpl
     public CwmCatalog getSelfAsCatalog()
     {
         // TODO:  variable
-        return getCatalog(LOCALDB_CATALOG_NAME);
+        return getCatalog(FarragoCatalogInit.LOCALDB_CATALOG_NAME);
     }
 
     /**
@@ -385,181 +383,6 @@ public abstract class FarragoReposImpl extends FarragoMetadataFactoryImpl
                 }
             }
         }
-    }
-
-    private void defineTypeAlias(
-        String aliasName,
-        CwmSqlsimpleType type)
-    {
-        CwmTypeAlias typeAlias = newCwmTypeAlias();
-        typeAlias.setName(aliasName);
-        typeAlias.setType(type);
-    }
-
-    /**
-     * Creates objects owned by the system.  This is only done once during
-     * database creation.
-     */
-    public void createSystemObjects()
-    {
-        tracer.info("Creating system-owned catalog objects");
-        boolean rollback = true;
-        try {
-            beginReposTxn(true);
-            initCatalog();
-            rollback = false;
-        } finally {
-            endReposTxn(rollback);
-        }
-        tracer.info("Creation of system-owned catalog objects committed");
-    }
-
-    private void initCatalog()
-    {
-        createSystemCatalogs();
-        createSystemTypes();
-    }
-
-    private void createSystemCatalogs()
-    {
-        // TODO:  default character set and collation name
-        CwmCatalog catalog;
-
-        catalog = newCwmCatalog();
-        catalog.setName(SYSBOOT_CATALOG_NAME);
-        initializeCatalog(catalog);
-
-        catalog = newCwmCatalog();
-        catalog.setName(LOCALDB_CATALOG_NAME);
-        initializeCatalog(catalog);
-    }
-
-    public void initializeCatalog(CwmCatalog catalog)
-    {
-        catalog.setDefaultCharacterSetName(getDefaultCharsetName());
-        catalog.setDefaultCollationName(getDefaultCollationName());
-    }
-
-    private void createSystemTypes()
-    {
-        CwmSqlsimpleType simpleType;
-
-        // This is where all the builtin types are defined.  To add a new
-        // builtin type, you have to:
-        // (1) add a definition here
-        // (2) add mappings in FarragoTypeFactoryImpl and maybe
-        // SqlTypeName/SqlTypeFamily
-        // (3) add Fennel mappings in
-        // FennelRelUtil.convertSqlTypeNumberToFennelTypeOrdinal
-        // (4) since I've already done all the easy cases, you'll probably
-        // need lots of extra fancy semantics elsewhere
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("BOOLEAN");
-        simpleType.setTypeNumber(new Integer(Types.BOOLEAN));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("TINYINT");
-        simpleType.setTypeNumber(new Integer(Types.TINYINT));
-        simpleType.setNumericPrecision(new Integer(8));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-        simpleType.setNumericScale(new Integer(0));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("SMALLINT");
-        simpleType.setTypeNumber(new Integer(Types.SMALLINT));
-        simpleType.setNumericPrecision(new Integer(16));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-        simpleType.setNumericScale(new Integer(0));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("INTEGER");
-        simpleType.setTypeNumber(new Integer(Types.INTEGER));
-        simpleType.setNumericPrecision(new Integer(32));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-        simpleType.setNumericScale(new Integer(0));
-        defineTypeAlias("INT", simpleType);
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("BIGINT");
-        simpleType.setTypeNumber(new Integer(Types.BIGINT));
-        simpleType.setNumericPrecision(new Integer(64));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-        simpleType.setNumericScale(new Integer(0));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("REAL");
-        simpleType.setTypeNumber(new Integer(Types.REAL));
-        simpleType.setNumericPrecision(new Integer(23));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("DOUBLE");
-        simpleType.setTypeNumber(new Integer(Types.DOUBLE));
-        simpleType.setNumericPrecision(new Integer(52));
-        simpleType.setNumericPrecisionRadix(new Integer(2));
-        defineTypeAlias("DOUBLE PRECISION", simpleType);
-        defineTypeAlias("FLOAT", simpleType);
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("VARCHAR");
-        simpleType.setTypeNumber(new Integer(Types.VARCHAR));
-
-        // NOTE: this is an upper bound based on usage of 2-byte length
-        // indicators in stored tuples; there are further limits based on page
-        // size (imposed during table creation)
-        simpleType.setCharacterMaximumLength(new Integer(65535));
-        defineTypeAlias("CHARACTER VARYING", simpleType);
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("VARBINARY");
-        simpleType.setTypeNumber(new Integer(Types.VARBINARY));
-        simpleType.setCharacterMaximumLength(new Integer(65535));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("CHAR");
-        simpleType.setTypeNumber(new Integer(Types.CHAR));
-        simpleType.setCharacterMaximumLength(new Integer(65535));
-        defineTypeAlias("CHARACTER", simpleType);
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("BINARY");
-        simpleType.setTypeNumber(new Integer(Types.BINARY));
-        simpleType.setCharacterMaximumLength(new Integer(65535));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("DATE");
-        simpleType.setTypeNumber(new Integer(Types.DATE));
-        simpleType.setDateTimePrecision(new Integer(0));
-
-        // TODO jvs 26-July-2004: Support fractional precision for TIME and
-        // TIMESTAMP.  Currently, most of the support is there for up to
-        // milliseconds, but JDBC getString conversion is missing (see comments
-        // in SqlDateTimeWithoutTZ).  SQL99 says default precision for
-        // TIMESTAMP is microseconds, so some more work is required to
-        // support that.  Default precision for TIME is seconds,
-        // which is already the case.
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("TIME");
-        simpleType.setTypeNumber(new Integer(Types.TIME));
-        simpleType.setDateTimePrecision(new Integer(0));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("TIMESTAMP");
-        simpleType.setTypeNumber(new Integer(Types.TIMESTAMP));
-        simpleType.setDateTimePrecision(new Integer(0));
-
-        simpleType = newCwmSqlsimpleType();
-        simpleType.setName("DECIMAL");
-        simpleType.setTypeNumber(new Integer(Types.DECIMAL));
-        simpleType.setNumericPrecision(new Integer(39));
-        simpleType.setNumericPrecisionRadix(new Integer(10));
-        defineTypeAlias("DEC", simpleType);
-
-        FemSqlcollectionType collectType;
-        collectType = newFemSqlmultisetType();
-        collectType.setName("MULTISET");
-        // a multiset has the same type# as an array for now
-        collectType.setTypeNumber(new Integer(Types.ARRAY));
     }
 }
 

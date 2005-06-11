@@ -48,18 +48,6 @@ public interface FarragoRepos extends FarragoAllocation,
     FarragoTransientTxnContext,
     FarragoMetadataFactory
 {
-    //~ Static fields/initializers --------------------------------------------
-
-    /**
-     * Reserved name for the system boot catalog.
-     */
-    public static final String SYSBOOT_CATALOG_NAME = "SYS_BOOT";
-
-    /**
-     * Reserved name for the local catalog.
-     */
-    public static final String LOCALDB_CATALOG_NAME = "LOCALDB";
-
     //~ Methods ---------------------------------------------------------------
 
     /**
@@ -223,12 +211,6 @@ public interface FarragoRepos extends FarragoAllocation,
     public void addResourceBundles(List bundles);
 
     /**
-     * Creates objects owned by the system.  This is only done once during
-     * database creation.
-     */
-    public void createSystemObjects();
-
-    /**
      * Begins a metadata transaction on the repository.
      *
      * @param writable true for read/write; false for read-only
@@ -241,9 +223,6 @@ public interface FarragoRepos extends FarragoAllocation,
      * @param rollback true to rollback; false to commit
      */
     public void endReposTxn(boolean rollback);
-
-    public void initializeCatalog(CwmCatalog catalog);
-
 }
 
 
