@@ -183,6 +183,7 @@ void ExecStreamGraphImpl::mergeFrom(ExecStreamGraph& src)
 {
     if (ExecStreamGraphImpl *p = dynamic_cast<ExecStreamGraphImpl*>(&src)) {
         mergeFrom(*p);
+        return;
     }
     assert(false);
 }
@@ -192,6 +193,7 @@ void ExecStreamGraphImpl::mergeFrom(
 {
     if (ExecStreamGraphImpl *p = dynamic_cast<ExecStreamGraphImpl*>(&src)) {
         mergeFrom(*p, nodes);
+        return;
     }
     assert(false);
 }
@@ -275,7 +277,7 @@ void ExecStreamGraphImpl::mergeFrom(
     // delete the copied subgraph from SRC
     for (int i = 0; i < nnodes; i++) {
         Vertex v = boost::vertices(src.graphRep).first[nodes[i]];
-        SharedExecStream pStream = getStreamFromVertex(v);
+        SharedExecStream pStream = src.getStreamFromVertex(v);
         src.streamMap.erase(pStream->getName());
         src.removeFromStreamOutMap(pStream);
         src.freeVertex(v);
@@ -516,6 +518,6 @@ std::vector<SharedExecStream> ExecStreamGraphImpl::getSortedStreams()
     return sortedStreams;
 }
 
-FENNEL_END_CPPFILE("$Id: //open/dev/fennel/exec/ExecStreamGraph.cpp#10 $");
+FENNEL_END_CPPFILE("$Id$");
 
 // End ExecStreamGraph.cpp
