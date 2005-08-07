@@ -533,8 +533,12 @@ column type family is {1} but default value type family is {2}</text>
 <text>Failed importing foreign schema {0} from {1}</text>
 </exception>
 
-<exception id="420920" name="ValidatorImportMissing">
+<exception id="420930" name="ValidatorImportMissing">
 <text>One or more tables not found while importing foreign schema {0}:  {1}</text>
+</exception>
+
+<exception id="420940" name="InvalidUser">
+<text>User name {0} not found</text>
 </exception>
 
 <!-- ====================================================================== -->
