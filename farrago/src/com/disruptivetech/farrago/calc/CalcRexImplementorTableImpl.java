@@ -876,7 +876,7 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 new UsingInstrImplementor(CalcProgramBuilder.Cast));
             doubleKeyMap.put(
                 SqlTypeName.intTypes,
-                SqlTypeName.approxTypes,
+                SqlTypeName.fractionalTypes,
                 new UsingInstrImplementor(CalcProgramBuilder.Cast));
             doubleKeyMap.put(
                 SqlTypeName.datetimeTypes,
@@ -902,11 +902,11 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 });
 
             doubleKeyMap.put(
-                SqlTypeName.approxTypes,
-                SqlTypeName.approxTypes,
+                SqlTypeName.fractionalTypes,
+                SqlTypeName.fractionalTypes,
                 new UsingInstrImplementor(CalcProgramBuilder.Cast));
             doubleKeyMap.put(
-                SqlTypeName.approxTypes,
+                SqlTypeName.fractionalTypes,
                 SqlTypeName.charTypes,
                 new UsingInstrImplementor(ExtInstructionDefTable.castA) {
                     public CalcProgramBuilder.Register implement(
@@ -923,7 +923,7 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                     }
                 });
             doubleKeyMap.put(
-                SqlTypeName.approxTypes,
+                SqlTypeName.fractionalTypes,
                 SqlTypeName.intTypes,
                 new AbstractCalcRexImplementor() {
                     public CalcProgramBuilder.Register implement(
@@ -1001,7 +1001,7 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 });
             doubleKeyMap.put(
                 SqlTypeName.charTypes,
-                SqlTypeName.approxTypes,
+                SqlTypeName.fractionalTypes,
                 new UsingInstrImplementor(ExtInstructionDefTable.castA) {
                     public CalcProgramBuilder.Register implement(
                         RexCall call,
@@ -1260,9 +1260,9 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                     // todo optimize away null check if type known to be non null
                     // same applies the other way (if we have a null literal or a cast(null as xxx))
                     translator.builder.addLabelJumpNull(next, compareResult);
-                    CalcProgramBuilder.move.add(
-                        translator.builder,
-                        resultOfCall,
+                    moveOrCast(
+                        translator,
+                        resultOfCall, 
                         translator.implementNode(call.operands[i + 1]));
                     translator.builder.addLabelJump(endOfCase);
                     translator.builder.addLabel(next);
@@ -1270,9 +1270,9 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                     // we can do some optimizations
                     Boolean val = (Boolean) compareResult.getValue();
                     if (val.booleanValue()) {
-                        CalcProgramBuilder.move.add(
-                            translator.builder,
-                            resultOfCall,
+                        moveOrCast(
+                            translator,
+                            resultOfCall, 
                             translator.implementNode(call.operands[i + 1]));
                         if (i != 0) {
                             translator.builder.addLabelJump(endOfCase);
@@ -1288,13 +1288,34 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
 
             if (!elseClauseOptimizedAway) {
                 int elseIndex = call.operands.length - 1;
-                CalcProgramBuilder.move.add(
-                    translator.builder,
-                    resultOfCall,
+                moveOrCast(
+                    translator,
+                    resultOfCall, 
                     translator.implementNode(call.operands[elseIndex]));
             }
             translator.builder.addLabel(endOfCase); //this assumes that more instructions will follow
             return resultOfCall;
+        }
+        
+        private void moveOrCast(
+            RexToCalcTranslator translator, 
+            CalcProgramBuilder.Register resultOfCall,
+            CalcProgramBuilder.Register operand)
+        {
+            if ((resultOfCall.getOpType() != operand.getOpType())
+                || (resultOfCall.storageBytes != operand.storageBytes))
+            {
+                ExtInstructionDefTable.castA.add(
+                    translator.builder,
+                    new CalcProgramBuilder.Register [] { 
+                        resultOfCall,
+                        operand });
+            } else {
+                CalcProgramBuilder.move.add(
+                    translator.builder,
+                    resultOfCall,
+                    operand);
+            }
         }
     }
 
@@ -1385,13 +1406,19 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
 
             regList.add(translator.implementNode(call.operands[1]));
             assert(regList.size()>1);
-            assert(CalcProgramBuilder.OpType.Varchar.equals(
-                resultRegister.getOpType()));
+            boolean castToVarchar = false;
+            if (!CalcProgramBuilder.OpType.Char.equals(
+                    resultRegister.getOpType()))
+            {
+                assert(CalcProgramBuilder.OpType.Varchar.equals(
+                           resultRegister.getOpType()));
+                castToVarchar = true;
+            }
             for (int i = 1; i < regList.size(); i++) {
                 CalcProgramBuilder.Register reg=
                     (CalcProgramBuilder.Register) regList.get(i);
 
-                if (!reg.getOpType().equals(
+                if (castToVarchar && !reg.getOpType().equals(
                     CalcProgramBuilder.OpType.Varchar)) {
                     // cast to varchar call must be of type varchar.
                     CalcProgramBuilder.Register newReg =

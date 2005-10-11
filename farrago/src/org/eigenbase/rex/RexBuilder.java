@@ -54,7 +54,7 @@ public class RexBuilder
     protected final RelDataTypeFactory typeFactory;
     private final RexLiteral booleanTrue;
     private final RexLiteral booleanFalse;
-    private final RexLiteral varcharEmpty;
+    private final RexLiteral charEmpty;
     private final RexLiteral constantNull;
     private final SqlStdOperatorTable opTab = SqlStdOperatorTable.instance();
 
@@ -76,10 +76,10 @@ public class RexBuilder
                 Boolean.FALSE,
                 typeFactory.createSqlType(SqlTypeName.Boolean),
                 SqlTypeName.Boolean);
-        this.varcharEmpty =
+        this.charEmpty =
             makeLiteral(
                 new NlsString("", null, null),
-                typeFactory.createSqlType(SqlTypeName.Varchar, 0),
+                typeFactory.createSqlType(SqlTypeName.Char, 0),
                 SqlTypeName.Char);
         this.constantNull =
             makeLiteral(
@@ -362,7 +362,7 @@ public class RexBuilder
     }
 
     /**
-     * Creates an integer literal.
+     * Creates a numeric literal.
      */
     public RexLiteral makeExactLiteral(BigDecimal bd)
     {
@@ -378,9 +378,17 @@ public class RexBuilder
             }
         }
 
+        return makeExactLiteral(bd, typeFactory.createSqlType(result));
+    }
+
+    /**
+     * Creates a numeric literal.
+     */
+    public RexLiteral makeExactLiteral(BigDecimal bd, RelDataType type)
+    {
         return makeLiteral(
             bd,
-            typeFactory.createSqlType(result),
+            type,
             SqlTypeName.Decimal);
     }
 
@@ -407,7 +415,7 @@ public class RexBuilder
     }
 
     /**
-     * Creates a varchar literal.
+     * Creates a character string literal.
      * @pre s != null
      */
     public RexLiteral makeLiteral(String s)
@@ -419,19 +427,19 @@ public class RexBuilder
     {
         Util.pre(s != null, "s != null");
         if (s.equals("")) {
-            return varcharEmpty;
+            return charEmpty;
         } else {
             return makeLiteral(
                 new NlsString(s, null, null),
                 typeFactory.createSqlType(
-                    SqlTypeName.Varchar,
+                    SqlTypeName.Char,
                     s.length()),
                 SqlTypeName.Char);
         }
     }
 
     /**
-     * Creates a String literal
+     * Creates a character string literal from an NlsString
      * @pre str != null
      */
     public RexLiteral makeCharLiteral(NlsString str)
@@ -446,7 +454,7 @@ public class RexBuilder
         }
         RelDataType type =
             typeFactory.createSqlType(
-                SqlTypeName.Varchar,
+                SqlTypeName.Char,
                 str.getValue().length());
         type =
             typeFactory.createTypeWithCharsetAndCollation(
