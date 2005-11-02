@@ -1,10 +1,8 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
 // Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 1999-2005 John V. Sichi
+// Copyright (C) 2005-2005 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -21,40 +19,12 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef Fennel_FennelExcn_Included
-#define Fennel_FennelExcn_Included
+#include "fennel/common/CommonPreamble.h"
 
-FENNEL_BEGIN_NAMESPACE
+FENNEL_BEGIN_CPPFILE("$Id$");
 
-/**
- * Base class for all Fennel exceptions.
- */
-class FennelExcn : public std::exception
-{
-protected:
-    std::string msg;
-    
-public:
-    /**
-     * Construct a new FennelExcn.
-     *
-     * @param msgInit message
-     */
-    explicit FennelExcn(std::string msgInit);
+// TODO:  add member implementations here 
 
-    virtual ~FennelExcn() throw();
+FENNEL_END_CPPFILE("$Id$");
 
-    // implement std::exception
-    virtual const char *what() const throw();
-
-    std::string const &getMessage()
-    {
-        return msg;
-    }
-};
-
-FENNEL_END_NAMESPACE
-
-#endif
-
-// End FennelExcn.h
+// End LcsRowScanExecStream.cpp
