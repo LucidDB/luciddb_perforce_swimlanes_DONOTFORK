@@ -24,7 +24,7 @@
 #ifndef Fennel_AioPollingScheduler_Included
 #define Fennel_AioPollingScheduler_Included
 
-#ifdef HAVE_AIO_H
+#ifdef USE_AIO_H
 
 #include "fennel/synch/Thread.h"
 #include "fennel/device/DeviceAccessScheduler.h"
