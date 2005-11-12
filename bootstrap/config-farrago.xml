@@ -12,6 +12,7 @@
 
                 <listeners>
                         <currentbuildstatuslistener file="logs/farrago/currentbuildstatus.txt"/>
+                        <currentbuildstatuslistener file="&open_default.build.home;/../web/logs/farrago&configSuffix;/currentbuildstatus.txt"/>
                 </listeners>
 
 		<!-- Defines where cruise looks for changes, to decide whether to run the build -->
@@ -32,18 +33,26 @@
 
 		<!-- directory to write build logs to -->
 		<log dir="logs/farrago">
-			<merge dir="&open_default.build.home;/bootstrap/build/farrago/testlog"/>
+			<merge dir="&open_integration.build.home;/farrago/testlog"/>
 		</log>
 
 		<!-- Publishers are run *after* a build completes -->
 		<publishers>
 			<!-- currentbuildstatuspublisher file="logs/farrago/currentbuildstatus.txt"/ -->
 
-			<artifactspublisher dir="&open_default.build.home;/bootstrap/build/farrago/trace" dest="artifacts/farrago&configSuffix;" subdirectory="trace"/>
-			<artifactspublisher dir="&open_default.build.home;/bootstrap/build/farrago/unitsql" dest="artifacts/farrago&configSuffix;" subdirectory="unitsql"/>
-			<artifactspublisher dir="&open_default.build.home;/bootstrap/build/farrago/initsql" dest="artifacts/farrago&configSuffix;" subdirectory="initsql"/>
-			<artifactspublisher dir="&open_default.build.home;/bootstrap/build/farrago/regressionsql" dest="artifacts/farrago&configSuffix;" subdirectory="regressionsql"/>
+			<artifactspublisher dir="&open_integration.build.home;/farrago/trace" dest="artifacts/farrago&configSuffix;" subdirectory="trace"/>
+			<artifactspublisher dir="&open_integration.build.home;/farrago/unitsql" dest="artifacts/farrago&configSuffix;" subdirectory="unitsql"/>
+			<artifactspublisher dir="&open_integration.build.home;/farrago/initsql" dest="artifacts/farrago&configSuffix;" subdirectory="initsql"/>
+			<artifactspublisher dir="&open_integration.build.home;/farrago/regressionsql" dest="artifacts/farrago&configSuffix;" subdirectory="regressionsql"/>
 
+                        <!--
+                        <onfailure>
+                            <artifactspublisher dir="&open_integration.build.home;/farrago" dest="artifacts/farrago&configSuffix;" subdirectory="farrago"/>
+                            <artifactspublisher dir="&open_integration.build.home;/fennel" dest="artifacts/farrago&configSuffix;" subdirectory="fennel"/>
+                            <artifactspublisher dir="&open_integration.build.home;/saffron" dest="artifacts/farrago&configSuffix;" subdirectory="saffron"/>
+                        </onfailure>
+                        -->
+        
 			<!-- sync up artifacts on jsp machine: CC's scp would copy everything -->
 			<execute command="&rsync_cmd; artifacts/farrago&configSuffix; &rsync_dest;"/>
 
@@ -72,6 +81,7 @@
 			       subjectprefix="&subjectprefix;">
 				<failure address="&failureaddress;"
 				         reportWhenFixed="&reportwhenfixed;"/>
+                                <propertiesmapper file="&emailmapper;"/>
 			</email>
 		</publishers>
 	</project>
