@@ -37,7 +37,7 @@ FENNEL_BEGIN_NAMESPACE
 
     
 struct LcsClusterAppendExecStreamParams : public BTreeExecStreamParams,
-                                                public ConduitExecStreamParams
+                                          public ConduitExecStreamParams
 {
     /**
      * True if cluster append is in overwrite mode
@@ -106,6 +106,9 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
      */
     boost::scoped_array<LcsHash> m_hash;
 
+    // REVIEW jvs 28-Nov-2005:  use uint instead of uint16_t here
+    // and other places where there's no good reason for a
+    // constraint on the number of objects
     /**
      * Number of columns in the cluster
      */
@@ -126,11 +129,16 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
      */
     boost::scoped_array<PBuffer> m_builderBlock;
 
+    // REVIEW jvs 28-Nov-2005:  this state variable is used in
+    // non-obvious ways having to do with the 8-row minimum per batch.
+    // Is there any way to consolidate that logic or make it less implicit?
     /**
      * Number of rows loaded into the current set of batches
      */
     uint16_t m_rowCnt;
 
+    // REVIEW jvs 28-Nov-2005:  I think it should be safe to get rid of
+    // this (closeImpl will only be called if it's really needed).
     /**
      * True if close already done
      */
@@ -163,7 +171,7 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
     /**
      * Row value ordinal returned from hash, one per cluster column
      */
-    boost::scoped_array<LcsHashValOrd>  m_vOrd;
+    boost::scoped_array<LcsHashValOrd> m_vOrd;
 
     /**
      * Temporary buffers used by WriteBatch
@@ -222,12 +230,14 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
 
     /**
      * Given a TupleData representing all columns in a cluster,
-     * convert each column into its own TupleData
+     * converts each column into its own TupleData
      */
     void convertTuplesToCols();
 
+    // REVIEW jvs 28-Nov-2005:  This method is somewhat misnamed, since it
+    // just sets one value in a cluster row.
     /**
-     * Add value ordinal to row array for new row
+     * Adds value ordinal to row array for new row
      */
     void AddRow(uint16_t column, uint16_t vOrd);
 
@@ -237,7 +247,7 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
     bool IsRowArrayFull();
 
     /**
-     * Write a batch(run) to index block.
+     * Writes a batch(run) to index block.
      * Batches have a multiple of 8 rows.
      *
      * @param lastBatch true if last batch
@@ -245,13 +255,13 @@ class LcsClusterAppendExecStream : public BTreeExecStream,
     void WriteBatch(bool lastBatch);
 
     /**
-     * Write block to index when the block is full or this is the last block
+     * Writes block to index when the block is full or this is the last block
      * in the load
      */
     void WriteBlock();
 
     /**
-     * Get last block written to disk so we can append to it, reading in the
+     * Gets last block written to disk so we can append to it, reading in the
      * first rid value stored on the page
      *
      * @param pBlock returns pointer to last cluster block, NULL if cluster
@@ -303,7 +313,7 @@ public:
     ExecStreamResult Compress(ExecStreamQuantum const &quantum);
 
     /**
-     * Write out the last pending batches and btree pages.  Deallocates
+     * Writes out the last pending batches and btree pages.  Deallocates
      * temporary memory and buffer pages
      */
     void Close();
@@ -347,8 +357,10 @@ public:
         ExecStreamResourceQuantity &optQuantity);
     virtual void closeImpl();
 
+    // REVIEW jvs 28-Nov-2005:  I don't think these should be either
+    // public or inline.
     /**
-     * Return RID from btree tuple
+     * Returns RID from btree tuple
      */
     inline Rid readRid()
     {
@@ -356,7 +368,7 @@ public:
     }
     
     /**
-     * Return cluster pageid from btree tuple
+     * Returns cluster pageid from btree tuple
      */
     inline PageId readClusterPageId()
     {
