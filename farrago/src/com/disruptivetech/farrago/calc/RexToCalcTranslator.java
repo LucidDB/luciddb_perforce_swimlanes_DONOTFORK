@@ -1013,9 +1013,9 @@ public class RexToCalcTranslator implements RexVisitor
         if (SqlTypeUtil.inCharFamily(op1.getType())
                 && (op1.getType().getSqlTypeName() != op2.getType()
                 .getSqlTypeName())) {
-            // Need to perform a cast from whichever operand is CHAR to VARCHAR.
+            // Need to perform a cast.
             CalcProgramBuilder.Register newReg;
-            if (op1.getType().getSqlTypeName() == SqlTypeName.Char) {
+            if (op1.getType().getSqlTypeName() == SqlTypeName.Varchar) {
                 // cast op1 to op2's type but use op1's precision
                 CalcProgramBuilder.RegisterDescriptor reg1Desc =
                     getCalcRegisterDescriptor(op1.getType());
