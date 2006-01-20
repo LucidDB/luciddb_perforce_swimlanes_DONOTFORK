@@ -88,32 +88,46 @@ public class ReduceDecimalsRule extends RelOptRule
 
         if (rel instanceof CalcRel) {
             CalcRel calcRel = (CalcRel) rel;
-            RexNode[] exprs = calcRel.getChildExps();
-            if (!RexUtil.requiresDecimalExpansion(exprs, true)) {
+            final RexProgram program = calcRel.getProgram();
+            if (!RexUtil.requiresDecimalExpansion(program, true)) {
                 return;
             }
+            // Expand decimals in every expression in this program. If no
+            // expression changes, don't apply the rule.
+
+            // TODO: Move this logic into RexProgramBuilder, as a method
+            // which applies a visitor to every expression in a program. That
+            // method will eliminate common sub-expressions, and be able to
+            // handle more complex expressions.
             RexBuilder builder = rel.getCluster().getRexBuilder();
-            RexNode[] newExprs = new RexNode[exprs.length];
+            List<RexNode> newExprList = new ArrayList<RexNode>();
             boolean reduced = false;
             Translator translator = new Translator();
-            for (int i=0; i < exprs.length; i++) {
-                RexNode expr = exprs[i];
-                newExprs[i] = translator.reduceDecimals(expr, builder);
-                if (expr != newExprs[i]) {
+            for (RexNode expr : program.getExprList()) {
+                RexNode newExpr = translator.reduceDecimals(expr, builder);
+                if (expr != newExpr) {
                     reduced = true;
                 }
+                newExprList.add(newExpr);
             }
             if (! reduced) {
+                assert false : "requiresDecimalExpansion lied";
                 return;
             }
-            boolean hasCondition = (calcRel.getCondition() != null);
+            final RexProgram newProgram =
+                new RexProgram(
+                    program.getInputRowType(),
+                    newExprList,
+                    new ArrayList<RexLocalRef>(program.getProjectList()),
+                    program.getCondition(),
+                    program.getOutputRowType());
+
             CalcRel newCalcRel = new CalcRel(
                 calcRel.getCluster(),
-                RelOptUtil.clone(calcRel.getTraits()),
-                RelOptUtil.clone(calcRel.getChild()),
-                calcRel.getRowType(),
-                getProjections(newExprs, hasCondition),
-                getCondition(newExprs, hasCondition));
+                calcRel.getTraits(),
+                calcRel.getChild(),
+                newProgram.getOutputRowType(),
+                newProgram);
             call.transformTo(newCalcRel);
         }
     }
@@ -226,7 +240,7 @@ public class ReduceDecimalsRule extends RelOptRule
             RexCall call = (RexCall) node;
             RexNode[] newOperands = new RexNode[call.operands.length];
             boolean operandsReduced = false;
-            for (int i=0; i < call.operands.length; i++) {
+            for (int i = 0; i < call.operands.length; i++) {
                 newOperands[i] = reduceDecimals(call.operands[i], builder);
                 if (newOperands[i] != call.operands[i]) {
                     operandsReduced = true;
@@ -242,6 +256,11 @@ public class ReduceDecimalsRule extends RelOptRule
          * Reduces a single RexCall. A new call is always returned if 
          * any operands were reduced. This method returns the original 
          * call if no change was made. 
+         *
+         * @param expr expression node to be reduced
+         * @param reducedOperands operands, in reduced form
+         * @param rexBuilder
+         * @return the reduced expressed
          */
         private RexNode reduceNode(
             RexCall call, RexNode[] reducedOperands, RexBuilder builder)
