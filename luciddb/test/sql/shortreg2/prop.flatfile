@@ -6,8 +6,8 @@ name_prefix=ff
 # row store or column store #
 #############################
 
-DATA_STORE=sys_ftrs_data_server
-#DATA_STORE=sys_column_store_data_server
+#DATA_STORE=sys_ftrs_data_server
+DATA_STORE=sys_column_store_data_server
 
 
 ########################
@@ -39,7 +39,3 @@ NUM_ROWS_SCAN=1
 #########################
 
 TABLE_NAME=filename
-
-# tmp workaround while flatfile does not read file_extension
-file_ext=.csv
-ff_dir=@shortreg.dir@/

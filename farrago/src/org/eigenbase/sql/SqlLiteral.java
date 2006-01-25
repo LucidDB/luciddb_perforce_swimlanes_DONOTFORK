@@ -120,7 +120,7 @@ import java.util.Calendar;
  *       of bytes. But here, they are all binary constants, because that's
  *       how they were written.
  *       These constants are always BINARY, never VARBINARY.</td>
- *   <td><code>byte[]</code> or {@link BitString}</td>
+ *   <td>{@link BitString}</td>
  * </tr>
  * <tr>
  *   <td>{@link SqlTypeName#Symbol}</td>
@@ -426,7 +426,14 @@ public class SqlLiteral extends SqlNode
         case SqlTypeName.Decimal_ordinal:
         case SqlTypeName.Double_ordinal:
             BigDecimal bd = (BigDecimal) value;
-            return bd.intValue();
+            try {
+                return bd.intValueExact();
+            } catch (ArithmeticException e) {
+                throw SqlUtil.newContextException(
+                    getParserPosition(),
+                    EigenbaseResource.instance().NumberLiteralOutOfRange.ex(
+                        bd.toString()));
+            }
         default:
             throw typeName.unexpected();
         }

@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 
-
 /**
  * Utility methods concerning row-expressions.
  *
@@ -189,7 +188,6 @@ public class RexUtil
         }
     }
 
-
     /**
      * Returns whether a node represents the NULL value.
      *
@@ -318,7 +316,7 @@ public class RexUtil
         }
         return rexNodes;
     }
-
+    
     /**
      * Converts an array of {@link RexNode} to an array of {@link Integer}.
      * Every node must be a {@link RexLocalRef}.
@@ -356,7 +354,7 @@ public class RexUtil
      * <p>Exceptions to this rule are:
      * <ul>
      *   <li>It's okay to cast decimals to and from char types
-     *   <li>It's okay to cast null literals as decimals
+     *   <li>It's okay to cast nulls as decimals
      *   <li>Casts require expansion if their return type is decimal
      *   <li>Reinterpret casts can handle a decimal operand
      * </ul>
@@ -373,36 +371,36 @@ public class RexUtil
             return false;
         }
         RexCall call = (RexCall) expr;
+        boolean required = call.getOperator().requiresDecimalExpansion();
         if (call.isA(RexKind.Reinterpret)) {
-            return (recurse 
-                && requiresDecimalExpansion(call.operands, recurse));
-        }
-        if (call.isA(RexKind.Cast)) {
-            if (isNullLiteral(call.operands[0], false)) {
-                return false;
-            }
-            
+            required = false;
+        } else if (call.isA(RexKind.Cast)) {
             RelDataType lhsType = call.getType();
             RelDataType rhsType = call.operands[0].getType();
+            // TODO: clean up isNull and use it instead
+            if (rhsType.getSqlTypeName() == SqlTypeName.Null) {
+                return false;
+            }
             if (SqlTypeUtil.inCharFamily(lhsType)
                 || SqlTypeUtil.inCharFamily(rhsType)) 
             {
-                return (recurse 
-                    && requiresDecimalExpansion(call.operands, recurse));
-            }
-            if (SqlTypeUtil.isDecimal(lhsType)) {
+                required = false;
+            } else if (SqlTypeUtil.isDecimal(lhsType)
+                && lhsType != rhsType) 
+            {
                 return true;
             }
         }
-        for (int i = 0; i < call.operands.length; i++) {
-            if (SqlTypeUtil.isDecimal(call.operands[i].getType())) {
-                return true;
+
+        if (required) {
+            for (int i=0; i < call.operands.length; i++) {
+                if (SqlTypeUtil.isDecimal(call.operands[i].getType())) {
+                    return true;
+                }
             }
         }
-        if (recurse) {
-            return requiresDecimalExpansion(call.operands, recurse);
-        }
-        return false;
+        return (
+            recurse && requiresDecimalExpansion(call.operands, recurse));
     }
 
     /** Determines whether any operand of a set requires decimal expansion */
@@ -436,6 +434,12 @@ public class RexUtil
             }
         }
         return false;
+    }
+    
+    public static boolean canReinterpretOverflow(RexCall call)
+    {
+        assert(call.isA(RexKind.Reinterpret)) : "call is not a reinterpret";
+        return call.operands.length > 1;
     }
 
     /**
@@ -551,6 +555,26 @@ public class RexUtil
         return false;
     }
 
+    /**
+     * Replaces the operands of a call. The new operands' types must match 
+     * the old operands' types.
+     */
+    public static RexCall replaceOperands(RexCall call, RexNode[] operands)
+    {
+        if (call.operands == operands) {
+            return call;
+        }
+        for (int i = 0; i < operands.length; i++) {
+            RelDataType oldType = call.operands[i].getType();
+            RelDataType newType = operands[i].getType();
+            if (!oldType.isNullable() && newType.isNullable()) {
+                throw Util.newInternal("invalid nullability"); 
+            }
+            assert(oldType.toString().equals(newType.toString()));
+        }
+        return new RexCall(call.getType(), call.getOperator(), operands);
+    }
+
     public static boolean isAtomic(RexNode expr)
     {
         return expr instanceof RexLiteral ||
@@ -652,6 +676,23 @@ public class RexUtil
             }
         }
         return true;
+    }
+
+    /** 
+     * Creates a key for {@link RexNode} which is the same as another 
+     * key of another RexNode only if the two have both the same type 
+     * and textual representation. For example, "10" integer and "10"
+     * bigint result in different keys.
+     */
+    public static String makeKey(RexNode expr)
+    {
+        String type = expr.getType().getFullTypeString();
+        String separator = ";";
+        String node = expr.toString();
+        StringBuilder keyBuilder = new StringBuilder(
+            type.length() + separator.length() + node.length());
+        keyBuilder.append(type).append(separator).append(node);
+        return keyBuilder.toString();
     }
 
     /**
@@ -827,3 +868,4 @@ public class RexUtil
 
 
 // End RexUtil.java
+

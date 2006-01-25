@@ -115,7 +115,7 @@
   <fail unless="mdrlibs.dir"/>
   <fail unless="rmijdbc.dir"/>
   <fail unless="retroweaver.dir"/>
-
+  <fail unless="emma.dir"/>
 
   <!-- Directories -->
 
@@ -199,7 +199,6 @@
        of Farrago sqlline test commands. -->
   <property name="sqlline.hist.file"
     location="${project.testlog.dir}/sqlline.history"/>
-
   <!-- Files -->
 
   <!-- file controlling repository storage -->

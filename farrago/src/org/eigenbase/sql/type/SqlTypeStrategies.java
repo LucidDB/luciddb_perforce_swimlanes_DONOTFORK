@@ -567,6 +567,16 @@ public abstract class SqlTypeStrategies
 
     /**
      * Type-inference strategy whereby the result type of a call is the type of
+     * the second operand. If any of the other operands are nullable the returned
+     * type will also be nullable.
+     */
+    public static final SqlReturnTypeInference
+        rtiNullableSecondArgType =
+        new SqlTypeTransformCascade(
+            rtiSecondArgType, SqlTypeTransforms.toNullable);
+
+    /**
+     * Type-inference strategy whereby the result type of a call is the type of
      * the third operand.
      */
     public static final SqlReturnTypeInference
@@ -793,12 +803,15 @@ public abstract class SqlTypeStrategies
                             int s1 = type1.getScale();
                             int s2 = type2.getScale();
 
-                            int scale = SqlTypeName.MAX_NUMERIC_PRECISION - p1 + s1 - s2;
-                            scale = Math.min(scale, SqlTypeName.MAX_NUMERIC_SCALE);
-                            // TODO: Allow negative scale?
-                            scale = Math.max(scale, 0);
+                            int dout = Math.min(p1 - s1 + s2, SqlTypeName.MAX_NUMERIC_PRECISION);
 
-                            int precision = SqlTypeName.MAX_NUMERIC_PRECISION;
+                            int scale = Math.max(6, s1 + p2 + 1);
+                            scale = Math.min(scale, SqlTypeName.MAX_NUMERIC_PRECISION - dout);
+                            scale = Math.min(scale, SqlTypeName.MAX_NUMERIC_SCALE);
+
+                            int precision = dout + scale;
+                            assert(precision <= SqlTypeName.MAX_NUMERIC_PRECISION);
+                            assert(precision > 0);
 
                             RelDataType ret;
                             ret = opBinding.getTypeFactory().createSqlType(
@@ -878,6 +891,7 @@ public abstract class SqlTypeStrategies
                             assert(scale <= SqlTypeName.MAX_NUMERIC_SCALE);
                             int precision = Math.max(p1-s1, p2-s2) + scale + 1;
                             precision = Math.min(precision, SqlTypeName.MAX_NUMERIC_PRECISION);
+                            assert(precision > 0);
 
                             RelDataType ret;
                             ret = opBinding.getTypeFactory().createSqlType(

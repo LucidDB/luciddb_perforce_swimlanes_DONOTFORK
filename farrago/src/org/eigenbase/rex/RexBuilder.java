@@ -26,6 +26,8 @@ package org.eigenbase.rex;
 import java.math.BigDecimal;
 import java.util.Calendar;
 
+import java.nio.*;
+
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.reltype.RelDataTypeField;
@@ -299,14 +301,16 @@ public class RexBuilder
         RexNode exp,
         RexNode checkOverflow)
     {
-        Util.pre(checkOverflow instanceof RexLiteral, 
-            "checkOverflow instanceof RexLiteral");
-        Util.pre(checkOverflow.getType() == booleanTrue.getType(),
-            "checkOverflow.getType() == booleanTrue.getType()");
+        RexNode[] args;
+        if (checkOverflow != null && checkOverflow.isAlwaysTrue()) {
+            args = new RexNode [] { exp, checkOverflow };
+        } else {
+            args = new RexNode [] { exp };
+        }
         return new RexCall(
             type,
             opTab.reinterpretOperator,
-            new RexNode [] { exp, checkOverflow });      
+            args);
     }
     
     /**
@@ -358,7 +362,7 @@ public class RexBuilder
     }
 
     protected RexLiteral makeLiteral(
-        Object o,
+        Comparable o,
         RelDataType type,
         SqlTypeName typeName)
     {
@@ -419,7 +423,7 @@ public class RexBuilder
     public RexLiteral makeBinaryLiteral(byte [] byteArray)
     {
         return makeLiteral(
-            byteArray,
+            ByteBuffer.wrap(byteArray),
             typeFactory.createSqlType(SqlTypeName.Varbinary, byteArray.length),
             SqlTypeName.Binary);
     }

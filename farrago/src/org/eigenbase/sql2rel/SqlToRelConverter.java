@@ -626,6 +626,7 @@ public class SqlToRelConverter
         Blackboard bb,
         SqlNode from)
     {
+        SqlCall call;
         switch (from.getKind().getOrdinal()) {
         case SqlKind.AsORDINAL:
             final SqlNode [] operands = ((SqlCall) from).getOperands();
@@ -697,7 +698,7 @@ public class SqlToRelConverter
             convertValues(bb, (SqlCall) from);
             return;
         case SqlKind.UnnestORDINAL:
-            SqlCall call = (SqlCall) ((SqlCall) from).operands[0];
+            call = (SqlCall) ((SqlCall) from).operands[0];
             replaceSubqueries(bb, call);
             RexNode[] exprs = {bb.convertExpression(call)};
             final String[] fieldNames = {validator.deriveAlias(call, 0)};
@@ -711,6 +712,17 @@ public class SqlToRelConverter
             UncollectRel uncollectRel = new UncollectRel(cluster, childRel);
             leaves.add(uncollectRel);
             bb.setRoot(uncollectRel);
+            return;
+        case SqlKind.FunctionORDINAL:
+            call = (SqlCall) from;
+            replaceSubqueries(bb, call);
+            RexNode rexCall = bb.convertExpression(call);
+            TableFunctionRel callRel = new TableFunctionRel(
+                cluster,
+                rexCall,
+                validator.getValidatedNodeType(call));
+            leaves.add(callRel);
+            bb.setRoot(callRel);
             return;
         default:
             throw Util.newInternal("not a join operator " + from);
@@ -1043,7 +1055,7 @@ public class SqlToRelConverter
         RelDataType lhsRowType = targetTable.getRowType();
         SqlNodeList targetColumnList = call.getTargetColumnList();
 
-        RelNode sourceRel = convertQueryRecursive(call.getSourceSelect());
+        RelNode sourceRel = convertQueryRecursive(call.getSource());
         RelDataType sourceRowType = sourceRel.getRowType();
         final RexNode sourceRef =
             rexBuilder.makeRangeReference(sourceRowType, 0);

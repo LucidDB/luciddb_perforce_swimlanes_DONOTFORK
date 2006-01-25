@@ -652,13 +652,14 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
      * may be used to reinterpret values of one type as the other. This 
      * operator is similar to a cast, except that it does not alter the 
      * data value. Like a regular cast it accepts one operand and stores 
-     * the target type as the return type.
+     * the target type as the return type. It performs an overflow check
+     * if it has <i>any</i> second operand, whether true or not.
      */
     public static final SqlSpecialOperator reinterpretOperator =
         new SqlSpecialOperator("Reinterpret", SqlKind.Reinterpret) {
         public SqlOperandCountRange getOperandCountRange()
         {
-            return SqlOperandCountRange.Two;
+            return SqlOperandCountRange.OneOrTwo;
         }
 
         
@@ -740,10 +741,10 @@ public class SqlStdOperatorTable extends ReflectiveSqlOperatorTable
             SqlFunctionCategory.Numeric);
 
     public static final SqlFunction modFunc =
-        // FIXME jvs 4-June-2005:  this is incorrect; mod
-        // has to take precision into account
+        // Return type is same as divisor (2nd operand)
+        // SQL2003 Part2 Section 6.27, Syntax Rules 9
         new SqlFunction("MOD", SqlKind.Function,
-            SqlTypeStrategies.rtiLeastRestrictive, null,
+            SqlTypeStrategies.rtiNullableSecondArgType, null,
             SqlTypeStrategies.otcNumericX2,
             SqlFunctionCategory.Numeric);
 

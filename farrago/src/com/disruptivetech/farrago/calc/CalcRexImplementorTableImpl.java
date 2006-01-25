@@ -32,6 +32,7 @@ import org.eigenbase.sql.type.SqlTypeName;
 import org.eigenbase.sql.type.SqlTypeUtil;
 import org.eigenbase.util.DoubleKeyMap;
 import org.eigenbase.util.Util;
+import org.eigenbase.util14.*;
 
 import com.disruptivetech.farrago.calc.CalcProgramBuilder.OpType;
 import com.disruptivetech.farrago.calc.CalcProgramBuilder.Register;
@@ -585,9 +586,9 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 CalcProgramBuilder.nativeMinus));
 
         register(
-            SqlStdOperatorTable.modFunc,
+            SqlStdOperatorTable.modFunc,               
             new BinaryNumericMakeSametypeImplementor(
-                CalcProgramBuilder.integralNativeMod));
+                CalcProgramBuilder.integralNativeMod, true));
 
         register(
             SqlStdOperatorTable.multiplyOperator,
@@ -980,6 +981,11 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 new UsingInstrImplementor(
                     ExtInstructionDefTable.castDateToMillis));
             doubleKeyMap.put(
+                SqlTypeName.booleanTypes,
+                SqlTypeName.charTypes,
+                new UsingInstrImplementor(
+                    ExtInstructionDefTable.castA));
+            doubleKeyMap.put(
                 SqlTypeName.intTypes,
                 SqlTypeName.charTypes,
                 new UsingInstrImplementor(ExtInstructionDefTable.castA) {
@@ -1077,6 +1083,12 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 SqlTypeName.charTypes,
                 new UsingInstrImplementor(
                     ExtInstructionDefTable.castTimestampToStr));
+
+            doubleKeyMap.put(
+                SqlTypeName.charTypes,
+                SqlTypeName.booleanTypes,
+                new UsingInstrImplementor(
+                    ExtInstructionDefTable.castA));
 
             doubleKeyMap.put(
                 SqlTypeName.charTypes,
@@ -1233,32 +1245,48 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
             RexCall call,
             RexToCalcTranslator translator)
         {
-            Util.pre(call.operands.length == 2, "call.operands.length == 2");
-            Util.pre(call.operands[1] instanceof RexLiteral,
-                "call.operands[1] instanceof RexLiteral");
+            RexNode valueArg = call.operands[0];
+            boolean checkOverflow = RexUtil.canReinterpretOverflow(call);
+            
             CalcProgramBuilder.Register value = 
-                translator.implementNode(call.operands[0]);
-            if (call.operands[1].isAlwaysTrue()) {
-                // NOTE: perform overflow check
-                // boolean overflowed = ( abs(value) >= overflowValue )
-                // jumpFalse overflowed endCheck
-                // throw overflow exception
-                // endCheck
-                // NOTE: translator does not reimplement the same rex node
+                translator.implementNode(valueArg);
+            if (checkOverflow) {
+                if (! SqlTypeUtil.isIntType(valueArg.getType())) {
+                    valueArg = 
+                        translator.rexBuilder.makeReinterpretCast(
+                            call.getType(),
+                            valueArg, 
+                            translator.rexBuilder.makeLiteral(false));
+                }
+                // perform overflow check:
+                //     if (value is null) goto [endCheck]
+                //     bool overflowed = ( abs(value) >= overflowValue )
+                //     if (!overflowed) goto [endCheck]
+                //     throw overflow exception
+                // [endCheck]
+                String endCheck = translator.newLabel();
+                if (valueArg.getType().isNullable()) {
+                    RexNode nullCheck = 
+                        translator.rexBuilder.makeCall(
+                            opTab.isNullOperator,
+                            valueArg);
+                    CalcProgramBuilder.Register isNull = 
+                        translator.implementNode(nullCheck);
+                    translator.builder.addLabelJumpTrue(endCheck, isNull);
+                }
                 RexNode overflowValue = 
                     translator.rexBuilder.makeExactLiteral(
-                        BigDecimal.valueOf(
-                            Util.powerOfTen(
+                        new BigDecimal(
+                            NumberUtil.getMaxUnscaled(
                                 call.getType().getPrecision())));
                 RexNode comparison = translator.rexBuilder.makeCall(
-                    opTab.greaterThanOrEqualOperator,
+                    opTab.greaterThanOperator,
                     translator.rexBuilder.makeCall(
                         opTab.absFunc,
-                        call.operands[0]),
+                        valueArg),
                     overflowValue);
                 CalcProgramBuilder.Register overflowed = 
                     translator.implementNode(comparison);
-                String endCheck = translator.newLabel();
                 translator.builder.addLabelJumpFalse(endCheck, overflowed);
                 CalcProgramBuilder.Register errorMsg =
                     translator.builder.newVarcharLiteral(
@@ -1289,10 +1317,21 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
     private static class BinaryNumericMakeSametypeImplementor
         extends InstrDefImplementor
     {
+        // Set this to true if the result type need to be same as operands
+        boolean useSameTypeResult = false;
+        
         public BinaryNumericMakeSametypeImplementor(
             CalcProgramBuilder.InstructionDef instr)
         {
             super(instr);
+        }
+
+        public BinaryNumericMakeSametypeImplementor(
+            CalcProgramBuilder.InstructionDef instr,
+            boolean useSameTypeResult)
+        {
+            this(instr);
+            this.useSameTypeResult = useSameTypeResult;
         }
 
         private int getRestrictiveness(
@@ -1341,13 +1380,16 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 return super.implement(call, translator);
             }
 
+            CalcProgramBuilder.RegisterDescriptor rd = null;
             int d = getRestrictiveness(rd0) - getRestrictiveness(rd1);
             if (d != 0) {
                 int small;
                 if (d > 0) {
                     small = 1;
+                    rd = rd0;
                 } else {
                     small = 0;
+                    rd = rd1;
                 }
 
                 RexNode castCall =
@@ -1357,6 +1399,34 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                 CalcProgramBuilder.Register newOp =
                     translator.implementNode(castCall);
                 regs.set(small, newOp);
+            }
+
+            if (useSameTypeResult && rd != null) {
+                // Need to use the same type for the result as the operands
+                CalcProgramBuilder.RegisterDescriptor rdCall =
+                    translator.getCalcRegisterDescriptor(call.getType());
+                if (rdCall.getType().isNumeric() &&
+                    (getRestrictiveness(rd) - getRestrictiveness(rdCall) != 0)) {
+                    // Do operation using same type as operands
+                    CalcProgramBuilder.Register tmpRes =
+                        translator.builder.newLocal(rd);
+                    regs.add(0, tmpRes);
+
+                    instr.add(translator.builder, regs);
+
+                    // Cast back to real result type
+                    // TODO: Use real cast (that handles rounding) instead of
+                    // calculator cast that truncates
+                    CalcProgramBuilder.Register res =
+                        createResultRegister(translator, call);
+
+                    ArrayList castRegs = new ArrayList(2);
+                    castRegs.add(res);
+                    castRegs.add(tmpRes);
+                    CalcProgramBuilder.Cast.add(translator.builder, castRegs);
+
+                    return res;
+                }
             }
 
             CalcProgramBuilder.Register res =
@@ -1463,20 +1533,20 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
                     // todo optimize away null check if type known to be non null
                     // same applies the other way (if we have a null literal or a cast(null as xxx))
                     translator.builder.addLabelJumpNull(next, compareResult);
-                    moveOrCast(
+                    implementCaseValue(
                         translator,
                         resultOfCall, 
-                        translator.implementNode(call.operands[i + 1]));
+                        call.operands[i + 1]);
                     translator.builder.addLabelJump(endOfCase);
                     translator.builder.addLabel(next);
                 } else {
                     // we can do some optimizations
                     Boolean val = (Boolean) compareResult.getValue();
                     if (val.booleanValue()) {
-                        moveOrCast(
+                        implementCaseValue(
                             translator,
                             resultOfCall, 
-                            translator.implementNode(call.operands[i + 1]));
+                            call.operands[i + 1]);
                         if (i != 0) {
                             translator.builder.addLabelJump(endOfCase);
                         }
@@ -1491,33 +1561,40 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
 
             if (!elseClauseOptimizedAway) {
                 int elseIndex = call.operands.length - 1;
-                moveOrCast(
+                implementCaseValue(
                     translator,
                     resultOfCall, 
-                    translator.implementNode(call.operands[elseIndex]));
+                    call.operands[elseIndex]);
             }
             translator.builder.addLabel(endOfCase); //this assumes that more instructions will follow
             return resultOfCall;
         }
         
-        private void moveOrCast(
+        private void implementCaseValue(
             RexToCalcTranslator translator, 
             CalcProgramBuilder.Register resultOfCall,
-            CalcProgramBuilder.Register operand)
+            RexNode value)
         {
-            if ((resultOfCall.getOpType() != operand.getOpType())
-                || (resultOfCall.storageBytes != operand.storageBytes))
-            {
-                ExtInstructionDefTable.castA.add(
-                    translator.builder,
-                    new CalcProgramBuilder.Register [] { 
+            translator.newScope();
+            try {
+                CalcProgramBuilder.Register operand =
+                    translator.implementNode(value);
+                if ((resultOfCall.getOpType() != operand.getOpType())
+                    || (resultOfCall.storageBytes != operand.storageBytes))
+                {
+                    ExtInstructionDefTable.castA.add(
+                        translator.builder,
+                        new CalcProgramBuilder.Register [] { 
+                            resultOfCall,
+                            operand });
+                } else {
+                    CalcProgramBuilder.move.add(
+                        translator.builder,
                         resultOfCall,
-                        operand });
-            } else {
-                CalcProgramBuilder.move.add(
-                    translator.builder,
-                    resultOfCall,
-                    operand);
+                        operand);
+                }
+            } finally {
+                translator.popScope();
             }
         }
     }
@@ -2127,3 +2204,4 @@ public class CalcRexImplementorTableImpl implements CalcRexImplementorTable
 
 
 // End CalcRexImplementorTableImpl.java
+
