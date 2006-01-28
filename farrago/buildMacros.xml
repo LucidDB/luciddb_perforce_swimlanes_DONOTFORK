@@ -199,7 +199,6 @@
        of Farrago sqlline test commands. -->
   <property name="sqlline.hist.file"
     location="${project.testlog.dir}/sqlline.history"/>
-
   <!-- Files -->
 
   <!-- file controlling repository storage -->
