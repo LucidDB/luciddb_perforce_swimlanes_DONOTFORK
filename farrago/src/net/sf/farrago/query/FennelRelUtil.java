@@ -479,6 +479,8 @@ public abstract class FennelRelUtil
      * a representation for the sequence of resolved intervals expected by
      * Fennel BTree searches.
      *
+     * @param callTraits traits to apply to new rels generated
+     *
      * @param keyRowType input row type expected by BTree search
      *
      * @param cluster query cluster
@@ -488,6 +490,7 @@ public abstract class FennelRelUtil
      * @return corresponding relational expression
      */
     public static RelNode convertSargExpr(
+        RelTraitSet callTraits,
         RelDataType keyRowType,
         RelOptCluster cluster,
         SargExpr sargExpr)
@@ -521,6 +524,7 @@ public abstract class FennelRelUtil
         for (SargInterval interval : seq.getList()) {
             inputs.add(
                 convertInterval(
+                    callTraits,
                     keyRowType,
                     cluster,
                     interval));
@@ -533,16 +537,20 @@ public abstract class FennelRelUtil
         // FIXME jvs 23-Jan-2006:  Should not be using a union here,
         // because order is important.  Need a sequence rel?
         
-        return new UnionRel(
+        UnionRel unionRel = new UnionRel(
             cluster,
             inputs.toArray(new RelNode[0]),
             true);
+        RelOptRule.mergeTraitsOnto(unionRel, callTraits);
+        return unionRel;
     }
 
     /**
      * Converts a {@link SargInterval} into a relational expression
      * which produces the interval representation expected
      * by Fennel BTree searches.
+     *
+     * @param callTraits traits to apply to new rels generated
      *
      * @param keyRowType input row type expected by BTree search
      *
@@ -553,6 +561,7 @@ public abstract class FennelRelUtil
      * @return corresponding relational expression
      */
     public static RelNode convertInterval(
+        RelTraitSet callTraits,
         RelDataType keyRowType,
         RelOptCluster cluster,
         SargInterval interval)
@@ -584,7 +593,9 @@ public abstract class FennelRelUtil
 
         // Generate a one-row relation producing the key to search for.
         OneRowRel oneRowRel = new OneRowRel(cluster);
+        RelOptRule.mergeTraitsOnto(oneRowRel, callTraits);
         RelNode keyRel = ProjectRel.create(oneRowRel, searchExps, null);
+        RelOptRule.mergeTraitsOnto(keyRel, callTraits);
 
         // For dynamic parameters, add a filter to remove nulls, since they can
         // never match in a comparison.  FIXME:  This isn't quite right,
@@ -596,8 +607,10 @@ public abstract class FennelRelUtil
         }
         
         // Generate code to cast the keys to the index column type.
-        return RelOptUtil.createCastRel(
+        RelNode castRel = RelOptUtil.createCastRel(
             keyRel, keyRowType, false);
+        RelOptRule.mergeTraitsOnto(castRel, callTraits);
+        return castRel;
     }
 
     /**

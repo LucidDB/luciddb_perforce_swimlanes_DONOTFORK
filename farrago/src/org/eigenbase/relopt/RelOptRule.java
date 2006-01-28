@@ -178,7 +178,7 @@ public abstract class RelOptRule
      *
      * @post return == null || return.getTraits().matches(toTraits)
      */
-    protected static RelNode convert(RelNode rel, RelTraitSet toTraits)
+    public static RelNode convert(RelNode rel, RelTraitSet toTraits)
     {
         RelTraitSet outTraits = RelOptUtil.clone(rel.getTraits());
         for(int i = 0; i < toTraits.size(); i++) {
@@ -209,7 +209,7 @@ public abstract class RelOptRule
      * @param rel the rel to convert
      * @return converted rel or null if conversion could not be made
      */
-    protected static RelNode mergeTraitsAndConvert(
+    public static RelNode mergeTraitsAndConvert(
         RelTraitSet baseTraits, RelTraitSet newTraits, RelNode rel)
     {
         RelTraitSet traits = RelOptUtil.mergeTraits(baseTraits, newTraits);
@@ -230,7 +230,7 @@ public abstract class RelOptRule
      * @param rel the rel to convert
      * @return converted rel or null if conversion could not be made
      */
-    protected static RelNode mergeTraitsAndConvert(
+    public static RelNode mergeTraitsAndConvert(
         RelTraitSet baseTraits, RelTrait newTrait, RelNode rel)
     {
         RelTraitSet traits = RelOptUtil.clone(baseTraits);
@@ -240,6 +240,47 @@ public abstract class RelOptRule
         return convert(rel, traits);
     }
 
+    /**
+     * Modifies the RelTraitSet of the given RelNode.  Insures that all
+     * RelTraits for the given RelTraitDefs of <code>traits</code> are set
+     * on <code>rel</code>.
+     * 
+     * <p>For example, if <code>rel.getTraits()</code> contains only a
+     * CallingConvention.NONE trait, and <code>traits</code> contains
+     * a CallingConvention.JAVA trait and a HypotheticalTrait.FOO, the rel's
+     * traits will be cahnged to NONE, FOO.
+     *  
+     * <p>This method cannot be used to modify the traits of a registered
+     * RelNode!
+     * 
+     * @param rel rel node to modify
+     * @param traits traits to merge onto the rel node's traits
+     */
+    public static void mergeTraitsOnto(RelNode rel, RelTraitSet traits)
+    {
+        Util.permAssert(
+            !rel.getCluster().getPlanner().isRegistered(rel),
+            "RelNode already registered");
+        
+        RelTraitSet relTraits = rel.getTraits();
+        
+        for(int i = 0; i < traits.size(); i++) {
+            RelTrait trait = traits.getTrait(i);
+            if (i < relTraits.size()) {
+                RelTrait relTrait = relTraits.getTrait(i);
+                if (relTrait == null) {
+                    relTraits.setTrait(i, trait);
+                } else {
+                    Util.permAssert(
+                        trait.getTraitDef() == relTrait.getTraitDef(),
+                        "Mismatched RelTraitDef");
+                }
+            } else {
+                relTraits.addTrait(trait);
+            }
+        }
+    }
+    
     /**
      * Deduces a name for a rule by taking the name of its class and returning
      * the segment after the last '.' or '$'.

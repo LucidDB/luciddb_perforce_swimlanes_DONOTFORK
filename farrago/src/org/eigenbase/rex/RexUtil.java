@@ -289,7 +289,7 @@ public class RexUtil
         }
         return rexNodes;
     }
-
+    
     /**
      * Converts an array of {@link RexNode} to an array of {@link Integer}.
      * Every node must be a {@link RexLocalRef}.
@@ -841,3 +841,4 @@ public class RexUtil
 
 
 // End RexUtil.java
+

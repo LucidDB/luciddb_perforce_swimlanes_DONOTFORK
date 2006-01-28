@@ -170,6 +170,8 @@ class FtrsScanToSearchRule extends RelOptRule
         if (!indexGuide.isValid(index)) {
             return;
         }
+        
+        final RelTraitSet callTraits = call.rels[0].getTraits(); 
 
         if (!index.isClustered() && origScan.index.isClustered()) {
             if (origScan.isOrderPreserving) {
@@ -221,13 +223,14 @@ class FtrsScanToSearchRule extends RelOptRule
                     "upperBoundKey"
                 });
         RelNode sargRel = FennelRelUtil.convertSargExpr(
+            callTraits,
             keyRowType,
             origScan.getCluster(),
             sargExpr);
-
+        
         RelNode keyInput =
             mergeTraitsAndConvert(
-                call.rels[0].getTraits(), FennelRel.FENNEL_EXEC_CONVENTION,
+                callTraits, FennelRel.FENNEL_EXEC_CONVENTION,
                 sargRel);
         assert (keyInput != null);
 
@@ -251,18 +254,26 @@ class FtrsScanToSearchRule extends RelOptRule
                     origScan.getConnection(),
                     clusteredKeyColumns,
                     origScan.isOrderPreserving);
+            mergeTraitsOnto(unclusteredScan, callTraits);
+
             FtrsIndexSearchRel unclusteredSearch =
                 new FtrsIndexSearchRel(unclusteredScan, keyInput, isUnique,
                     false, inputKeyProj, null, inputDirectiveProj);
+            mergeTraitsOnto(unclusteredSearch, callTraits);
+            
             FtrsIndexSearchRel clusteredSearch =
                 new FtrsIndexSearchRel(origScan, unclusteredSearch, true,
                     false, null, null, null);
+            mergeTraitsOnto(clusteredSearch, callTraits);
+            
             transformCall(call, clusteredSearch, extraFilter);
         } else {
             // A direct search against an index is easier.
             FtrsIndexSearchRel search =
                 new FtrsIndexSearchRel(origScan, keyInput, isUnique, false,
                     inputKeyProj, null, inputDirectiveProj);
+            mergeTraitsOnto(search, callTraits);
+            
             transformCall(call, search, extraFilter);
         }
     }
@@ -278,6 +289,7 @@ class FtrsScanToSearchRule extends RelOptRule
                     searchRel.getCluster(),
                     searchRel,
                     extraFilter);
+            mergeTraitsOnto(searchRel, call.rels[0].getTraits());
         }
         call.transformTo(searchRel);
     }

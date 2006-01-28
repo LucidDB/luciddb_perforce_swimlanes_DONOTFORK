@@ -317,14 +317,13 @@ public abstract class SqlOperatorTests extends TestCase
         getTester().checkScalarExact(
             "cast(-1.21 as decimal(2,1))", "DECIMAL(2, 1) NOT NULL", "-1.2");
 
-        if (todo) {
-            // 9.99 round to 10.0, should give out of range error
-            getTester().checkFails("cast(9.99 as decimal(2,1))", outOfRangeMessage);
-        }
+        // 9.99 round to 10.0, should give out of range error
+        getTester().checkFails("cast(9.99 as decimal(2,1))", outOfRangeMessage);
     }
 
     public void testCastDecimalToDoubleToInteger() {
         getTester().setFor(SqlStdOperatorTable.castFunc);
+
         getTester().checkScalarExact("cast( cast(1.25 as double) as integer)", "1");
         getTester().checkScalarExact("cast( cast(-1.25 as double) as integer)", "-1");
         getTester().checkScalarExact("cast( cast(1.75 as double) as integer)", "2");
@@ -1581,3 +1580,4 @@ public abstract class SqlOperatorTests extends TestCase
 }
 
 // End SqlOperatorTests.java
+
