@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<!-- $Id: //open/dt/dev/fennel/common/FennelResource.xml#6 $ -->
+<!-- $Id: //open/dt/dev/fennel/common/FennelResource.xml#7 $ -->
 
 <resourceBundle
   static="false"
@@ -105,6 +105,10 @@
 
   <message id="441090" name="rowTextTooLong">
     <text>Row text was too large</text>
+  </message>
+
+  <message id="441090" name="sampleFailed">
+    <text>Cound not sample data file {0}</text>
   </message>
 
 </resourceBundle>
