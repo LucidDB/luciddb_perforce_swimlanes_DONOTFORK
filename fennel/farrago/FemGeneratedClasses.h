@@ -129,14 +129,23 @@ typedef JniProxyIter<ProxyJavaTupleStreamDef> SharedProxyJavaTupleStreamDef;
 class ProxyKeyAccessorDef;
 typedef JniProxyIter<ProxyKeyAccessorDef> SharedProxyKeyAccessorDef;
 
+class ProxyLbmChopperStreamDef;
+typedef JniProxyIter<ProxyLbmChopperStreamDef> SharedProxyLbmChopperStreamDef;
+
 class ProxyLbmGeneratorStreamDef;
 typedef JniProxyIter<ProxyLbmGeneratorStreamDef> SharedProxyLbmGeneratorStreamDef;
 
 class ProxyLbmIndexScanStreamDef;
 typedef JniProxyIter<ProxyLbmIndexScanStreamDef> SharedProxyLbmIndexScanStreamDef;
 
+class ProxyLbmIntersectStreamDef;
+typedef JniProxyIter<ProxyLbmIntersectStreamDef> SharedProxyLbmIntersectStreamDef;
+
 class ProxyLbmSplicerStreamDef;
 typedef JniProxyIter<ProxyLbmSplicerStreamDef> SharedProxyLbmSplicerStreamDef;
+
+class ProxyLbmUnionStreamDef;
+typedef JniProxyIter<ProxyLbmUnionStreamDef> SharedProxyLbmUnionStreamDef;
 
 class ProxyLcsClusterAppendStreamDef;
 typedef JniProxyIter<ProxyLcsClusterAppendStreamDef> SharedProxyLcsClusterAppendStreamDef;
@@ -659,6 +668,14 @@ int32_t getStreamId();
 static jmethodID meth_getStreamId;
 };
 
+class ProxyLbmChopperStreamDef
+: virtual public JniProxy, virtual public ProxyTupleStreamDef
+{
+public:
+int32_t getRidLimitParamId();
+static jmethodID meth_getRidLimitParamId;
+};
+
 class ProxyLcsRowScanStreamDef
 : virtual public JniProxy, virtual public ProxyTupleStreamDef
 {
@@ -679,6 +696,8 @@ class ProxyLbmGeneratorStreamDef
 public:
 int32_t getRowCountParamId();
 static jmethodID meth_getRowCountParamId;
+bool isCreateIndex();
+static jmethodID meth_isCreateIndex;
 };
 
 class ProxyLbmIndexScanStreamDef
@@ -687,8 +706,18 @@ class ProxyLbmIndexScanStreamDef
 public:
 int32_t getRowLimitParamId();
 static jmethodID meth_getRowLimitParamId;
+int32_t getStartRidParamId();
+static jmethodID meth_getStartRidParamId;
 bool isIgnoreRowLimit();
 static jmethodID meth_isIgnoreRowLimit;
+};
+
+class ProxyLbmIntersectStreamDef
+: virtual public JniProxy, virtual public ProxyTupleStreamDef
+{
+public:
+int32_t getRowLimitParamId();
+static jmethodID meth_getRowLimitParamId;
 int32_t getStartRidParamId();
 static jmethodID meth_getStartRidParamId;
 };
@@ -699,6 +728,18 @@ class ProxyLbmSplicerStreamDef
 public:
 int32_t getRowCountParamId();
 static jmethodID meth_getRowCountParamId;
+};
+
+class ProxyLbmUnionStreamDef
+: virtual public JniProxy, virtual public ProxyTupleStreamDef
+{
+public:
+int32_t getRidLimitParamId();
+static jmethodID meth_getRidLimitParamId;
+int32_t getConsumerSridParamId();
+static jmethodID meth_getConsumerSridParamId;
+int32_t getSegmentLimitParamId();
+static jmethodID meth_getSegmentLimitParamId;
 };
 
 class ProxyLcsClusterAppendStreamDef
@@ -1019,11 +1060,17 @@ virtual void visit(ProxyJavaTupleStreamDef &)
 { unhandledVisit(); }
 virtual void visit(ProxyKeyAccessorDef &)
 { unhandledVisit(); }
+virtual void visit(ProxyLbmChopperStreamDef &)
+{ unhandledVisit(); }
 virtual void visit(ProxyLbmGeneratorStreamDef &)
 { unhandledVisit(); }
 virtual void visit(ProxyLbmIndexScanStreamDef &)
 { unhandledVisit(); }
+virtual void visit(ProxyLbmIntersectStreamDef &)
+{ unhandledVisit(); }
 virtual void visit(ProxyLbmSplicerStreamDef &)
+{ unhandledVisit(); }
+virtual void visit(ProxyLbmUnionStreamDef &)
 { unhandledVisit(); }
 virtual void visit(ProxyLcsClusterAppendStreamDef &)
 { unhandledVisit(); }

@@ -29,6 +29,12 @@
   <property environment="env" />
   <property file="run.properties"/>
 
+  <!-- override Farrago -->
+  <property name="project.catalog.dir" location="${open.dir}/luciddb/catalog" />
+  <property name="project.trace.propfile" location="${open.dir}/luciddb/trace/LucidDbTrace.properties" />
+  <property name="project.testlog.dir" location="${open.dir}/luciddb/testlog" />
+  <import file="${open.dir}/farrago/buildMacros.xml" />
+
   <taskdef name="foreach" classname="net.sf.antcontrib.logic.ForEach" classpath="${ant.classpath}"/>
   <taskdef name="if" classname="net.sf.antcontrib.logic.IfTask" classpath="${ant.classpath}"/>
   
@@ -36,13 +42,21 @@
   <property name="gensql.dir" value="${bench.dir}/gen" />
 
   <!-- directory where blackhawk output should go -->
-  <property name="bhlogs.dir" value="${bench.dir}/testlog" />
-  <property name="bh.log.basedir" value="${bhlogs.dir}" />
+  <property name="bh.log.basedir" value="${bench.dir}/testlog" />
 
   <!-- directory of csv files -->
   <property name="csvsource.dir" value="/mnt/raksha/engineering/testdata/csv_BENCH"/>
   <property name="csv.dir" value="${bench.dir}/csv" />
   <property name="csv.copy.dir" value="${bench.dir}/csv-copy" />
+
+  <!-- classpath for running tests via ant -->
+  <path id="test.classpath">
+    <pathelement path="${open.dir}/luciddb/classes"/>
+    <pathelement path="${farrago.sqlline.classpath}"/>
+    <pathelement path="${ant.classpath}"/>
+    <pathelement path="${blackhawk.run.classpath}"/>
+  </path>
+  <property name="test.classpath" refid="test.classpath"/>
 
   <target name="gen-sql">
     <filter token="open.dir" value="${open.dir}"/>
@@ -104,47 +118,55 @@
   </target>
   
   <target name="test" depends="gen-all-sql">
-    <ant dir="${open.dir}/luciddb" target="run_blackhawk"/>
+    <blackhawk.fork 
+      basedir="${bench.dir}" 
+      testscript="${testfile}"
+      classpathref="test.classpath"/>
   </target>
   
-  <!-- restore from local copy of csv files -->
   <target name="copy-csv">
+    <available file="${csvsource.dir}" type="dir"
+      property="raksha.available"/>
+    <if>
+      <isset property="raksha.available"/>
+      <then>
+        <!-- sync raksha <-> csv.dir -->
+        <sync todir="${csv.dir}" 
+          overwrite="false"
+          failonerror="false"
+          verbose="true">
+          <fileset dir="${csvsource.dir}"/>
+        </sync>
+      </then>
+    </if>
     <available file="${csv.dir}" type="dir"
       property="csv.available"/>
     <if>
       <isset property="csv.available"/>
-      <then>
-        <delete dir="${csv.copy.dir}"/>
-        <copy todir="${csv.copy.dir}" overwrite="true">
+      <then> 
+        <!-- sync csv.dir <-> csv-copy.dir -->
+        <sync todir="${csv.copy.dir}"
+          overwrite="true"
+          verbose="true"
+          failonerror="true">
           <fileset dir="${csv.dir}"/>
-        </copy>
+        </sync>
         <!-- copy bcp -->
         <copy todir="${csv.copy.dir}" overwrite="true">
-          <fileset dir="${bench.dir}">
+           <fileset dir="${bench.dir}">
             <include name="**/*.bcp"/>
           </fileset>
         </copy>
       </then>
       <else>
-        <antcall target="copy-remote-csv"/>
+        <echo message="!! NO CSV FILES !!"/>
       </else>
     </if>
   </target>
   
-  <!-- refresh from //raksha -->
-  <target name="copy-remote-csv">
-    <!-- refresh raksha -->
-    <delete dir="${csv.dir}"/>
-    <copy todir="${csv.dir}" overwrite="true">
-      <fileset dir="${csvsource.dir}"/>
-    </copy>
-    <!-- refresh copy -->
-    <antcall target="copy-csv"/>
-  </target>
-
   <target name="clean">
     <delete dir="${gensql.dir}"/>
-    <delete dir="${bhlogs.dir}"/>
+    <delete dir="${bh.log.basedir}"/>
     <delete dir="${csv.copy.dir}"/>
   </target>
 

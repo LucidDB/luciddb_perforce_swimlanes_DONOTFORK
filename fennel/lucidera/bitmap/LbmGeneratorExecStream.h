@@ -62,6 +62,12 @@ struct LbmGeneratorExecStreamParams :
      * loaded
      */
     DynamicParamId dynParamId;
+    
+    /**
+     * True if bitmap index is being loaded as part of a create index
+     * statement
+     */
+    bool createIndex;
 };
 
 class LbmGeneratorExecStream : public BTreeExecStream, LcsRowScanBaseExecStream
@@ -76,6 +82,11 @@ class LbmGeneratorExecStream : public BTreeExecStream, LcsRowScanBaseExecStream
      * Dynamic parameter id used to pass along number of rows loaded
      */
     DynamicParamId dynParamId;
+
+    /**
+     * True if index is being loaded as part of a create index statement
+     */
+    bool createIndex;
 
     /**
      * Size of a scratch page
@@ -295,7 +306,7 @@ class LbmGeneratorExecStream : public BTreeExecStream, LcsRowScanBaseExecStream
      * always 0 in the case of a batch that is either non-compressed or has
      * more than 1 key
      *
-     * @param initBitmap tupledata containing the initial bitmap entry value;
+     * @param keyvalue tupledata containing the initial bitmap entry value;
      * i.e., only the key value and rid are set
      *
      * @param rid rid to be added

@@ -266,14 +266,10 @@ public class FarragoJdbcTest extends FarragoTestCase
         testUdxCancel(true);
     }
 
-    private static final boolean frg31Fixed = false;
-
     public void testUdxAsynchronousCancel()
         throws Exception
     {
-        if (frg31Fixed) {
-            testUdxCancel(false);
-        }
+        testUdxCancel(false);
     }
 
     private void testQueryCancel(boolean synchronous, String executorType)
@@ -834,14 +830,13 @@ public class FarragoJdbcTest extends FarragoTestCase
 
         Statement statement = connection.createStatement();
 
-        List numCharTypes = Arrays.asList(TestSqlType.typesNumericAndChars);
+        List numTypes = Arrays.asList(TestSqlType.typesNumeric);
+        List charTypes = Arrays.asList(TestSqlType.typesChar);
         List binTypes = Arrays.asList(TestSqlType.typesBinary);
-        List approxCharTypes = new ArrayList();
-        approxCharTypes.add(TestSqlType.Real);
-        approxCharTypes.add(TestSqlType.Float);
-        approxCharTypes.add(TestSqlType.Double);
-        approxCharTypes.add(TestSqlType.Char);
-        approxCharTypes.add(TestSqlType.Varchar);
+        List approxTypes = new ArrayList();
+        approxTypes.add(TestSqlType.Real);
+        approxTypes.add(TestSqlType.Float);
+        approxTypes.add(TestSqlType.Double);
 
         String hexBytes = ConversionUtil.toStringFromByteArray(bytes, 16);
         for (int i = 0; i <= 19; i++)
@@ -854,9 +849,7 @@ public class FarragoJdbcTest extends FarragoTestCase
                     TestSqlType sqlType = TestSqlType.all[j];
                     // NOTE: conversion between varchars/binary is not
                     // permitted in SQL, but allowed in JDBC
-                    if (sqlType.ordinal == BOOLEAN) {
-                        columnValues += ", cast('false' as boolean)";
-                    } else if (numCharTypes.contains(sqlType)) {
+                    if (charTypes.contains(sqlType)) {
                         columnValues += ", cast('" + stringValue + "' as "
                             + sqlType.string + ")";
                     } else {
@@ -867,7 +860,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 1:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + minByte + " as "
                             + sqlType.string + ")";
                     } else {
@@ -878,7 +871,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 2:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + maxByte + " as "
                             + sqlType.string + ")";
                     } else {
@@ -889,7 +882,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 3:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Short.valueOf(minShort), true)
                             == TestSqlType.VALID) {
                             columnValues += ", cast(" + minShort + " as "
@@ -905,7 +898,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 4:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Short.valueOf(maxShort), true)
                             == TestSqlType.VALID) {
                             columnValues += ", cast(" + maxShort + " as "
@@ -921,7 +914,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 5:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Integer.valueOf(minInt), true)
                             == TestSqlType.VALID) {
                             columnValues += ", cast(" + minInt + " as "
@@ -937,7 +930,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 6:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Integer.valueOf(maxInt), true)
                             == TestSqlType.VALID) {
                             columnValues += ", cast(" + maxInt + " as "
@@ -953,11 +946,11 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 7:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Long.valueOf(minLong), true)
-                            == TestSqlType.VALID) {
-                            columnValues += ", cast(" + minLong + " as "
-                                + sqlType.string + ")";
+                            == TestSqlType.VALID)
+                        {
+                            columnValues += ", " + minLong;
                         }  else {
                             columnValues += ", null";
                         }
@@ -969,7 +962,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 8:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         if (sqlType.checkIsValid(Long.valueOf(maxLong), true)
                             == TestSqlType.VALID) {
                             columnValues += ", cast(" + maxLong + " as "
@@ -985,10 +978,9 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 9:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (approxCharTypes.contains(sqlType)) {
-                        columnValues += ", cast(" + minFloat + " as "
-                            + sqlType.string + ")";
-                    } else if (numCharTypes.contains(sqlType)) {
+                    if (approxTypes.contains(sqlType)) {
+                        columnValues += ", " + minFloat;
+                    } else if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + floatValue1 + " as "
                             + sqlType.string + ")";
                     } else {
@@ -999,11 +991,11 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 10:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (approxCharTypes.contains(sqlType)) {
+                    if (approxTypes.contains(sqlType)) {
                         //columnValues += ", " + maxFloat;
                         columnValues += ", cast(3.4028234E38 as "
                             + sqlType.string + ")";
-                    } else if (numCharTypes.contains(sqlType)) {
+                    } else if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + floatValue2 + " as "
                             + sqlType.string + ")";
                     } else {
@@ -1014,10 +1006,10 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 11:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (approxCharTypes.contains(sqlType)) {
+                    if (approxTypes.contains(sqlType)) {
                         columnValues += ", cast(" + minDouble + " as "
                             + sqlType.string + ")";
-                    } else if (numCharTypes.contains(sqlType)) {
+                    } else if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + doubleValue1 + " as "
                             + sqlType.string + ")";
                     } else {
@@ -1028,11 +1020,11 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 12:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (approxCharTypes.contains(sqlType) &&
+                    if (approxTypes.contains(sqlType) &&
                         sqlType.ordinal != REAL) {
                         columnValues += ", cast(" + maxDouble + " as "
                             + sqlType.string + ")";
-                    } else if (numCharTypes.contains(sqlType)) {
+                    } else if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + doubleValue2 + " as "
                             + sqlType.string + ")";
                     } else {
@@ -1043,7 +1035,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 13:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(1 as "
                             + sqlType.string + ")";
                     } else if (sqlType.ordinal == BOOLEAN) {
@@ -1057,7 +1049,7 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 14:
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
-                    if (numCharTypes.contains(sqlType)) {
+                    if (numTypes.contains(sqlType)) {
                         columnValues += ", cast(" + bigDecimalValue + " as "
                             + sqlType.string + ")";
                     } else {
@@ -1082,8 +1074,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
                     switch (sqlType.ordinal) {
-                        case CHAR:
-                        case VARCHAR:
                         case TIMESTAMP:
                             columnValues += ", cast(DATE '" +  dateStr
                                 + "' as " + sqlType.string + ")";
@@ -1101,8 +1091,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
                     switch (sqlType.ordinal) {
-                        case CHAR:
-                        case VARCHAR:
                         case TIMESTAMP:
                             columnValues += ", cast(TIME '" +  timeStr
                                 + "' as " + sqlType.string + ")";
@@ -1120,8 +1108,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 for (int j=0; j<TestSqlType.all.length; j++) {
                     TestSqlType sqlType = TestSqlType.all[j];
                     switch (sqlType.ordinal) {
-                        case CHAR:
-                        case VARCHAR:
                         case DATE:
                         case TIME:
                             columnValues += ", cast(TIMESTAMP '" +  timestampStr
@@ -1224,41 +1210,6 @@ public class FarragoJdbcTest extends FarragoTestCase
             id = resultSet.getInt(1);
             switch (id) {
             case 100:
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(TINYINT));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(SMALLINT));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(INTEGER));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(BIGINT));
-                assertEquals(
-                    /*stringValue,*/
-                    "0.0",
-                    resultSet.getString(REAL));
-                assertEquals(
-                    /*stringValue,*/
-                    "0.0",
-                    resultSet.getString(FLOAT));
-                assertEquals(
-                    /*stringValue,*/
-                    "0.0",
-                    resultSet.getString(DOUBLE));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(DECIMAL));
-                assertEquals(
-                    "0.000",
-                    resultSet.getString(DECIMAL73));
-                assertEquals(
-                    /*stringValue,*/
-                    "false",
-                    resultSet.getString(BOOLEAN));
-
                 // Check CHAR - result String can be longer than the input string
                 // Just check the first part
                 assertEquals(
@@ -1269,22 +1220,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     stringValue,
                     resultSet.getString(VARCHAR));
-
-                // What should BINARY/VARBINARY be?
-                if (todo) {
-                assertEquals(stringValue, resultSet.getString(BINARY));
-                assertEquals(stringValue, resultSet.getString(VARBINARY));
-
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(DATE));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(TIME));
-                assertEquals(
-                    stringValue,
-                    resultSet.getString(TIMESTAMP));
-                }
                 break;
             case 101:
                 assertEquals(
@@ -1317,12 +1252,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getByte(BOOLEAN));
-                assertEquals(
-                    minByte,
-                    resultSet.getByte(CHAR));
-                assertEquals(
-                    minByte,
-                    resultSet.getByte(VARCHAR));
                 break;
             case 102:
                 assertEquals(
@@ -1355,12 +1284,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getByte(BOOLEAN));
-                assertEquals(
-                    maxByte,
-                    resultSet.getByte(CHAR));
-                assertEquals(
-                    maxByte,
-                    resultSet.getByte(VARCHAR));
                 break;
             case 103:
                 assertEquals(
@@ -1393,12 +1316,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getShort(BOOLEAN));
-                assertEquals(
-                    minShort,
-                    resultSet.getShort(CHAR));
-                assertEquals(
-                    minShort,
-                    resultSet.getShort(VARCHAR));
                 break;
             case 104:
                 assertEquals(
@@ -1431,12 +1348,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getShort(BOOLEAN));
-                assertEquals(
-                    maxShort,
-                    resultSet.getShort(CHAR));
-                assertEquals(
-                    maxShort,
-                    resultSet.getShort(VARCHAR));
                 break;
             case 105:
                 assertEquals(
@@ -1469,12 +1380,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getInt(BOOLEAN));
-                assertEquals(
-                    minInt,
-                    resultSet.getInt(CHAR));
-                assertEquals(
-                    minInt,
-                    resultSet.getInt(VARCHAR));
                 break;
             case 106:
                 assertEquals(
@@ -1507,12 +1412,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getInt(BOOLEAN));
-                assertEquals(
-                    maxInt,
-                    resultSet.getInt(CHAR));
-                assertEquals(
-                    maxInt,
-                    resultSet.getInt(VARCHAR));
                 break;
             case 107:
                 assertEquals(
@@ -1545,12 +1444,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getLong(BOOLEAN));
-                assertEquals(
-                    minLong,
-                    resultSet.getLong(CHAR));
-                assertEquals(
-                    minLong,
-                    resultSet.getLong(VARCHAR));
                 break;
             case 108:
                 assertEquals(
@@ -1583,12 +1476,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getLong(BOOLEAN));
-                assertEquals(
-                    maxLong,
-                    resultSet.getLong(CHAR));
-                assertEquals(
-                    maxLong,
-                    resultSet.getLong(VARCHAR));
                 break;
             case 109:
                 float expectedFloat1 = -2.0f;
@@ -1631,14 +1518,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getFloat(BOOLEAN),
-                    0);
-                assertEquals(
-                    minFloat,
-                    resultSet.getFloat(CHAR),
-                    0);
-                assertEquals(
-                    minFloat,
-                    resultSet.getFloat(VARCHAR),
                     0);
                 break;
             case 110:
@@ -1683,14 +1562,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                     0,
                     resultSet.getFloat(BOOLEAN),
                     0);
-                assertEquals(
-                    maxFloat,
-                    resultSet.getFloat(CHAR),
-                    0);
-                assertEquals(
-                    maxFloat,
-                    resultSet.getFloat(VARCHAR),
-                    0);
                 break;
             case 111:
                 double expectedDouble1 = -2;
@@ -1733,14 +1604,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     0,
                     resultSet.getDouble(BOOLEAN),
-                    0);
-                assertEquals(
-                    minDouble,
-                    resultSet.getDouble(CHAR),
-                    0);
-                assertEquals(
-                    minDouble,
-                    resultSet.getDouble(VARCHAR),
                     0);
                 break;
             case 112:
@@ -1785,16 +1648,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                     0,
                     resultSet.getDouble(BOOLEAN),
                     0);
-                // TODO: Should be maxDouble, not INFINITY
-                assertEquals(
-                    Double.POSITIVE_INFINITY/*maxDouble*/,
-                    resultSet.getDouble(CHAR),
-                    0);
-                // TODO: Should be maxDouble, not INFINITY
-                assertEquals(
-                    Double.POSITIVE_INFINITY/*maxDouble*/,
-                    resultSet.getDouble(VARCHAR),
-                    0);
                 break;
             case 113:
                 assertEquals(
@@ -1827,9 +1680,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     boolValue,
                     resultSet.getBoolean(BOOLEAN));
-
-                assertEquals(boolValue, resultSet.getBoolean(CHAR));
-                assertEquals(boolValue, resultSet.getBoolean(VARCHAR));
                 break;
             case 114:
                 BigDecimal expectedDecimal = new BigDecimal(10);
@@ -1863,12 +1713,6 @@ public class FarragoJdbcTest extends FarragoTestCase
                 assertEquals(
                     bigDecimalValue.setScale(3, BigDecimal.ROUND_HALF_UP),
                     resultSet.getBigDecimal(DECIMAL73));
-                assertEquals(
-                    bigDecimalValue,
-                    resultSet.getBigDecimal(CHAR));
-                assertEquals(
-                    bigDecimalValue,
-                    resultSet.getBigDecimal(VARCHAR));
                 break;
             case 115:
                 // Check BINARY - resBytes can be longer than the input bytes
@@ -1894,12 +1738,6 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 116:
                 assertEquals(
                     dateNoTime.getTime(),
-                    resultSet.getDate(CHAR).getTime());
-                assertEquals(
-                    dateNoTime.getTime(),
-                    resultSet.getDate(VARCHAR).getTime());
-                assertEquals(
-                    dateNoTime.getTime(),
                     resultSet.getDate(DATE).getTime());
                 assertEquals(
                     dateNoTime.getTime(),
@@ -1908,25 +1746,12 @@ public class FarragoJdbcTest extends FarragoTestCase
             case 117:
                 assertEquals(
                     timeNoDate.getTime(),
-                    resultSet.getTime(CHAR).getTime());
-                assertEquals(
-                    timeNoDate.getTime(),
-                    resultSet.getTime(VARCHAR).getTime());
-                assertEquals(
-                    timeNoDate.getTime(),
                     resultSet.getTime(TIME).getTime());
                 assertEquals(
                     timeNoDate.getTime(),
                     resultSet.getTime(TIMESTAMP).getTime());
                 break;
             case 118:
-                // TODO: Should these be timestamp with or without precision?
-                assertEquals(
-                    timestampNoPrec.getTime(),
-                    resultSet.getTimestamp(CHAR).getTime());
-                assertEquals(
-                    timestampNoPrec.getTime(),
-                    resultSet.getTimestamp(VARCHAR).getTime());
                 assertEquals(
                     timestamp.getTime(),
                     resultSet.getTimestamp(DATE).getTime());
@@ -3082,6 +2907,15 @@ public class FarragoJdbcTest extends FarragoTestCase
         {
             Tinyint, Smallint, Integer, Bigint, Real, Float, Double, Char,
             Varchar, Decimal, Decimal73
+        };
+        private static final TestSqlType [] typesNumeric =
+        {
+            Tinyint, Smallint, Integer, Bigint, Real, Float, Double,
+            Decimal, Decimal73
+        };
+        private static final TestSqlType [] typesChar =
+        {
+            Char, Varchar
         };
         private static final TestSqlType [] typesBinary = { Binary, Varbinary, };
         private static final TestSqlType [] typesDateTime = { Time, Date, Timestamp };

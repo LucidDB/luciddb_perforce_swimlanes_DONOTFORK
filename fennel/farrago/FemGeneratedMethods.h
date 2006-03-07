@@ -79,11 +79,18 @@ jmethodID ProxyJavaTransformStreamDef::meth_getJavaClassName = 0;
 jmethodID ProxyJavaTransformStreamDef::meth_getReserved = 0;
 jmethodID ProxyJavaTupleStreamDef::meth_getStreamId = 0;
 jmethodID ProxyKeyAccessorDef::meth_getKeyProj = 0;
+jmethodID ProxyLbmChopperStreamDef::meth_getRidLimitParamId = 0;
 jmethodID ProxyLbmGeneratorStreamDef::meth_getRowCountParamId = 0;
+jmethodID ProxyLbmGeneratorStreamDef::meth_isCreateIndex = 0;
 jmethodID ProxyLbmIndexScanStreamDef::meth_getRowLimitParamId = 0;
-jmethodID ProxyLbmIndexScanStreamDef::meth_isIgnoreRowLimit = 0;
 jmethodID ProxyLbmIndexScanStreamDef::meth_getStartRidParamId = 0;
+jmethodID ProxyLbmIndexScanStreamDef::meth_isIgnoreRowLimit = 0;
+jmethodID ProxyLbmIntersectStreamDef::meth_getRowLimitParamId = 0;
+jmethodID ProxyLbmIntersectStreamDef::meth_getStartRidParamId = 0;
 jmethodID ProxyLbmSplicerStreamDef::meth_getRowCountParamId = 0;
+jmethodID ProxyLbmUnionStreamDef::meth_getRidLimitParamId = 0;
+jmethodID ProxyLbmUnionStreamDef::meth_getConsumerSridParamId = 0;
+jmethodID ProxyLbmUnionStreamDef::meth_getSegmentLimitParamId = 0;
 jmethodID ProxyLcsClusterAppendStreamDef::meth_isOverwrite = 0;
 jmethodID ProxyLcsClusterAppendStreamDef::meth_getClusterColProj = 0;
 jmethodID ProxyLcsClusterScanDef::meth_getClusterTupleDesc = 0;
@@ -338,19 +345,35 @@ jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemKeyAccessorDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyKeyAccessorDef>));
 ProxyKeyAccessorDef::meth_getKeyProj = pEnv->GetMethodID(jClass,"getKeyProj","()Lnet/sf/farrago/fem/fennel/FemTupleProjection;");
 
+jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmChopperStreamDef");
+visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmChopperStreamDef>));
+ProxyLbmChopperStreamDef::meth_getRidLimitParamId = pEnv->GetMethodID(jClass,"getRidLimitParamId","()I");
+
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmGeneratorStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmGeneratorStreamDef>));
 ProxyLbmGeneratorStreamDef::meth_getRowCountParamId = pEnv->GetMethodID(jClass,"getRowCountParamId","()I");
+ProxyLbmGeneratorStreamDef::meth_isCreateIndex = pEnv->GetMethodID(jClass,"isCreateIndex","()Z");
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmIndexScanStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmIndexScanStreamDef>));
 ProxyLbmIndexScanStreamDef::meth_getRowLimitParamId = pEnv->GetMethodID(jClass,"getRowLimitParamId","()I");
-ProxyLbmIndexScanStreamDef::meth_isIgnoreRowLimit = pEnv->GetMethodID(jClass,"isIgnoreRowLimit","()Z");
 ProxyLbmIndexScanStreamDef::meth_getStartRidParamId = pEnv->GetMethodID(jClass,"getStartRidParamId","()I");
+ProxyLbmIndexScanStreamDef::meth_isIgnoreRowLimit = pEnv->GetMethodID(jClass,"isIgnoreRowLimit","()Z");
+
+jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmIntersectStreamDef");
+visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmIntersectStreamDef>));
+ProxyLbmIntersectStreamDef::meth_getRowLimitParamId = pEnv->GetMethodID(jClass,"getRowLimitParamId","()I");
+ProxyLbmIntersectStreamDef::meth_getStartRidParamId = pEnv->GetMethodID(jClass,"getStartRidParamId","()I");
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmSplicerStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmSplicerStreamDef>));
 ProxyLbmSplicerStreamDef::meth_getRowCountParamId = pEnv->GetMethodID(jClass,"getRowCountParamId","()I");
+
+jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmUnionStreamDef");
+visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmUnionStreamDef>));
+ProxyLbmUnionStreamDef::meth_getRidLimitParamId = pEnv->GetMethodID(jClass,"getRidLimitParamId","()I");
+ProxyLbmUnionStreamDef::meth_getConsumerSridParamId = pEnv->GetMethodID(jClass,"getConsumerSridParamId","()I");
+ProxyLbmUnionStreamDef::meth_getSegmentLimitParamId = pEnv->GetMethodID(jClass,"getSegmentLimitParamId","()I");
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLcsClusterAppendStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLcsClusterAppendStreamDef>));
@@ -992,9 +1015,19 @@ if (!p->jObject) p.reset();
 return p;
 }
 
+int32_t ProxyLbmChopperStreamDef::getRidLimitParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getRidLimitParamId);
+}
+
 int32_t ProxyLbmGeneratorStreamDef::getRowCountParamId()
 {
 return pEnv->CallIntMethod(jObject,meth_getRowCountParamId);
+}
+
+bool ProxyLbmGeneratorStreamDef::isCreateIndex()
+{
+return pEnv->CallBooleanMethod(jObject,meth_isCreateIndex);
 }
 
 int32_t ProxyLbmIndexScanStreamDef::getRowLimitParamId()
@@ -1002,12 +1035,22 @@ int32_t ProxyLbmIndexScanStreamDef::getRowLimitParamId()
 return pEnv->CallIntMethod(jObject,meth_getRowLimitParamId);
 }
 
+int32_t ProxyLbmIndexScanStreamDef::getStartRidParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getStartRidParamId);
+}
+
 bool ProxyLbmIndexScanStreamDef::isIgnoreRowLimit()
 {
 return pEnv->CallBooleanMethod(jObject,meth_isIgnoreRowLimit);
 }
 
-int32_t ProxyLbmIndexScanStreamDef::getStartRidParamId()
+int32_t ProxyLbmIntersectStreamDef::getRowLimitParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getRowLimitParamId);
+}
+
+int32_t ProxyLbmIntersectStreamDef::getStartRidParamId()
 {
 return pEnv->CallIntMethod(jObject,meth_getStartRidParamId);
 }
@@ -1015,6 +1058,21 @@ return pEnv->CallIntMethod(jObject,meth_getStartRidParamId);
 int32_t ProxyLbmSplicerStreamDef::getRowCountParamId()
 {
 return pEnv->CallIntMethod(jObject,meth_getRowCountParamId);
+}
+
+int32_t ProxyLbmUnionStreamDef::getRidLimitParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getRidLimitParamId);
+}
+
+int32_t ProxyLbmUnionStreamDef::getConsumerSridParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getConsumerSridParamId);
+}
+
+int32_t ProxyLbmUnionStreamDef::getSegmentLimitParamId()
+{
+return pEnv->CallIntMethod(jObject,meth_getSegmentLimitParamId);
 }
 
 bool ProxyLcsClusterAppendStreamDef::isOverwrite()
