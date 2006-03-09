@@ -23,6 +23,7 @@
 package net.sf.farrago.query;
 
 import java.util.*;
+import java.util.List;
 
 import net.sf.farrago.fem.fennel.*;
 import net.sf.farrago.ojrex.*;
@@ -42,7 +43,6 @@ import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.util.*;
 
-
 /**
  * FarragoRelImplementor refines {@link JavaRelImplementor} with some Farrago
  * specifics.
@@ -51,7 +51,7 @@ import org.eigenbase.util.*;
  * @version $Id$
  */
 public class FarragoRelImplementor extends JavaRelImplementor
-    implements FennelRelImplementor
+    implements FennelRelImplementor, FarragoOJRexRelImplementor
 {
     //~ Instance fields -------------------------------------------------------
 
@@ -59,7 +59,14 @@ public class FarragoRelImplementor extends JavaRelImplementor
     OJClass ojAssignableValue;
     OJClass ojBytePointer;
     private Set streamDefSet;
+    private String serverMofId;
 
+    /** 
+     * List of ClassDeclarations representing generated Java code not
+     * directly linked to the plan's root rel node. 
+     */
+    private List<ClassDeclaration> transformDeclarations;
+    
     //~ Constructors ----------------------------------------------------------
 
     public FarragoRelImplementor(
@@ -77,9 +84,28 @@ public class FarragoRelImplementor extends JavaRelImplementor
         ojBytePointer = OJClass.forClass(BytePointer.class);
 
         streamDefSet = new HashSet();
+        
+        transformDeclarations = new ArrayList<ClassDeclaration>();
     }
 
     //~ Methods ---------------------------------------------------------------
+
+    /**
+     * Sets the MOFID of the foreign server associated with the
+     * expression being implemented.
+     *
+     * @param serverMofId MOFID to set, or null to clear
+     */
+    public void setServerMofId(String serverMofId)
+    {
+        this.serverMofId = serverMofId;
+    }
+
+    // implement FarragoOJRexRelImplementor
+    public String getServerMofId()
+    {
+        return serverMofId;
+    }
 
     // implement FennelRelImplementor
     public FarragoRepos getRepos()
@@ -113,6 +139,16 @@ public class FarragoRelImplementor extends JavaRelImplementor
         return streamDefSet;
     }
 
+    public List<ClassDeclaration> getTransforms()
+    {
+        return Collections.unmodifiableList(transformDeclarations);
+    }
+    
+    public void addTransform(ClassDeclaration transform)
+    {
+        transformDeclarations.add(transform);
+    }
+    
     public FarragoPreparingStmt getPreparingStmt()
     {
         return preparingStmt;
@@ -148,7 +184,6 @@ public class FarragoRelImplementor extends JavaRelImplementor
             rowType);
     }
 
-
     private void registerStreamDef(
         FemExecutionStreamDef streamDef,
         RelNode rel,
@@ -178,7 +213,7 @@ public class FarragoRelImplementor extends JavaRelImplementor
 
     /**
      * Constructs a globally unique name for an execution stream.  This name is
-     * used to label and find C++ ExecutionStreams.
+     * used to label and find C++ ExecStreams.
      *
      * @param streamDef stream definition
      *
@@ -269,132 +304,6 @@ public class FarragoRelImplementor extends JavaRelImplementor
         public OJAggImplementor get(Aggregation aggregation)
         {
             return delegate.get(aggregation);
-        }
-    }
-
-    /**
-     * Definition for a lump of code which is to accept bindings at runtime.
-     * The generated code will implement the {@link FarragoTransform}
-     * interface.
-     */
-    public interface TransformDef
-    {
-        /**
-         * Defines a port.
-         *
-         * @pre port.getOrdinal() == getPorts().size()
-         */
-        void definePort(PortDef port);
-
-        /**
-         * Returns a collection of {@link PortDef} objects.
-         */
-        Collection getPorts();
-
-        /**
-         * The declaration of the class which is being generated.
-         * The class must implement the {@link FarragoTransform} interface.
-         */
-        ClassDeclaration getClassDecl();
-    }
-
-    /**
-     * Definition of a port belonging to a {@link TransformDef}.
-     * A port is a point at which data enters a transform from, or leaves a
-     * transform to, an execution object.
-     */
-    public interface PortDef
-    {
-        /**
-         * Returns the name of the member variable which holds the binding.
-         */
-        Variable getBindingVariable();
-
-        /**
-         * Converts this port to a stream definition. Subsequent calls must
-         * return the same stream definition.
-         */
-        FemExecutionStreamDef getStreamDef(
-            FennelRelImplementor implementor);
-
-        /**
-         * Returns the expression to bind this port. Must not be called before
-         * {@link #getStreamDef(FennelRelImplementor)} has been called.
-         *
-         * <p>Typical code:
-         * <blockquote><code><pre>
-         * final Binding binding = bindings[0];
-         * final Port port = binding.getPort(this);
-         * final Object bind = binding.getObjectToBind(this);
-         * final Object bound = port.bind(bind);
-         * </pre></code></blockquote>
-         *
-         * @param implementor
-         */
-        Expression getExpr(FarragoRelImplementor implementor);
-
-        void addInitializationCode(FarragoRelImplementor implementor);
-
-        /**
-         * Returns the port's ordinal within its transform.
-         */
-        int getOrdinal();
-    }
-
-    /**
-     * Default implementation for {@link PortDef}.
-     */
-    public static abstract class PortDefImpl implements PortDef
-    {
-        private final TransformDef transform;
-        protected final int portOrdinal;
-        private final boolean input;
-        private FemExecutionStreamDef streamDef;
-
-        public PortDefImpl(
-            TransformDef transform,
-            int portOrdinal,
-            boolean isInput)
-        {
-            this.transform = transform;
-            this.portOrdinal = portOrdinal;
-            this.input = isInput;
-        }
-
-        public FemExecutionStreamDef getStreamDef(
-            FennelRelImplementor implementor)
-        {
-            if (streamDef == null) {
-                streamDef = toStreamDef(implementor);
-                assert streamDef != null;
-            }
-            return streamDef;
-        }
-
-        /**
-         * Creates a stream definition.
-         */
-        protected abstract FemExecutionStreamDef toStreamDef(
-            FennelRelImplementor implementor);
-
-        public int getOrdinal()
-        {
-            return portOrdinal;
-        }
-
-        public void addInitializationCode(FarragoRelImplementor implementor)
-        {
-            // do nothing
-
-            // Typical initialization code:
-            //            final Port port = binding.getPort(this);
-            //            final Object bind = binding.getObjectToBind(this);
-            //            final Object bound = port.bind(bind);
-        }
-
-        public Variable getBindingVariable()
-        {
-            return new Variable("port" + portOrdinal);
         }
     }
 }
