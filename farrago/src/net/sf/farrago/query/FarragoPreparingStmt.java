@@ -55,7 +55,6 @@ import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
-import org.eigenbase.rex.RexNode;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.validate.*;
 import org.eigenbase.sql.util.*;
@@ -418,6 +417,31 @@ public class FarragoPreparingStmt extends OJPreparingStmt
         packageDir.delete();
         packageDir.mkdir();
     }
+    
+    // Override OJPreparingStmt
+    protected BoundMethod compileAndBind(
+        ClassDeclaration decl, ParseTree parseTree, Argument[] arguments)
+    {
+        BoundMethod boundMethod =
+            super.compileAndBind(decl, parseTree, arguments);
+        
+        // Compile any FarragoTransform implementations
+        String packageName = getTempPackageName();
+        for(ClassDeclaration transformDecl: relImplementor.getTransforms()) {
+            CompilationUnit compUnit =
+                new CompilationUnit(packageName, new String[0],
+                    new ClassDeclarationList(transformDecl));
+
+            Class clazz = 
+                super.compileClass(
+                    packageName,
+                    transformDecl.getName(),
+                    compUnit.toString());
+            Util.discard(clazz);
+        }
+        
+        return boundMethod;
+    }
 
     protected FarragoSessionExecutableStmt implement(
         PreparedResult preparedResult)
@@ -465,6 +489,7 @@ public class FarragoPreparingStmt extends OJPreparingStmt
                 new FarragoExecutableJavaStmt(
                     packageDir,
                     rowClass,
+                    javaCompiler.getClassLoader(),
                     (originalRowType == null) ? rowType : originalRowType,
                     dynamicParamRowType,
                     preparedExecution.getMethod(),

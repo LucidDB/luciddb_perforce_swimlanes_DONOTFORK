@@ -1,10 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2006 Disruptive Tech
+// Copyright (C) 2006-2006 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -22,54 +21,67 @@
 */
 package net.sf.farrago.runtime;
 
-import net.sf.farrago.fennel.FennelStreamGraph;
-import net.sf.farrago.fennel.FennelStreamHandle;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import net.sf.farrago.fennel.FennelStreamGraph;
+import net.sf.farrago.fennel.FennelStreamHandle;
 
 /**
- * FennelTupleIter implements the {@link org.eigenbase.runtime.TupleIter} 
- * interfaces by reading tuples from a Fennel ExecStream.
+ * FennelTransformTupleIter implements the 
+ * {@link org.eigenbase.runtime.TupleIter} 
+ * interfaces by reading tuples from a Fennel JavaTransformExecStream.
  *
- * <p>FennelTupleIter only deals with raw byte buffers; it delegates to a
- * {@link FennelTupleReader} object the responsibility to unmarshal individual
- * fields.
+ * <p>FennelTransformTupleIter only deals with raw byte buffers; it delegates 
+ * to a {@link FennelTupleReader} object the responsibility to unmarshal 
+ * individual fields.
  * 
- * <p>FennelTupleIter's implementation of {@link #populateBuffer()} blocks.
+ * <p>FennelTransformTupleIter's implementation of {@link #populateBuffer()} 
+ * does not block.
  *
- * @author John V. Sichi, Stephan Zuercher
+ * @author Stephan Zuercher
  * @version $Id$
  */
-public class FennelTupleIter extends FennelAbstractTupleIter
+public class FennelTransformTupleIter extends FennelAbstractTupleIter
 {
     //~ Instance fields -------------------------------------------------------
+    private final int execStreamInputOrdinal;
+
     private final FennelStreamGraph streamGraph;
     private final FennelStreamHandle streamHandle;
+    private final FennelStreamHandle inputStreamHandle;
+
 
     //~ Constructors ----------------------------------------------------------
 
     /**
-     * Creates a new FennelTupleIter object.
+     * Creates a new FennelTransformTupleIter object.
      *
      * @param tupleReader FennelTupleReader to use to interpret Fennel data
      * @param streamGraph underlying FennelStreamGraph
-     * @param streamHandle handle to underlying Fennel ExecStream that
-     *                    this TupleIter reads from
+     * @param streamHandle handle to underlying Fennel JavaTransformExecStream
+     * @param inputStreamHandle handle to the Fennel ExecStream that this
+     *                          TupleIter reads from -- used only for reset
+     * @param inputOrdinal the input stream's ordinal in the underlying
+     *                     JavaTransformExecStream
      * @param bufferSize number of bytes in buffer used for fetching from
      *     Fennel
      */
-    public FennelTupleIter(
+    public FennelTransformTupleIter(
         FennelTupleReader tupleReader,
         FennelStreamGraph streamGraph,
         FennelStreamHandle streamHandle,
+        FennelStreamHandle inputStreamHandle,
+        int inputOrdinal,
         int bufferSize)
     {
         super(tupleReader);
+        
+        this.execStreamInputOrdinal = inputOrdinal;
         this.streamGraph = streamGraph;
         this.streamHandle = streamHandle;
-
+        this.inputStreamHandle = inputStreamHandle;
+        
         // In this implementation of FennelAbstractTupleIter, byteBuffer and
         // bufferAsArray are effectively final. In other implementations, they
         // might be set by populateBuffer.
@@ -89,7 +101,9 @@ public class FennelTupleIter extends FennelAbstractTupleIter
         bufferAsArray = byteBuffer.array();
         byteBuffer.clear();
         byteBuffer.limit(0);
-        streamGraph.restart(streamHandle);
+        
+        // a reset on streamHandle is what got us here -- pass it on
+        streamGraph.restart(inputStreamHandle);
     }
 
     // implement TupleIter
@@ -99,15 +113,21 @@ public class FennelTupleIter extends FennelAbstractTupleIter
     }
 
     /**
-     * Blocking implementation of {@link FennelTupleIter#populateBuffer()}.
+     * Non-blocking implementation of {@link FennelTupleIter#populateBuffer()}.
      * 
-     * @return number of bytes read into {@link FennelTupleIter#byteBuffer}
-     *         or 0 for end of stream.
+     * @return number of bytes read into {@link FennelTupleIter#byteBuffer},
+     *         0 for end of stream, less than 0 for no data available
      */
     protected int populateBuffer()
     {
         byteBuffer.clear();
-        return streamGraph.fetch(streamHandle, bufferAsArray);
+        int cb = streamGraph.transformFetch(
+            streamHandle, execStreamInputOrdinal, bufferAsArray);
+        if (cb < 0) {
+            // don't let anyone assume anything was read
+            byteBuffer.limit(0);
+        }
+        return cb;
     }
 }
 

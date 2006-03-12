@@ -22,10 +22,10 @@
 */
 package net.sf.farrago.query;
 
-import java.io.*;
 import java.lang.reflect.*;
 import java.nio.*;
 import java.util.*;
+import java.util.List;
 
 import net.sf.farrago.catalog.*;
 import net.sf.farrago.fem.fennel.*;
@@ -52,7 +52,41 @@ import org.eigenbase.sql.type.*;
  * FennelToIteratorConverter is a Converter from the
  * {@link FennelRel#FENNEL_EXEC_CONVENTION Fennel calling convention}
  * to the {@link CallingConvention#ITERATOR iterator calling convention}.
+ * 
+ * <p>Every FennelToIteratorConverter exists in one of two locations.
+ * Location 1 means the converter is one of N roots of a sequence of JavaRels
+ * that are read by FarragoResultSetIterator or FarragoResultSetTupleIter.
+ * Location 2 means the converter is one of the N roots of a sequence of 
+ * JavaRels that are converted back to Fennel convention by an 
+ * IteratorToFennelConverter.
+ * 
+ * <p>When {@link CallingConvention#ENABLE_NEW_ITER} is enabled (e.g., 
+ * new-style iterators are in use), it operates in one of two modes:  
+ * <ol>
+ * <li>
+ *   When in location 1, it generates Iterator convention code that reads from 
+ *   its child FennelRel, blocking when the FennelRel has no data. (This is 
+ *   identical to the behavior for old-style iterators.)
+ * </li>
+ * <li>
+ *   When in location 2, it generates Iterator convention code that reads from
+ *   its child FennelRel, but returns
+ *   {@link org.eigenbase.runtime.TupleIter.NoDataReason#UNDERFLOW} when the
+ *   FennelRel has no data.  In addition, the generated code is not 
+ *   encapsulated in a method and returned to the caller of 
+ *   {@link #implement(JavaRelImplementor)}.  Instead it's registered with
+ *   the {@link FarragoRelImplementor} for later compilation.  In addition,
+ *   the stream def generated for child FennelRels is stored for later use
+ *   by IteratorToFennelConverter.
+ * </li>
+ * </ol> 
  *
+ * REVIEW: SWZ 3/7/2006: It would be nice if this could be split into two
+ * converters.  One for Location 1 and another for Location 2.  This would
+ * simplify the code and make it easier to understand.  Not sure if the
+ * planner can handle two converters from Fennel to Iterator that need to
+ * be used under different circumstances, though.
+ * 
  * @author John V. Sichi
  * @version $Id$
  */
@@ -112,14 +146,24 @@ public class FennelToIteratorConverter extends ConverterRel implements JavaRel
                     FennelRel.FENNEL_EXEC_CONVENTION))
             : getChild().getClass().getName();
 
+        boolean useTransformer = false;
+        if (CallingConvention.ENABLE_NEW_ITER) {
+            if (isTransformerInput(implementor)) {
+                useTransformer = true;
+            }
+        }
+        
         // Give children a chance to generate code.  Most FennelRels don't
-        // require this, but IteratorToFennelConverter does.
+        // require this, but IteratorToFennelConverter does. 
+        // REVIEW: SWZ: 3/1/06: True for old-style iterators only, but doesn't
+        // hurt since IteratorToFennelConverter will return a null literal
+        // when this is superfluous.
         Expression childrenExp =
             (Expression) implementor.visitChild(this, 0, getChild());
 
-        FennelRel fennelRel = (FennelRel) getChild();
-        FennelRelImplementor fennelImplementor =
+        FennelRelImplementor fennelImplementor = 
             (FennelRelImplementor) implementor;
+        FennelRel fennelRel = (FennelRel) getChild();
         FarragoRepos repos = fennelImplementor.getRepos();
 
         final FarragoPreparingStmt stmt =
@@ -144,7 +188,7 @@ public class FennelToIteratorConverter extends ConverterRel implements JavaRel
         FemExecutionStreamDef rootStream = childToStreamDef(fennelImplementor);
         String rootStreamName = rootStream.getName();
         int rootStreamId = getId();
-
+        
         FemTupleDescriptor tupleDesc =
             FennelRelUtil.createTupleDescriptorFromRowType(
                 repos,
@@ -394,24 +438,68 @@ public class FennelToIteratorConverter extends ConverterRel implements JavaRel
                 new ExpressionList(),
                 memberDeclList);
 
-        // and pass this to FarragoRuntimeContext.newFennelIterator to produce a
-        // FennelIterator, which will invoke our generated FennelTupleReader to
-        // unmarshal
-        ExpressionList argList = new ExpressionList();
-        argList.add(newTupleReaderExp);
-        argList.add(Literal.makeLiteral(rootStreamName));
-        argList.add(Literal.makeLiteral(rootStreamId));
-        argList.add(childrenExp);
-        
-        if (CallingConvention.ENABLE_NEW_ITER) {
-            return new MethodCall(
-                connectionVariable,
-                "newFennelTupleIter",
-                argList);
+        if (!useTransformer) {
+            // Pass tuple reader to FarragoRuntimeContext.newFennelIterator to 
+            // produce a FennelIterator, which will invoke our generated 
+            // FennelTupleReader to unmarshal
+            ExpressionList argList = new ExpressionList();
+            argList.add(newTupleReaderExp);
+            argList.add(Literal.makeLiteral(rootStreamName));
+            argList.add(Literal.makeLiteral(rootStreamId));
+            argList.add(childrenExp);
+            
+            if (CallingConvention.ENABLE_NEW_ITER) {
+                return new MethodCall(
+                    connectionVariable,
+                    "newFennelTupleIter",
+                    argList);
+            } else {
+                return new MethodCall(
+                    connectionVariable,
+                    "newFennelIterator",
+                    argList);
+            }
         } else {
+            // Pass tuple reader to 
+            // FarragoRuntimeContext.newFennelTransformTupleIter to produce
+            // a FennelTupleIter, which will invoke our generated 
+            // FennelTupleReader to unmarshal
+            assert(CallingConvention.ENABLE_NEW_ITER);
+            
+            // IteratorToFennelConverter will just return a literal null.
+            // FennelDoubleRel will return a MethodCall to 
+            // FarragoRuntimeContext.dummyPair().  FennelMultipleRel returns
+            // a MethodCall to FarragoRuntimeContext.dummArray().
+            // This assert isn't really necessary -- we're just trying to 
+            // assert that the children's code generation didn't place code
+            // here -- we want it in a separate class that implements
+            // FarragoTransform.
+            assert(
+                (childrenExp instanceof Literal &&
+                    ((Literal)childrenExp).getLiteralType() == Literal.NULL) || 
+                (childrenExp instanceof MethodCall &&
+                    ((MethodCall)childrenExp).getName().startsWith("dummy"))):
+                        childrenExp.toString();
+                
+            // Register this stream def with our ancestral 
+            // IteratorToFennelConverter.  Note that this converter instance
+            // might appear in several branches of the planner's tree (e.g.,
+            // it can have different ancestors at different times)
+            registerChildWithAncestor(implementor, rootStream);
+            
+            ExpressionList argList = new ExpressionList();
+            argList.add(newTupleReaderExp);
+            argList.add(
+                new Variable(IteratorToFennelConverter.STREAM_NAME_VAR_NAME));
+            argList.add(Literal.makeLiteral(rootStreamName));
+            argList.add(
+                new Variable(
+                    IteratorToFennelConverter.INPUT_BINDINGS_VAR_NAME));
+            argList.add(childrenExp);
+
             return new MethodCall(
                 connectionVariable,
-                "newFennelIterator",
+                "newFennelTransformTupleIter",
                 argList);
         }
     }
@@ -430,6 +518,47 @@ public class FennelToIteratorConverter extends ConverterRel implements JavaRel
         return rootStream;
     }
 
+    /**
+     * Determines whether this FennelToIteratorConverter is an input to
+     * a FarragoTransform.  In other words, is one of the ancestors to
+     * this rel an IteratorToFennelConverter.
+     * 
+     * @param implementor implementor in use
+     * @return true if this rel is an input to a FarragoTransform, false 
+     *         otherwise
+     */
+    protected boolean isTransformerInput(JavaRelImplementor implementor)
+    {
+        List ancestors = implementor.getAncestorRels(this);
+        for(Object o: ancestors) {
+            RelNode ancestor = (RelNode)o;
+            
+            if (ancestor.getConvention() == FennelRel.FENNEL_EXEC_CONVENTION) {
+                assert(ancestor instanceof IteratorToFennelConverter);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private void registerChildWithAncestor(
+        JavaRelImplementor implementor, FemExecutionStreamDef streamDef)
+    {
+        List ancestors = implementor.getAncestorRels(this);
+        for(Object temp: ancestors) {
+            RelNode ancestor = (RelNode)temp;
+            
+            if (ancestor instanceof IteratorToFennelConverter) {
+                ((IteratorToFennelConverter)ancestor).registerChildStreamDef(
+                    streamDef);
+                return;
+            }
+        }
+        
+        assert(false): "Ancestor IteratorToFennelConverter not found";
+    }
+    
     /**
      * Registers this relational expression and rule(s) with the planner, as
      * per {@link AbstractRelNode#register}.
