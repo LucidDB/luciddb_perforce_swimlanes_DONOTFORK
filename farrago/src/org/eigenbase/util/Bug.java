@@ -55,7 +55,7 @@ public abstract class Bug
 
 
     /**
-     * Whether <a href="http://jirahost.eigenbase.org:8080/browse/FRG-26">
+     * Whether <a href="http://issues.eigenbase.org/browse/FRG-26">
      * issue FRG-26</a> is fixed.
      */
     public static final boolean Frg26Fixed = false;
@@ -64,7 +64,7 @@ public abstract class Bug
     public static final boolean Frg65Fixed = false;
 
     /**
-     * Whether <a href="http://jirahost.eigenbase.org:8080/browse/FNL-3">issue
+     * Whether <a href="http://issues.eigenbase.org/browse/FNL-3">issue
      * Fnl-3</a> is fixed.
      */
     public static final boolean Fnl3Fixed = false;
