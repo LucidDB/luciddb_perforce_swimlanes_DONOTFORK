@@ -91,7 +91,7 @@
           overwrite="false"
           failonerror="false"
           verbose="true">
-          <fileset dir="${csvsource.dir}" includes="bench100.csv"/>
+          <fileset dir="${csvsource.dir}"/>
         </sync>
       </then>
     </if>
@@ -134,10 +134,6 @@
 
   <target name="clean-csv" depends="clean">
     <delete dir="${csv.dir}"/>
-  </target>
-
-  <target name="restoreCatalog">
-    <ant dir="${open.dir}/luciddb" target="restoreCatalog"/>
   </target>
 
 </project>

@@ -124,3 +124,82 @@ create procedure stat_set_column_histogram(
 language java
 contains sql
 external name 'class net.sf.farrago.syslib.FarragoStatsUDR.set_column_histogram';
+
+--
+-- Page counts, qualified by 
+--
+create view page_counts_view as
+select 
+  n."name" as "schema", t."name" as "table", 
+  i."name" as "index", "pageCount" 
+from 
+  sys_cwm."Core"."Namespace" n,
+  sys_fem.sql2003."AbstractColumnSet" t,
+  sys_fem.med."LocalIndex" i
+where 
+  t."namespace" = n."mofId"
+  and i."spannedClass" = t."mofId"
+  and "pageCount" is not null;
+
+--
+-- Select row counts, qualified by schema and table
+--
+create view row_counts_view as
+select n."name" as "schema", t."name" as "table", "rowCount" 
+from 
+  sys_cwm."Core"."Namespace" n,
+  sys_fem.sql2003."AbstractColumnSet" t
+where 
+  t."namespace" = n."mofId"
+  and "rowCount" is not null;
+
+--
+-- Selects histograms, qualified by table name (missing schema name)
+--
+create view histograms_view as
+select 
+    t."name" as "table", c."name" as "column",
+    "distinctValueCount" "values","percentageSampled" "percent",
+    "barCount","rowsPerBar","rowsLastBar"
+from 
+    sys_fem.med."ColumnHistogram" h,
+    sys_fem.sql2003."AbstractColumn" c,
+    sys_fem.sql2003."AbstractColumnSet" t
+where 
+    c."Histogram" = h."mofId"
+    and c."owner" = t."mofId";
+
+--
+-- Selects histogram bars, qualified by table and column
+--
+create view histogram_bars_a_view as
+select 
+  h."mofId",b."ordinal","startingValue","valueCount"
+from 
+  sys_fem.med."ColumnHistogramBar" b
+inner join
+  sys_fem.med."ColumnHistogram" h
+on
+  b."Histogram" = h."mofId";
+
+create view histogram_bars_b_view as
+select 
+  c."owner" as "table", c."name" as "column", 
+  a."ordinal","startingValue","valueCount"
+from 
+  sys_fem.sql2003."AbstractColumn" c
+inner join
+  histogram_bars_a_view a
+on
+  c."Histogram" = a."mofId";
+
+create view histogram_bars_view as
+select 
+  t."name" as "table", b."column", 
+  b."ordinal","startingValue","valueCount"
+from 
+  sys_fem.sql2003."AbstractColumnSet" t
+inner join
+  histogram_bars_b_view b
+on
+  b."table" = t."mofId";
