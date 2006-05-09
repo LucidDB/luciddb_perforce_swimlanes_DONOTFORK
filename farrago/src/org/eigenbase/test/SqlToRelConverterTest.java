@@ -151,6 +151,15 @@ public class SqlToRelConverterTest extends SqlToRelTestBase
             "${plan}");
     }
 
+    public void testCollectionTableWithCursorParam()
+    {
+        check(
+            "select * from table(dedup("
+            + "cursor(select ename from emp),"
+            + " cursor(select name from dept), 'NAME'))",
+            "${plan}");
+    }
+
     public void testUnnest()
     {
         check("select*from unnest(multiset[1,2])",
@@ -199,6 +208,28 @@ public class SqlToRelConverterTest extends SqlToRelTestBase
     {
         check("select*from emp where exists (select 1 from dept where emp.deptno=dept.deptno)",
             "${plan}");
+    }
+
+    public void testInValueListShort()
+    {
+        check("select empno from emp where deptno in (10, 20)", "${plan}");
+    }
+
+    public void testInValueListLong()
+    {
+        // Go over the default threshold of 20 to force a subquery.
+        check(
+            "select empno from emp where deptno in"
+            + " (10, 20, 30, 40, 50, 60, 70, 80, 90, 100"
+            + ", 110, 120, 130, 140, 150, 160, 170, 180, 190"
+            + ", 200, 210, 220, 230)", "${plan}");
+    }
+
+    public void testInUncorrelatedSubquery()
+    {
+        check(
+            "select empno from emp where deptno in"
+            + " (select deptno from dept)", "${plan}");
     }
 
     public void testUnnestSelect() {
@@ -334,7 +365,8 @@ public class SqlToRelConverterTest extends SqlToRelTestBase
             "${plan}");
     }
 
-    public void testExplainAsXml() {
+    public void testExplainAsXml()
+    {
         String sql = "select 1 + 2, 3 from (values (true))";
         final RelNode rel = tester.convertSqlToRel(sql);
         StringWriter sw = new StringWriter();

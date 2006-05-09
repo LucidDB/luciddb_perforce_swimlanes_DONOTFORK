@@ -49,9 +49,7 @@ create schema lhx;
 set schema 'lhx';
 set path 'lhx';
 
-create jar luciddb_plugin library 'class com.lucidera.farrago.LucidDbSessionFactory' options(0);
-
-alter session implementation set jar luciddb_plugin;
+alter session implementation set jar sys_boot.sys_boot.luciddb_plugin;
 
 create table lhxemps(
     empno integer not null,
@@ -96,6 +94,18 @@ order by empno, ename;
 select * from lhxemps, lhxdepts
 where lhxemps.deptno = lhxdepts.deptnoA
 order by empno, ename;
+
+-- test hash join implementation for big IN
+explain plan for 
+select ename from lhxemps
+where empno in 
+(110, 110, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+order by ename;
+
+select ename from lhxemps
+where empno in 
+(110, 110, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+order by ename;
 
 -- this query still uses cartesian product
 explain plan for 
@@ -279,5 +289,4 @@ order by 1;
 --------------
 !set outputformat table
 alter session implementation set default;
-drop jar luciddb_plugin options(0);
 drop schema lhx cascade;

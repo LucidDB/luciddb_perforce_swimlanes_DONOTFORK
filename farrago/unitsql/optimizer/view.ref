@@ -1,4 +1,4 @@
-0: jdbc:farrago:> -- $Id: //open/lu/dev/farrago/unitsql/optimizer/view.sql#1 $
+0: jdbc:farrago:> -- $Id: //open/dev/farrago/unitsql/optimizer/view.sql#3 $
 0: jdbc:farrago:> -- Test queries against views
 0: jdbc:farrago:> 
 0: jdbc:farrago:> !autocommit off
@@ -49,7 +49,8 @@
 . . . . . . . . > select * from empsview order by name;
 'column0'
 'FennelToIteratorConverter'
-'  FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[0, 1]], index=[EMPS_UX], preserveOrder=[true])'
+'  FennelSortRel(key=[[1]], discardDuplicates=[false])'
+'    FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[0, 1]], index=[EMPS_UX], preserveOrder=[false])'
 0: jdbc:farrago:> 
 0: jdbc:farrago:> explain plan for
 . . . . . . . . > select * from joinview order by dname,ename;

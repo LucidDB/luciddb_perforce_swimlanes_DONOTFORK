@@ -83,9 +83,7 @@
 0: jdbc:farrago:> set schema 'lhx';
 0: jdbc:farrago:> set path 'lhx';
 0: jdbc:farrago:> 
-0: jdbc:farrago:> create jar luciddb_plugin library 'class com.lucidera.farrago.LucidDbSessionFactory' options(0);
-0: jdbc:farrago:> 
-0: jdbc:farrago:> alter session implementation set jar luciddb_plugin;
+0: jdbc:farrago:> alter session implementation set jar sys_boot.sys_boot.luciddb_plugin;
 0: jdbc:farrago:> 
 0: jdbc:farrago:> create table lhxemps(
 . . . . . . . . >     empno integer not null,
@@ -168,6 +166,33 @@
 '120','Wilma','20','20','20'
 '120','Wilma','20','20','20'
 '120','Wilma','20','20','20'
+0: jdbc:farrago:> 
+0: jdbc:farrago:> -- test hash join implementation for big IN
+0: jdbc:farrago:> explain plan for 
+. . . . . . . . > select ename from lhxemps
+. . . . . . . . > where empno in 
+. . . . . . . . > (110, 110, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+. . . . . . . . > order by ename;
+'column0'
+'FennelToIteratorConverter'
+'  FennelSortRel(key=[[0]], discardDuplicates=[false])'
+'    FennelCalcRel(expr#0..2=[{inputs}], ENAME=[$t1])'
+'      LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[INNER])'
+'        FennelCalcRel(expr#0..1=[{inputs}], expr#2=[true], expr#3=[IS TRUE($t2)], proj#0..1=[{exprs}], $condition=[$t3])'
+'          LcsRowScanRel(table=[[LOCALDB, LHX, LHXEMPS]], projection=[[0, 1]], clustered indexes=[[SYS$CLUSTERED_INDEX$LHX$LHXEMPS$EMPNO, SYS$CLUSTERED_INDEX$LHX$LHXEMPS$ENAME]])'
+'        FennelAggRel(groupCount=[1])'
+'          FennelSortRel(key=[[0]], discardDuplicates=[false])'
+'            FennelValuesRel(tuples=[[{ 110 }, { 110 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }, { 1 }]])'
+0: jdbc:farrago:> 
+0: jdbc:farrago:> select ename from lhxemps
+. . . . . . . . > where empno in 
+. . . . . . . . > (110, 110, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+. . . . . . . . > order by ename;
+'ENAME'
+'Eric'
+'Eric'
+'John'
+'John'
 0: jdbc:farrago:> 
 0: jdbc:farrago:> -- this query still uses cartesian product
 0: jdbc:farrago:> explain plan for 
@@ -615,7 +640,6 @@
 0: jdbc:farrago:> --------------
 0: jdbc:farrago:> !set outputformat table
 0: jdbc:farrago:> alter session implementation set default;
-0: jdbc:farrago:> drop jar luciddb_plugin options(0);
 0: jdbc:farrago:> drop schema lhx cascade;
 0: jdbc:farrago:> 
 0: jdbc:farrago:> !quit

@@ -6,13 +6,7 @@ set schema 'sj';
 
 -- set session personality to LucidDB so all tables
 -- will be column-store by default
-
--- fake jar since we don't actually build a separate jar for LucidDB yet
-create jar luciddb_plugin 
-library 'class com.lucidera.farrago.LucidDbSessionFactory' 
-options(0);
-
-alter session implementation set jar luciddb_plugin;
+alter session implementation set jar sys_boot.sys_boot.luciddb_plugin;
 
 create table t(
     a int, b char(20), c varchar(20) not null,
@@ -287,6 +281,32 @@ explain plan for
             c.city = st.city and st.state = 'New York'
         order by sid;
 
+-- index can be used for both semijoins and table filtering
+
+explain plan for
+    select sid, p.name, p.color, p.size, s.quantity
+        from sales s, product p
+        where
+            s.product_id = p.id and p.size = 'S' and
+            s.salesperson > 0
+        order by sid;
+
+explain plan for
+    select sid, p.name, p.color, p.size, s.quantity
+        from sales s, product p
+        where
+            s.product_id = p.id and p.size = 'S' and
+            s.salesperson = 1
+        order by sid;
+
+explain plan for
+    select sid, p.name, p.color, p.size, s.quantity
+        from sales s, product p
+        where
+            s.product_id = p.id and p.size = 'S' and
+            s.salesperson > 0 and s.customer > 0
+        order by sid;
+
 ------------------
 -- run the queries
 ------------------
@@ -337,3 +357,23 @@ select sid, c.company, c.city, st.state
         c.city = st.city and st.state = 'New York'
         order by sid;
 
+select sid, p.name, p.color, p.size, s.quantity
+    from sales s, product p
+    where
+        s.product_id = p.id and p.size = 'S' and
+        s.salesperson > 0
+    order by sid;
+
+select sid, p.name, p.color, p.size, s.quantity
+    from sales s, product p
+    where
+        s.product_id = p.id and p.size = 'S' and
+        s.salesperson = 1
+    order by sid;
+
+select sid, p.name, p.color, p.size, s.quantity
+    from sales s, product p
+    where
+        s.product_id = p.id and p.size = 'S' and
+        s.salesperson > 0 and s.customer > 0
+    order by sid;

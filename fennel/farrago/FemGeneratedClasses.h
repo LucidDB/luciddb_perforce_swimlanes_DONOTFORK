@@ -486,6 +486,10 @@ class ProxyCmdVerifyIndex
 : virtual public JniProxy, virtual public ProxyIndexAccessCmd
 {
 public:
+bool isEstimate();
+static jmethodID meth_isEstimate;
+bool isIncludeTuples();
+static jmethodID meth_isIncludeTuples;
 };
 
 class ProxyCollectTupleStreamDef
@@ -958,10 +962,10 @@ bool isPhysical();
 static jmethodID meth_isPhysical;
 std::string getRange();
 static jmethodID meth_getRange;
-SharedProxyWindowStreamDef getWindowStream();
-static jmethodID meth_getWindowStream;
 SharedProxyWindowPartitionDef getPartition();
 static jmethodID meth_getPartition;
+SharedProxyWindowStreamDef getWindowStream();
+static jmethodID meth_getWindowStream;
 int32_t getOffset();
 static jmethodID meth_getOffset;
 };
