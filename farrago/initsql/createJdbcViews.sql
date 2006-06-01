@@ -210,7 +210,9 @@ create view columns_view_internal as
         c."length" as char_octet_length,
         c."ordinal" + 1 as ordinal_position,
         convert_cwm_nullable_to_string(c."isNullable") as is_nullable,
+        c."description" as remarks,
         c."mofId",
+        c."lineageId",
         c."Histogram"
     from 
         tables_view_internal t 
@@ -547,6 +549,8 @@ create view table_stats_internal as
         t."CARDINALITY"
 ;
 
+-- left outer join needed to handle cases where indexes are not associated
+-- with any specific column
 create view index_info_view as
     select
         i.table_cat,
@@ -564,7 +568,7 @@ create view index_info_view as
         i.filter_condition
     from 
         index_info_internal i
-    inner join
+    left outer join
         sys_fem."MED"."LocalIndexColumn" c
     on
         i."mofId" = c."index"

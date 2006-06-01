@@ -42,6 +42,7 @@ import org.eigenbase.relopt.hep.*;
 import org.eigenbase.oj.rel.*;
 import org.eigenbase.resgen.*;
 import org.eigenbase.resource.*;
+import org.eigenbase.sql.*;
 
 import java.util.*;
 
@@ -63,6 +64,13 @@ public class LucidDbSessionPersonality extends FarragoDefaultSessionPersonality
         FarragoSessionStmtValidator stmtValidator)
     {
         return "SYS_COLUMN_STORE_DATA_SERVER";
+    }
+    
+    // implement FarragoSessionPersonality
+    public SqlOperatorTable getSqlOperatorTable(
+        FarragoSessionPreparingStmt preparingStmt)
+    {
+        return LucidDbOperatorTable.ldbInstance();
     }
 
     public boolean supportsFeature(ResourceDefinition feature)
@@ -172,11 +180,19 @@ public class LucidDbSessionPersonality extends FarragoDefaultSessionPersonality
         // may introduce new joins which need to be optimized further on.
         builder.addRuleInstance(RemoveDistinctAggregateRule.instance);
         
+        // Eliminate reducible constant expression.  TODO jvs 26-May-2006: do
+        // this again later wherever more such expressions may be reintroduced.
+        builder.addRuleClass(FarragoReduceExpressionsRule.class);
+        
         // Now, pull join conditions out of joins, leaving behind Cartesian
         // products.  Why?  Because PushFilterRule doesn't start from
         // join conditions, only filters.  It will push them right back
         // into and possibly through the join.
         builder.addRuleInstance(ExtractJoinFilterRule.instance);
+            
+        // Need to fire delete rule before any projection rules since the
+        // delete rule modifies the projection
+        builder.addRuleInstance(new LcsTableDeleteRule());
 
         // Remove trivial projects so tables referenced in selects in the
         // from clause can be optimized with the rest of the query
@@ -231,12 +247,27 @@ public class LucidDbSessionPersonality extends FarragoDefaultSessionPersonality
         // Apply PushProjectPastJoinRule while there are no physical joinrels
         // since the rule only matches on JoinRel.
         builder.addRuleInstance(new RemoveTrivialProjectRule());
-        builder.addRuleInstance(new PushProjectPastJoinRule());
+        builder.addRuleInstance(new PushProjectPastJoinRule(
+            LucidDbOperatorTable.ldbInstance().getSpecialOperators()));
         
         // Push project past filter so that we can reduce the number
-        // of clustered indexes accessed by row scan.
+        // of clustered indexes accessed by row scan.  There are two rule
+        // patterns because the second is needed to handle the case where
+        // the projection has been trivially removed but we still need to
+        // pull special columns referenced in filters into a new projection
         builder.addRuleInstance(new RemoveTrivialProjectRule());
-        builder.addRuleInstance(new PushProjectPastFilterRule());
+        builder.addRuleInstance(new PushProjectPastFilterRule(
+            new RelOptRuleOperand(
+                ProjectRel.class,
+                new RelOptRuleOperand [] {
+                    new RelOptRuleOperand(FilterRel.class, null)
+                }),
+            LucidDbOperatorTable.ldbInstance().getSpecialOperators(),
+            "with project"));
+        builder.addRuleInstance(new PushProjectPastFilterRule(
+            new RelOptRuleOperand(FilterRel.class, null),
+            LucidDbOperatorTable.ldbInstance().getSpecialOperators(),
+            "without project"));
         builder.addRuleInstance(new RemoveTrivialProjectRule());
 
         // Apply physical projection to row scans, eliminating access
@@ -275,6 +306,10 @@ public class LucidDbSessionPersonality extends FarragoDefaultSessionPersonality
         // and decimal reduction).
         builder.addRuleInstance(ReduceAggregatesRule.instance);
         
+        // Use hash aggregation wherever possible.
+        // Temporarily disabled - zfong 5/25/06
+        // builder.addRuleInstance(new LhxAggRule());
+
         // Convert remaining filters and projects to logical calculators,
         // merging adjacent ones.
         builder.addGroupBegin();
