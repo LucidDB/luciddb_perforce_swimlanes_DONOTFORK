@@ -26,6 +26,8 @@ import net.sf.farrago.jdbc.engine.*;
 import de.simplicit.vjdbc.server.rmi.*;
 import de.simplicit.vjdbc.server.config.*;
 
+import java.io.*;
+
 /**
  * FarragoVjdbcServer is a wrapper which configures a VJDBC server 
  * to listen for connections on behalf of a Farrago DBMS engine.
@@ -48,6 +50,15 @@ public class FarragoVjdbcServer extends FarragoAbstractServer
         FarragoVjdbcServer server = new FarragoVjdbcServer();
         server.start(new FarragoJdbcEngineDriver());
         server.runConsole();
+    }
+
+    public FarragoVjdbcServer()
+    {
+    }
+
+    public FarragoVjdbcServer(PrintWriter pw)
+    {
+        super(pw);
     }
     
     protected int startNetwork(FarragoJdbcServerDriver jdbcDriver)
