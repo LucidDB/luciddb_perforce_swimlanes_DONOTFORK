@@ -226,12 +226,24 @@ no sql
 external name 'applib.applibJar:com.lucidera.luciddb.applib.datetime.ConvertDateUdf.execute';
 
 -- define dayFromJulianStart
+-- 2440588 is the number of days from the Julian Calendar start date to 
+-- the epoch Jan 1, 1970 
 create function applib.day_from_julian_start(dt Date)
 returns integer
 language sql
 contains sql
 return (
   applib.day_number_overall(dt) + 2440588
+);
+
+-- define current_date_in_julian
+-- 2440588 is the number of days from the Julian Calendar start date to 
+-- the epoch Jan 1, 1970 
+create or replace function applib.current_date_in_julian()
+returns integer
+contains sql
+return (
+  applib.day_number_overall(CURRENT_DATE) + 2440588
 );
 
 -- define padweeknumber
@@ -350,3 +362,29 @@ language java
 deterministic
 no sql
 external name 'applib.applibJar:com.lucidera.luciddb.applib.variable.GetAppVarUdf.execute';
+
+-- Flatten hierarchical data
+create function applib.flatten_recursive_hierarchy(c cursor)
+returns table(
+    vertices integer,
+    multipath boolean,
+    level1 varchar(65535),
+    level2 varchar(65535),
+    level3 varchar(65535),
+    level4 varchar(65535),
+    level5 varchar(65535),
+    level6 varchar(65535),
+    level7 varchar(65535),
+    level8 varchar(65535),
+    level9 varchar(65535),
+    level10 varchar(65535),
+    level11 varchar(65535),
+    level12 varchar(65535),
+    level13 varchar(65535),
+    level14 varchar(65535),
+    level15 varchar(65535))
+
+language java
+parameter style system defined java
+no sql
+external name 'applib.applibJar:com.lucidera.luciddb.applib.cursor.FlattenRecursiveHierarchyUdx.execute';

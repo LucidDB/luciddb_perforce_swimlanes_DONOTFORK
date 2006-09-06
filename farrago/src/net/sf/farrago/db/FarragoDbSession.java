@@ -1123,6 +1123,13 @@ public class FarragoDbSession
             shutDownRequested = true;
             catalogDumpRequested = true;
         }
+
+        // implement DdlVisitor
+        public void visit(DdlReplaceCatalogStmt stmt)
+        {
+            shutDownRequested = true;
+            catalogDumpRequested = true;
+        }
     }
 }
 

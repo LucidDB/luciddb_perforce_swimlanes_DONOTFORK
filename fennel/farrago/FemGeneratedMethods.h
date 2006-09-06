@@ -26,6 +26,7 @@ jmethodID ProxyCmdOpenDatabase::meth_isCreateDatabase = 0;
 jmethodID ProxyCmdOpenDatabase::meth_getParams = 0;
 jmethodID ProxyCmdPrepareExecutionStreamGraph::meth_getStreamDefs = 0;
 jmethodID ProxyCmdSavepoint::meth_getResultHandle = 0;
+jmethodID ProxyCmdSetParam::meth_getParam = 0;
 jmethodID ProxyCmdVerifyIndex::meth_isEstimate = 0;
 jmethodID ProxyCmdVerifyIndex::meth_isIncludeTuples = 0;
 jmethodID ProxyCorrelation::meth_getId = 0;
@@ -120,6 +121,7 @@ jmethodID ProxyReshapeStreamDef::meth_getTupleCompareBytesBase64 = 0;
 jmethodID ProxyReshapeStreamDef::meth_getInputCompareProjection = 0;
 jmethodID ProxyReshapeStreamDef::meth_getOutputProjection = 0;
 jmethodID ProxySortingStreamDef::meth_getDistinctness = 0;
+jmethodID ProxySortingStreamDef::meth_getEstimatedNumRows = 0;
 jmethodID ProxyTableUpdaterDef::meth_getUpdateProj = 0;
 jmethodID ProxyTableWriterDef::meth_getIndexWriter = 0;
 jmethodID ProxyTupleAccessor::meth_getMinByteLength = 0;
@@ -237,6 +239,10 @@ visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(ne
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemCmdSavepoint");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyCmdSavepoint>));
 ProxyCmdSavepoint::meth_getResultHandle = pEnv->GetMethodID(jClass,"getResultHandle","()Lnet/sf/farrago/fem/fennel/FemSvptHandle;");
+
+jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemCmdSetParam");
+visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyCmdSetParam>));
+ProxyCmdSetParam::meth_getParam = pEnv->GetMethodID(jClass,"getParam","()Lnet/sf/farrago/fem/fennel/FemDatabaseParam;");
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemCmdTruncateIndex");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyCmdTruncateIndex>));
@@ -466,6 +472,7 @@ visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(ne
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemSortingStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxySortingStreamDef>));
 ProxySortingStreamDef::meth_getDistinctness = pEnv->GetMethodID(jClass,"getDistinctness","()Lnet/sf/farrago/fem/fennel/Distinctness;");
+ProxySortingStreamDef::meth_getEstimatedNumRows = pEnv->GetMethodID(jClass,"getEstimatedNumRows","()I");
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemSplitterStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxySplitterStreamDef>));
@@ -728,6 +735,15 @@ SharedProxySvptHandle ProxyCmdSavepoint::getResultHandle()
 SharedProxySvptHandle p;
 p->pEnv = pEnv;
 p->jObject = pEnv->CallObjectMethod(jObject,meth_getResultHandle);
+if (!p->jObject) p.reset();
+return p;
+}
+
+SharedProxyDatabaseParam ProxyCmdSetParam::getParam()
+{
+SharedProxyDatabaseParam p;
+p->pEnv = pEnv;
+p->jObject = pEnv->CallObjectMethod(jObject,meth_getParam);
 if (!p->jObject) p.reset();
 return p;
 }
@@ -1320,6 +1336,11 @@ Distinctness ProxySortingStreamDef::getDistinctness()
 {
 std::string symbol = constructString(JniUtil::toString(pEnv,pEnv->CallObjectMethod(jObject,meth_getDistinctness)));
 return static_cast<Distinctness>(JniUtil::lookUpEnum(Distinctness_names,symbol));
+}
+
+int32_t ProxySortingStreamDef::getEstimatedNumRows()
+{
+return pEnv->CallIntMethod(jObject,meth_getEstimatedNumRows);
 }
 
 SharedProxyTupleProjection ProxyTableUpdaterDef::getUpdateProj()

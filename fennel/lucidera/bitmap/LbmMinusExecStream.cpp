@@ -79,6 +79,7 @@ ExecStreamResult LbmMinusExecStream::execute(ExecStreamQuantum const &quantum)
     if (copyPrefixPending) {
         copyPrefix();
         copyPrefixPending = false;
+        needToRead = false;
     }
 
     for (uint i = 0; i < quantum.nTuplesMax; i++) {
@@ -86,18 +87,10 @@ ExecStreamResult LbmMinusExecStream::execute(ExecStreamQuantum const &quantum)
         // read a segment from the anchor if we've finished processing the
         // previous segment
         if (needToRead) {
-            rc = readInputAndRestart(0, baseRid, baseByteSeg, baseLen);
+            rc = readMinuendInputAndRestart(baseRid, baseByteSeg, baseLen);
             if (rc != EXECRC_YIELD) {
                 return rc;
             }
-            memcpy(pByteSegBuf, baseByteSeg - baseLen + 1, baseLen);
-            needToRead = false;
-            // reset the startrid to the rid just read in and write the
-            // dynamic parameter so the children can skip forward to that
-            // rid
-            startRid = baseRid;
-            pDynamicParamManager->writeParam(startRidParamId, startRidDatum);
-            iInput = 1;
         }
 
         // minus the children input, if they haven't all reached EOS
@@ -139,34 +132,60 @@ ExecStreamResult LbmMinusExecStream::execute(ExecStreamQuantum const &quantum)
     return EXECRC_QUANTUM_EXPIRED;
 }
 
-ExecStreamResult LbmMinusExecStream::readInputAndRestart(
-    uint iInput, LcsRid &currRid, PBuffer &currByteSeg, uint &currLen)
+ExecStreamResult LbmMinusExecStream::readMinuendInputAndRestart(
+    LcsRid &currRid, PBuffer &currByteSeg, uint &currLen)
 {
-    ExecStreamResult rc = EXECRC_YIELD;
-    if (nFields && iInput == 0) {
-        rc = readMinuendInput(currRid, currByteSeg, currLen);
+    ExecStreamResult rc;
+    bool unordered = false;
+
+    // If there are no keys, read as the minuend as an ordered input.
+    // Otherwise, read the minuend as a random sequence of segments.
+    if (nFields == 0) {
+        rc = readInput(0, currRid, currByteSeg, currLen);
     } else {
-        rc = readInput(iInput, currRid, currByteSeg, currLen);
+        rc = readMinuendInput(currRid, currByteSeg, currLen);
+        if (currRid < startRid) {
+            unordered = true;
+        }
     }
-    if (rc != EXECRC_YIELD || nFields == 0) {
+    if (rc != EXECRC_YIELD) {
         return rc;
     }
 
-    // If there are prefixes, and the tuple changes, then the first input's
-    // (the minuend's) RIDs may start all over. Restart the inputs to be
-    // subtracted (the subtrahends) so all of their data can be minused
+    // Store the segment just read
+    memcpy(pByteSegBuf, baseByteSeg - baseLen + 1, baseLen);
+    needToRead = false;
+    // reset the startrid to the rid just read in and write the
+    // dynamic parameter so the children can skip forward to that
+    // rid
+    startRid = baseRid;
+    pDynamicParamManager->writeParam(startRidParamId, startRidDatum);
+    iInput = 1;
+
+    // If there are no keys (the usual case), we never need to restart inputs
+    if (nFields == 0) {
+        return rc;
+    }
+
+    // If there are keys, then data is expected to come from an index. RIDs
+    // may be ordered for each key, but are not ordered for the entire stream. 
+    // In fact, when minus keys are only a subset of an index's keys, then
+    // RIDs may restart at any time.
+    // (Ex: RIDs in index [K1, K2] are ordered for each pair [k1, k2].
+    // However, a minus based on [K1] will be completely out of order.)
+    //
+    // Due to the lack of ordering, we restart subtrahends whenever the
+    // minuend is out of order so all of the subtrahend data can be minused
     // from the next minuend input.
     //
-    // Also flush the segment writer's current tuple. If it cannot be
+    // We also flush the segment writer's current tuple. If it cannot be
     // written, then we can't copy the next prefix yet, because the old
     // values will be used to construct the pending output tuple.
     if (prevTupleValid) {
         if (minuendReader.getTupleChange()) {
             minuendReader.resetChangeListener();
             int keyComp = comparePrefixes();
-            // NOTE: if prefix key is a partial subset of index key then
-            // rids may restart though the prefix key has not changed
-            if (keyComp != 0 || currRid < startRid) {
+            if (keyComp != 0 || unordered) {
                 restartSubtrahends();
                 if (!flush()) {
                     copyPrefixPending = true;

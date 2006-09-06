@@ -57,6 +57,9 @@ typedef JniProxyIter<ProxyCmdRollback> SharedProxyCmdRollback;
 class ProxyCmdSavepoint;
 typedef JniProxyIter<ProxyCmdSavepoint> SharedProxyCmdSavepoint;
 
+class ProxyCmdSetParam;
+typedef JniProxyIter<ProxyCmdSetParam> SharedProxyCmdSetParam;
+
 class ProxyCmdTruncateIndex;
 typedef JniProxyIter<ProxyCmdTruncateIndex> SharedProxyCmdTruncateIndex;
 
@@ -499,6 +502,14 @@ SharedProxySvptHandle getResultHandle();
 static jmethodID meth_getResultHandle;
 };
 
+class ProxyCmdSetParam
+: virtual public JniProxy, virtual public ProxyDatabaseCmd
+{
+public:
+SharedProxyDatabaseParam getParam();
+static jmethodID meth_getParam;
+};
+
 class ProxyCmdTruncateIndex
 : virtual public JniProxy, virtual public ProxyCmdDropIndex
 {
@@ -901,6 +912,8 @@ class ProxySortingStreamDef
 public:
 Distinctness getDistinctness();
 static jmethodID meth_getDistinctness;
+int32_t getEstimatedNumRows();
+static jmethodID meth_getEstimatedNumRows;
 };
 
 class ProxySplitterStreamDef
@@ -1128,6 +1141,8 @@ virtual void visit(ProxyCmdPrepareExecutionStreamGraph &)
 virtual void visit(ProxyCmdRollback &)
 { unhandledVisit(); }
 virtual void visit(ProxyCmdSavepoint &)
+{ unhandledVisit(); }
+virtual void visit(ProxyCmdSetParam &)
 { unhandledVisit(); }
 virtual void visit(ProxyCmdTruncateIndex &)
 { unhandledVisit(); }

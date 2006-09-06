@@ -11,7 +11,7 @@ Here are some of the main features which set LucidDB apart:
 
 <p>
 
-<table border=1>
+<table border=2 style="clsStd; border-collapse:collapse">
 
 <tr>
 <td><b>Category</b></td>
@@ -31,7 +31,7 @@ greater cache effectiveness</td>
 <td>Intelligent indexing</td> <td>Automatically adapts to either
 bitmap or btree representation depending on data distribution (even
 using both in the same index for different portions of the table),
-yielding optimal data compression, reduced I/O, and direct evaluation
+yielding optimal data compression, reduced I/O, and fast evaluation
 of boolean expressions</td>
 </tr>
 
@@ -48,22 +48,22 @@ of boolean expressions</td>
 
 <tr>
 <td rowspan=3><i>Execution</i></td><td>Hash join/aggregation</td>
-<td>Can scale to even the largest number-crunching datasets in limited
+<td>Can scale to number-crunch even the largest datasets in limited
 RAM via skew-resistant disk-based partitioning</td>
 </tr>
 
 <tr>
-<td>Selective prefetch</td> <td>High performance and greater cache and
+<td>Intelligent prefetch</td> <td>High performance and greater cache and
 disk effectiveness because LucidDB can almost always predict exactly
 which disk blocks are needed to satisfy a query</td>
 </tr>
 
 <tr>
-<td>INSERT/UPSERT as bulk load</td> 
-<td>Tables can be loaded directly from external sources via SQL; no
-separate bulk loader utility is required (for performance, loads are
-never logged at the row-level, yet are fully recoverable); the SQL:2003
-MERGE statement provides upsert capability</td>
+<td>INSERT/UPSERT as bulk load</td> <td>Tables can be loaded directly
+from external sources via SQL; no separate bulk loader utility is
+required (for performance, loads are never logged at the row-level,
+yet are fully recoverable via page-level undo); the SQL:2003 MERGE
+statement provides standard upsert capability</td>
 </tr>
 
 <tr>
@@ -107,7 +107,7 @@ user logic</td>
 <tr>
 <td>User-defined transformations</td>
 <td>Allows new table functions (such as custom logic for
-name and address cleansing and de-duplication)
+data mining operators or CONNECT BY queries)
 to be added to the system</td>
 </tr>
 
@@ -127,7 +127,7 @@ the <a target="_top" href="http://mondrian.sf.net">Mondrian</a> OLAP engine</td>
 a J2EE application server (just like <a target="_top"
 href="http://www.hsqldb.org">hsqldb</a> or <a target="_top"
 href="http://db.apache.org/derby">Derby</a>); usage of Java as
-the primary extensibility mechanism makes it easy to integrate
+the primary extensibility mechanism makes it a snap to integrate
 with the many enterprise API's available
 </tr>
 

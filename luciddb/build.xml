@@ -175,6 +175,9 @@ ${farrago.test.jvmargs}
     <pathelement path="${resgen.dir}/lib/eigenbase-resgen.jar"/>
     <pathelement path="${resgen.dir}/lib/eigenbase-xom.jar"/>
     <pathelement path="${mdrlibs.dir}/jmi.jar"/>
+    <fileset dir="${jgrapht7.dir}">
+      <include name="jgrapht7-jdk1.5.jar" />
+    </fileset>
   </path>
   <property name="applib.build.classpath" refid="applib.build.classpath"/>
 
@@ -205,7 +208,6 @@ ${farrago.test.jvmargs}
           <exclude name="conv_types/**"/>
           <exclude name="numerics/build.xml"/>
           <exclude name="txn/build.xml"/>
-          <exclude name="concurrency/build.xml"/>
           <exclude name="udr/udx/**"/>
           <exclude name="udr/udf/**"/>
           <exclude name="VI/recovery/build.xml"/>
@@ -558,6 +560,8 @@ ${farrago.test.jvmargs}
         <include 
           name="net/sf/farrago/jdbc/client/FarragoVjdbcClientDriver.class"/>
         <include 
+          name="net/sf/farrago/jdbc/client/FarragoUnregisteredVjdbcClientDriver.class"/>
+        <include 
           name="net/sf/farrago/jdbc/FarragoAbstractJdbcDriver.class"/>
         <include 
           name="net/sf/farrago/release/*"/>
@@ -886,11 +890,14 @@ ${farrago.test.jvmargs}
       value="${package.name}-${product.version.major}.${product.version.minor}.${product.version.point}"/>
     <property name="release.lib.dir" 
       location="${dist.dir}/${lucidera.release.spec}/lib"/>
+    <property name="release.plugin.dir" 
+      location="${dist.dir}/${lucidera.release.spec}/plugin"/>
     <property name="release.bin.dir" 
       location="${dist.dir}/${lucidera.release.spec}/bin"/>
     <property name="release.properties.target" 
       location="${release.lib.dir}/FarragoRelease.properties"/>
 
+    <delete dir="${dist.dir}" quiet="true"/>
     <mkdir dir="${dist.dir}"/>
 
     <if>
@@ -914,11 +921,19 @@ ${farrago.test.jvmargs}
 	<property name="lu.product.version.point" value="${product.version.point}"/>
     </ant>
 
-    <copy todir="${dist.dir}/${lucidera.release.spec}/catalog">
+    <delete dir="${dist.dir}/${lucidera.release.spec}/catalog" quiet="true"/>
+    <mkdir dir="${dist.dir}/${lucidera.release.spec}/catalog"/>
+    <copy todir="${dist.dir}/${lucidera.release.spec}/catalog"
+      file="${farrago.ReposStorage.propfile}">
       <fileset dir="${catalog.backup.dir}"/>
     </copy>
-    <copy todir="${release.lib.dir}/plugin">
-      <fileset dir="${luciddb.plugin.dir}"/>
+    <copy todir="${release.plugin.dir}">
+      <fileset dir="${luciddb.plugin.dir}">
+        <exclude name="applib/**"/>
+      </fileset>
+    </copy>
+    <copy todir="${dist.dir}/${lucidera.release.spec}/examples">
+      <fileset dir="${luciddb.dir}/examples"/>
     </copy>
 
     <copy file="${release.properties.source}"
@@ -930,18 +945,44 @@ ${farrago.test.jvmargs}
         <equals arg1="${osfamily}" arg2="unix"/>
       <then>
         <property name="sqllineClient" value="sqllineClient"/>
+        <property name="sqllineEngine" value="sqllineEngine"/>
+        <property name="farragoServer" value="farragoServer"/>
+        <property name="lucidDbServer" value="lucidDbServer"/>
       </then>
       <else>
         <property name="sqllineClient" value="sqllineClient.bat"/>
+        <property name="sqllineEngine" value="sqllineEngine.bat"/>
+        <property name="farragoServer" value="farragoServer.bat"/>
+        <property name="lucidDbServer" value="lucidDbServer.bat"/>
       </else>
     </if>
 
-    <replace 
-        file="${release.bin.dir}/${sqllineClient}">
-        <replacefilter token="jdbc:farrago:rmi://localhost" value="jdbc:luciddb:rmi://localhost"/>
-        <replacefilter token="net.sf.farrago.jdbc.client.FarragoVjdbcClientDriver" value="com.lucidera.jdbc.LucidDbRmiDriver"/>
+    <replace file="${release.bin.dir}/${sqllineClient}">
+        <replacefilter token="jdbc:farrago:rmi://localhost" 
+        value="jdbc:luciddb:rmi://localhost"/>
+        <replacefilter 
+        token="net.sf.farrago.jdbc.client.FarragoVjdbcClientDriver" 
+        value="com.lucidera.jdbc.LucidDbRmiDriver"/>
         <replacefilter token="guest" value="sa"/>
     </replace>
+    <chmod file="${release.bin.dir}/${sqllineClient}" perm="u+x" />
+
+    <move file="${release.bin.dir}/${farragoServer}" 
+      tofile="${release.bin.dir}/${lucidDbServer}"/>
+    <replace file="${release.bin.dir}/${lucidDbServer}">
+        <replacefilter token="net.sf.farrago.server.FarragoVjdbcServer" 
+        value="com.lucidera.farrago.LucidDbServer"/>
+    </replace>
+    <chmod file="${release.bin.dir}/${lucidDbServer}" perm="u+x" />
+
+    <replace file="${release.bin.dir}/${sqllineEngine}">
+        <replacefilter token="jdbc:farrago:" value="jdbc:luciddb:"/>
+        <replacefilter 
+        token="net.sf.farrago.jdbc.engine.FarragoJdbcEngineDriver" 
+        value="com.lucidera.jdbc.LucidDbLocalDriver"/>
+        <replacefilter token="guest" value="sa"/>
+    </replace>
+    <chmod file="${release.bin.dir}/${sqllineEngine}" perm="u+x" />
 
     <jar update="true" 
       destfile="${release.lib.dir}/farrago.jar"

@@ -437,7 +437,31 @@
       </deny>
     </access-rule>
 
+    <pattern name="jdbc.param.deps">
+      <include pattern="fennel.tuple.deps" />
+      <include pattern="jdbc.param" />
+    </pattern>
+
+    <access-rule>
+      <message>jdbc.param dependency violation</message>
+      <deny>
+        <from pattern="jdbc.param" />
+        <to pattern="eigenbase" />
+        <allow>
+          <to pattern="util14" />
+        </allow>
+      </deny>
+      <deny>
+        <from pattern="jdbc.param" />
+        <to pattern="farrago" />
+        <allow>
+          <to pattern="jdbc.param.deps" />
+        </allow>
+      </deny>
+    </access-rule>
+
     <pattern name="runtime.deps">
+      <include pattern="jdbc.param.deps" />
       <include pattern="session.deps" />
       <include pattern="runtime" />
     </pattern>
@@ -590,29 +614,6 @@
         <to pattern="farrago" />
         <allow>
           <to pattern="jdbc.deps" />
-        </allow>
-      </deny>
-    </access-rule>
-
-    <pattern name="jdbc.param.deps">
-      <include pattern="fennel.tuple.deps" />
-      <include pattern="jdbc.param" />
-    </pattern>
-
-    <access-rule>
-      <message>jdbc.param dependency violation</message>
-      <deny>
-        <from pattern="jdbc.param" />
-        <to pattern="eigenbase" />
-        <allow>
-          <to pattern="util14" />
-        </allow>
-      </deny>
-      <deny>
-        <from pattern="jdbc.param" />
-        <to pattern="farrago" />
-        <allow>
-          <to pattern="jdbc.param.deps" />
         </allow>
       </deny>
     </access-rule>
@@ -877,10 +878,12 @@
       </deny>
     </access-rule>
 
+    <!-- FIXME jvs 29-July-2006:  eliminate circularity -->
     <pattern name="lu.jdbc.deps">
+      <include pattern="lu.farrago" />
+      <include pattern="jdbc.engine.deps" />
+      <include pattern="jdbc.client.deps" />
       <include pattern="lu.jdbc" />
-      <include pattern="jdbc.engine" />
-      <include pattern="jdbc.client" />
     </pattern>
 
     <access-rule>
@@ -1005,6 +1008,7 @@
       <include pattern="lu.lcs" />
       <include pattern="lu.opt" />
       <include pattern="lu.query" />
+      <include pattern="lu.jdbc" />
       <include pattern="server" />
       <include pattern="defimpl.deps" />
     </pattern>
@@ -1020,6 +1024,7 @@
       </deny>
     </access-rule>
 
+    <!-- FIXME jvs 29-July-2006:  eliminate circularity -->
     <pattern name="lu.query.deps">
       <include pattern="lu.farrago.deps" />
       <include pattern="lu.query" />

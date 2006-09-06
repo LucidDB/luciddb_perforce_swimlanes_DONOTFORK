@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<!-- $Id: //open/dt/dev/fennel/common/FennelResource.xml#8 $ -->
+<!-- $Id$ -->
 
 <resourceBundle
   static="false"
@@ -55,6 +55,14 @@
 
   <message id="440050" name="rowTooLong">
     <text>Row size ({0,number,#} bytes) exceeds maximum ({1,number,#} bytes); row data:  {2}</text>
+  </message>
+
+  <message id="440060" name="invalidParam">
+    <text>Invalid parameter setting.  Setting must be between {0} and {1}.</text>
+  </message>
+
+  <message id="440065" name="scalarQueryReturnedMultipleRows">
+    <text>Scalar query returned more than one row</text>
   </message>
 
   <!-- message id range 441000-441999 reserved for external data wrapper -->
