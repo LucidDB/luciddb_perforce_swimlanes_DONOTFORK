@@ -31,7 +31,7 @@ FENNEL_BEGIN_NAMESPACE
  * starting rid value, a bitmap segment descriptor, and then the actual
  * bitmap segments.
  */
-class LbmSegment
+class LbmSegment : public boost::noncopyable
 {
 protected:
     /**
@@ -187,7 +187,7 @@ public:
     static inline LcsRid roundToByteBoundary(LcsRid rid);
 
     /**
-     * Sets the length descriptor for a segment with zero trailing zeros
+     * Sets the length descriptor for a new segment with zero trailing zeros
      *
      * @param segDescByte byte that will be set with the segment length
      *
@@ -198,7 +198,7 @@ public:
     static inline bool setSegLength(uint8_t &segDescByte, uint segLen);
 
     /**
-     * Replace the current segment length in a descriptor with the new
+     * Set segment length in an existing descriptor with the new
      * segment length.  Also, leaves the current zero trailing bytes count
      * untouched
      *
@@ -207,7 +207,7 @@ public:
      *
      * @return true if length can be encoded in the segment descriptor
      */
-    inline bool adjustSegLength(uint8_t &segDescByte, uint segLen);
+    static inline bool adjustSegLength(uint8_t &segDescByte, uint segLen);
 
     /**
      * Get the segment length encoded in SegmentDescriptor.

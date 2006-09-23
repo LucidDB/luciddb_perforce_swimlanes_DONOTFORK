@@ -27,7 +27,6 @@
 #include "fennel/device/DeviceAccessSchedulerParams.h"
 #include "fennel/device/RandomAccessNullDevice.h"
 #include "fennel/cache/CacheParams.h"
-#include "fennel/cache/CacheStats.h"
 #include "fennel/common/CompoundId.h"
 #include "fennel/common/InvalidParamExcn.h"
 #include "fennel/cache/VMAllocator.h"
@@ -60,6 +59,8 @@ CacheImpl<PageT,VictimPolicyT>
 {
     cbPage = params.cbPage;
     pDeviceAccessScheduler = NULL;
+
+    initializeStats();
 
     // allocate pages, adding all of them onto the free list and registering
     // them with victimPolicy
@@ -101,6 +102,26 @@ CacheImpl<PageT,VictimPolicyT>
     if (idleFlushInterval) {
         timerThread.start();
     }
+}
+
+template <class PageT,class VictimPolicyT>
+void CacheImpl<PageT,VictimPolicyT>::initializeStats()
+{
+    // clear instantaneous counters too just to avoid confusion
+    statsSinceInit.nHits = 0;
+    statsSinceInit.nHitsSinceInit = 0;
+    statsSinceInit.nRequests = 0;
+    statsSinceInit.nRequestsSinceInit = 0;
+    statsSinceInit.nVictimizations = 0;
+    statsSinceInit.nVictimizationsSinceInit = 0;
+    statsSinceInit.nDirtyPages = 0;
+    statsSinceInit.nPageReads = 0;
+    statsSinceInit.nPageReadsSinceInit = 0;
+    statsSinceInit.nPageWrites = 0;
+    statsSinceInit.nPageWritesSinceInit = 0;
+    statsSinceInit.nMemPagesAllocated = 0;
+    statsSinceInit.nMemPagesUnused = 0;
+    statsSinceInit.nMemPagesMax = 0;
 }
 
 template <class PageT,class VictimPolicyT>
@@ -794,14 +815,28 @@ void CacheImpl<PageT,VictimPolicyT>
     stats.nDirtyPages = nDirtyPages;
     stats.nPageReads = nPageReads;
     stats.nPageWrites = nPageWrites;
+    stats.nMemPagesAllocated = getAllocatedPageCount();
+    stats.nMemPagesUnused = unmappedBucket.pageList.size();
+    stats.nMemPagesMax = getMaxAllocatedPageCount();
 
+    // NOTE:  nDirtyPages is not cumulative; don't clear it!
     nCacheHits.clear();
     nCacheRequests.clear();
     nVictimizations.clear();
     nPageReads.clear();
     nPageWrites.clear();
 
-    // NOTE:  nDirtyPages is not cumulative; don't clear it!
+    statsSinceInit.nHitsSinceInit += stats.nHits;
+    statsSinceInit.nRequestsSinceInit += stats.nRequests;
+    statsSinceInit.nVictimizationsSinceInit += stats.nVictimizations;
+    statsSinceInit.nPageReadsSinceInit += stats.nPageReads;
+    statsSinceInit.nPageWritesSinceInit += stats.nPageWrites;
+
+    stats.nHitsSinceInit = statsSinceInit.nHitsSinceInit;
+    stats.nRequestsSinceInit = statsSinceInit.nRequestsSinceInit;
+    stats.nVictimizationsSinceInit = statsSinceInit.nVictimizationsSinceInit;
+    stats.nPageReadsSinceInit = statsSinceInit.nPageReadsSinceInit;
+    stats.nPageWritesSinceInit = statsSinceInit.nPageWritesSinceInit;
 }
 
 template <class PageT,class VictimPolicyT>

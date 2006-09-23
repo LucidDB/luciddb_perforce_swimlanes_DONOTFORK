@@ -25,6 +25,7 @@
 #define Fennel_CacheImpl_Included
 
 #include "fennel/cache/Cache.h"
+#include "fennel/cache/CacheStats.h"
 #include "fennel/common/IntrusiveList.h"
 #include "fennel/common/AtomicCounter.h"
 #include "fennel/synch/SXMutex.h"
@@ -173,6 +174,12 @@ class CacheImpl : public Cache, private TimerThreadClient
      * See CacheStats::nPageWrites.
      */
     AtomicCounter nPageWrites;
+
+    /**
+     * Accumulated state for all counters which are tracked since cache
+     * initialization.  Other fields are unused.
+     */
+    CacheStats statsSinceInit;
 
     /**
      * Mutex coupled with freePageCondition.
@@ -438,6 +445,11 @@ class CacheImpl : public Cache, private TimerThreadClient
      * @param x reference to counter to be updated
      */
     void decrementStatsCounter(AtomicCounter &x);
+
+    /**
+     * Clears stats which are tracked since initialization.
+     */
+    void initializeStats();
     
 // ----------------------------------------------------------------------
 // Implementation of private Cache interface (q.v.)

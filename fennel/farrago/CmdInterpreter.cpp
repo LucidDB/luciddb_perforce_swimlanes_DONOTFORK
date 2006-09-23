@@ -175,7 +175,8 @@ void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
     std::auto_ptr<DbHandle> pDbHandle(newDbHandle());
     JniUtil::incrementHandleCount(DBHANDLE_TRACE_TYPE_STR, pDbHandle.get());
 
-    pDbHandle->pTraceTarget.reset(newTraceTarget());
+    JavaTraceTarget *pJavaTraceTarget = newTraceTarget();
+    pDbHandle->pTraceTarget.reset(pJavaTraceTarget);
     // on a fatal error, echo the backtrace to the log file:
     AutoBacktrace::setTraceTarget(pDbHandle->pTraceTarget);
 
@@ -186,9 +187,6 @@ void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
         pDbHandle->pTraceTarget);
 
     pDbHandle->pDb = pDb;
-
-    pDbHandle->statsTimer.addSource(pDb);
-    pDbHandle->statsTimer.start();
 
     ExecStreamResourceKnobs knobSettings;
     knobSettings.cacheReservePercentage =
@@ -205,6 +203,11 @@ void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
                 knobSettings, resourcesAvailable,
                 pDbHandle->pTraceTarget,
                 "xo.resourceGovernor"));
+
+    pDbHandle->statsTimer.setTarget(*pJavaTraceTarget);
+    pDbHandle->statsTimer.addSource(pDb);
+    pDbHandle->statsTimer.addSource(pDbHandle->pResourceGovernor);
+    pDbHandle->statsTimer.start();
 
     if (pDb->isRecoveryRequired()) {
         SegmentAccessor scratchAccessor =
@@ -252,7 +255,7 @@ void CmdInterpreter::visit(ProxyCmdSetParam &cmd)
         ExecStreamResourceQuantity available;
         available.nCachePages = pageCount;
         if (!pDbHandle->pResourceGovernor->setResourceAvailability(
-            available, CachePages))
+            available, EXEC_RESOURCE_CACHE_PAGES))
         {
             throw InvalidParamExcn(
                 "the number of pages currently assigned (plus reserve)",
@@ -272,7 +275,7 @@ void CmdInterpreter::visit(ProxyCmdSetParam &cmd)
         ExecStreamResourceKnobs knob;
         knob.expectedConcurrentStatements = nStatements;
         pDbHandle->pResourceGovernor->setResourceKnob(
-            knob, ExpectedConcurrentStatements);
+            knob, EXEC_KNOB_EXPECTED_CONCURRENT_STATEMENTS);
 
     } else if (paramName.compare("cacheReservePercentage") == 0) {
         int percent = boost::lexical_cast<int>(pParam->getValue());
@@ -282,7 +285,7 @@ void CmdInterpreter::visit(ProxyCmdSetParam &cmd)
         ExecStreamResourceKnobs knob;
         knob.cacheReservePercentage = percent;
         if (!pDbHandle->pResourceGovernor->setResourceKnob(
-            knob, CacheReservePercentage))
+            knob, EXEC_KNOB_CACHE_RESERVE_PERCENTAGE))
         {
             throw InvalidParamExcn(
                 "1",

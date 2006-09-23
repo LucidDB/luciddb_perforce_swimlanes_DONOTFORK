@@ -137,7 +137,7 @@ public class FarragoDefaultPlanner
 
         planner.addRule(ReduceAggregatesRule.instance);
 
-        planner.addRule(new PushFilterRule());
+        planner.addRule(new PushFilterPastJoinRule());
         planner.addRule(new PushProjectPastFilterRule());
         planner.addRule(new PushProjectPastJoinRule());
 
@@ -152,6 +152,7 @@ public class FarragoDefaultPlanner
             planner.addRule(new FennelOneRowRule());
             planner.addRule(new FennelValuesRule());
             planner.addRule(new FennelAggRule());
+            planner.addRule(new FennelReshapeRule());
         }
 
         // Add the rule to introduce FennelCalcRel's only if the fennel
