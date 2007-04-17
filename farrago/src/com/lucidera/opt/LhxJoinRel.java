@@ -61,6 +61,11 @@ public class LhxJoinRel
     List<Integer> rightKeys;
 
     /**
+     * Whether the join key at a given position matches null values
+     */
+    List<Integer> filterNulls;
+    
+    /**
      * row count on the build side
      */
     long numBuildRows;
@@ -97,6 +102,7 @@ public class LhxJoinRel
         boolean isSetop,
         List<Integer> leftKeys,
         List<Integer> rightKeys,
+        List<Integer> filterNulls,
         List<String> fieldNameList,
         long numBuildRows,
         long cndBuildKey)
@@ -107,11 +113,28 @@ public class LhxJoinRel
         this.isSetop = isSetop;
         this.leftKeys = leftKeys;
         this.rightKeys = rightKeys;
+
+        if (filterNulls != null) {
+            this.filterNulls = filterNulls;
+        } else {
+            // if filterNulls is null, it is implied that nulls keys
+            // are not matched, i.e. filterNulls is true for every key position
+            //
+            // note that an empty list means nulls are not filtered for any key
+            // position, which means null values are considered matching for
+            // all join key positions.
+            this.filterNulls = new ArrayList<Integer>();
+            for (int i = 0; i < leftKeys.size(); i ++) {
+                this.filterNulls.add(i);
+            }
+        }
+        
         if (joinType == LhxJoinRelType.LEFTSEMI) {
             // intersect is implemented using left semi join
             this.rowType = left.getRowType();
-        } else if (joinType == LhxJoinRelType.RIGHTANTI) {
-            // except is implemented using right anti join
+        } else if (joinType == LhxJoinRelType.RIGHTANTI ||
+            joinType == LhxJoinRelType.RIGHTSEMI) {
+            // except is implemented using right anti or right semi join
             this.rowType = right.getRowType();
         } else {
             // regular join
@@ -141,6 +164,7 @@ public class LhxJoinRel
                 isSetop,
                 leftKeys,
                 rightKeys,
+                filterNulls,
                 RelOptUtil.getFieldNameList(rowType),
                 numBuildRows,
                 cndBuildKey);
@@ -171,12 +195,22 @@ public class LhxJoinRel
     public void explain(RelOptPlanWriter pw)
     {
         if (!isSetop) {
-            pw.explain(
-                this,
-                new String[] {
-                    "left", "right", "leftKeys", "rightKeys", "joinType"
-                },
-                new Object[] { leftKeys, rightKeys, joinType });
+            if (filterNulls.size() == leftKeys.size()) {
+                pw.explain(
+                    this,
+                    new String[] {
+                        "left", "right", "leftKeys", "rightKeys", "joinType"
+                    },
+                    new Object[] { leftKeys, rightKeys, joinType });
+            } else {
+                // only print out filterNulls if not all key positions are included
+                pw.explain(
+                    this,
+                    new String[] {
+                        "left", "right", "leftKeys", "rightKeys", "filterNulls", "joinType"
+                    },
+                    new Object[] { leftKeys, rightKeys, filterNulls, joinType });            
+            }
         } else {
             pw.explain(
                 this,
@@ -225,11 +259,13 @@ public class LhxJoinRel
         // LeftOuter: non-matching tuples from the left
         // RightInner: matching tuples from the right
         // RightOuter: non-matching tuples from the right
-        if (joinType == LhxJoinRelType.RIGHTANTI) {
+        if (joinType == LhxJoinRelType.RIGHTANTI ||
+            joinType == LhxJoinRelType.RIGHTSEMI) {
             streamDef.setLeftInner(false);
         } else {
             streamDef.setLeftInner(true);
         }
+        
         if ((joinType == LhxJoinRelType.LEFT)
             || (joinType == LhxJoinRelType.FULL)) {
             streamDef.setLeftOuter(true);
@@ -272,6 +308,11 @@ public class LhxJoinRel
                 repos,
                 rightKeys));
 
+        streamDef.setFilterNullProj(
+            FennelRelUtil.createTupleProjection(
+                repos,
+                filterNulls));
+        
         return streamDef;
     }
     

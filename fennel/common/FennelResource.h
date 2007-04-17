@@ -81,6 +81,11 @@ class FennelResource : ResourceBundle
     std::string scratchMemExhausted() const;
 
     /**
+     * <code>uniqueConstraintViolated</code> is 'Unique constraint violation'
+     */
+    std::string uniqueConstraintViolated() const;
+
+    /**
      * <code>readDataFailed</code> is 'Could not read data file {0}'
      */
     std::string readDataFailed(const std::string &p0) const;
@@ -145,6 +150,16 @@ class FennelResource : ResourceBundle
      */
     std::string flatfileNoHeader(const std::string &p0, const std::string &p1) const;
 
+    /**
+     * <code>flatfileMappedRequiresLenient</code> is 'Flat file columns cannot be mapped without lenient mode'
+     */
+    std::string flatfileMappedRequiresLenient() const;
+
+    /**
+     * <code>flatfileNoMappedColumns</code> is 'Could not map flat file columns because the flat file header {0} contained none of the target columns {1}'
+     */
+    std::string flatfileNoMappedColumns(const std::string &p0, const std::string &p1) const;
+
     private:
     ResourceDefinition _sysCallFailed;
     ResourceDefinition _duplicateKeyDetected;
@@ -154,6 +169,7 @@ class FennelResource : ResourceBundle
     ResourceDefinition _invalidParam;
     ResourceDefinition _scalarQueryReturnedMultipleRows;
     ResourceDefinition _scratchMemExhausted;
+    ResourceDefinition _uniqueConstraintViolated;
     ResourceDefinition _readDataFailed;
     ResourceDefinition _dataTransferFailed;
     ResourceDefinition _writeLogFailed;
@@ -167,6 +183,8 @@ class FennelResource : ResourceBundle
     ResourceDefinition _rowTextTooLong;
     ResourceDefinition _flatfileDescribeFailed;
     ResourceDefinition _flatfileNoHeader;
+    ResourceDefinition _flatfileMappedRequiresLenient;
+    ResourceDefinition _flatfileNoMappedColumns;
 
     template<class _GRB, class _BC, class _BC_ITER>
         friend _GRB *makeInstance(_BC &bundleCache, const Locale &locale);

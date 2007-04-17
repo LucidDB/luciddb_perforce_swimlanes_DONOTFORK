@@ -66,12 +66,26 @@ public class RelMdDistinctRowCount
         RexNode predicate)
     {
         Double rowCount = 0.0;
+        int [] adjustments = new int[rel.getRowType().getFieldCount()];
+        RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
         for (RelNode input : rel.getInputs()) {
+            // convert the predicate to reference the types of the union child
+            RexNode modifiedPred;
+            if (predicate == null) {
+                modifiedPred = null;
+            } else {
+                modifiedPred = predicate.accept(
+                    new RelOptUtil.RexInputConverter(
+                        rexBuilder,
+                        null,
+                        input.getRowType().getFields(),
+                        adjustments));
+            }
             Double partialRowCount =
                 RelMetadataQuery.getDistinctRowCount(
                     input,
                     groupKey,
-                    predicate);
+                    modifiedPred);
             if (partialRowCount == null) {
                 return null;
             }
@@ -120,8 +134,6 @@ public class RelMdDistinctRowCount
     {
         return RelMdUtil.getJoinDistinctRowCount(
             rel,
-            rel.getLeft(),
-            rel.getRight(),
             rel.getJoinType(),
             groupKey,
             predicate);
@@ -206,20 +218,27 @@ public class RelMdDistinctRowCount
         List<RexNode> notPushable = new ArrayList<RexNode>();
         List<RexNode> pushable = new ArrayList<RexNode>();
         RelOptUtil.splitFilters(
-            rel.getChild().getRowType().getFieldCount(),
+            rel.getRowType().getFieldCount(),
             predicate,
             pushable,
             notPushable);
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
         // get the distinct row count of the child input, passing in the
-        // columns and filters that only reference the child
+        // columns and filters that only reference the child; convert the
+        // filter to reference the children projection expressions
         RexNode childPred = RexUtil.andRexNodeList(rexBuilder, pushable);
+        RexNode modifiedPred;
+        if (childPred == null) {
+            modifiedPred = null;
+        } else {
+            modifiedPred = RelOptUtil.pushFilterPastProject(childPred, rel);
+        }
         Double distinctRowCount =
             RelMetadataQuery.getDistinctRowCount(
                 rel.getChild(),
                 baseCols,
-                childPred);
+                modifiedPred);
         if (distinctRowCount == null) {
             return null;
         }
@@ -249,8 +268,8 @@ public class RelMdDistinctRowCount
         // REVIEW zfong 4/19/06 - Broadbase code does not take into
         // consideration selectivity of predicates passed in.  Also, they
         // assume the rows are unique even if the table is not
-        Boolean uniq = RelMdUtil.areColumnsUnique(rel, groupKey);
-        if ((uniq != null) && uniq) {
+        boolean uniq = RelMdUtil.areColumnsDefinitelyUnique(rel, groupKey);
+        if (uniq) {
             return
                 NumberUtil.multiply(
                     RelMetadataQuery.getRowCount(rel),

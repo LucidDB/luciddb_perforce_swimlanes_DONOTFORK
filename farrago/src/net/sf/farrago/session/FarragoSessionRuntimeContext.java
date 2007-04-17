@@ -22,6 +22,7 @@
 */
 package net.sf.farrago.session;
 
+import net.sf.farrago.catalog.*;
 import net.sf.farrago.fennel.*;
 import net.sf.farrago.util.*;
 
@@ -67,9 +68,39 @@ public interface FarragoSessionRuntimeContext
     public void checkCancel();
 
     /**
+     * Sets the state of the top-level cursor associated with this context,
+     * (after first calling checkCancel if active=true).  Not called for
+     * internal cursors such as UDX inputs and cursors opened via reentrant SQL
+     * from UDR's.
+     *
+     * @param active true if cursor is beginning a fetch request; false if
+     * cursor is ending a fetch request
+     */
+    public void setCursorState(boolean active);
+
+    /**
+     * Waits for cursor state to be reset to active=false
+     * (returns immediately if cursor is not currently active).
+     */
+    public void waitForCursor();
+
+    /**
      * @return FennelStreamGraph pinned by loadFennelPlan
      */
     public FennelStreamGraph getFennelStreamGraph();
+    
+    /**
+     * Retrieves the FennelStreamHandle corresponding to a stream
+     * 
+     * @param globalStreamName name of the stream that you are searching for
+     * @param isInput
+     * 
+     * @return FennelStreamHandle corresponding to the stream specified by the
+     * name parameter
+     */
+    public FennelStreamHandle getStreamHandle(
+        String globalStreamName,
+        boolean isInput);
 
     /**
      * Pushes a routine invocation onto the context stack.
@@ -119,6 +150,16 @@ public interface FarragoSessionRuntimeContext
      * @return session on behalf of which this runtime context is executing
      */
     public FarragoSession getSession();
+    
+    /**
+     * @return FarragoRepos for use by extension projects
+     */
+    public FarragoRepos getRepos();
+
+    /**
+     * @return queue of warnings posted to this runtime context
+     */
+    public FarragoWarningQueue getWarningQueue();
 }
 
 // End FarragoSessionRuntimeContext.java

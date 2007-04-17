@@ -57,6 +57,9 @@ import javax.jmi.reflect.RefObject;
  * interface as a connection to a {@link FarragoDatabase} instance. It manages
  * private authorization and transaction context.
  *
+ * <p>Most non-trivial public methods on this class must be synchronized, since
+ * closeAllocation may be called from a thread shutting down the database.
+ *
  * @author John V. Sichi
  * @version $Id: //open/dev/farrago/src/net/sf/farrago/db/FarragoDbSession.java#27
  */
@@ -112,7 +115,16 @@ public class FarragoDbSession
      * Repos accessed by this session
      */
     private FarragoRepos repos;
+
+    /**
+     * URL used to connect this session.
+     */
     private String url;
+
+    /**
+     * Warnings accumulated on this session.
+     */
+    FarragoWarningQueue warningQueue;
 
     /**
      * Was this session produced by cloning?
@@ -137,7 +149,7 @@ public class FarragoDbSession
     /**
      * Map of temporary indexes created by this session.
      */
-    private FarragoDbSessionIndexMap sessionIndexMap;
+    private FarragoSessionIndexMap sessionIndexMap;
 
     /**
      * The connection source for this session.
@@ -173,6 +185,7 @@ public class FarragoDbSession
     {
         this.sessionFactory = sessionFactory;
         this.url = url;
+        warningQueue = new FarragoWarningQueue();
 
         database = FarragoDbSingleton.pinReference(sessionFactory);
         FarragoDbSingleton.addSession(database, this);
@@ -212,11 +225,12 @@ public class FarragoDbSession
         if ((processStr != null) && (processStr.length() > 0)) {
             try {
                 sessionVariables.processId = Long.parseLong(processStr);
-            } catch (NumberFormatException e) {
-                tracer.warning(
-                    "processId=\"" + processStr + "\" error: "
-                    + e.getMessage());
-                Util.swallow(e, tracer);
+            } catch (NumberFormatException ex) {
+                // NOTE jvs 12-Nov-2006:  It's OK to discard ex here
+                // because it provides only useless information.
+                getWarningQueue().postWarning(
+                    FarragoResource.instance().
+                    SessionClientProcessIdNotNumeric.ex(processStr));
             }
         }
 
@@ -339,7 +353,13 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSessionStmtContext newStmtContext(
+    public FarragoWarningQueue getWarningQueue()
+    {
+        return warningQueue;
+    }
+    
+    // implement FarragoSession
+    public synchronized FarragoSessionStmtContext newStmtContext(
         FarragoSessionStmtParamDefFactory paramDefFactory)
     {
         FarragoDbStmtContext stmtContext =
@@ -352,7 +372,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSessionStmtValidator newStmtValidator()
+    public synchronized FarragoSessionStmtValidator newStmtValidator()
     {
         return
             new FarragoStmtValidator(
@@ -366,14 +386,14 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSessionPrivilegeChecker newPrivilegeChecker()
+    public synchronized FarragoSessionPrivilegeChecker newPrivilegeChecker()
     {
         // Instantiate a new privilege checker
         return new FarragoDbSessionPrivilegeChecker(this);
     }
 
     // implement FarragoSession
-    public FarragoSessionPrivilegeMap getPrivilegeMap()
+    public synchronized FarragoSessionPrivilegeMap getPrivilegeMap()
     {
         if (privilegeMap == null) {
             FarragoDbSessionPrivilegeMap newPrivilegeMap =
@@ -392,16 +412,18 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSession cloneSession(
+    public synchronized FarragoSession cloneSession(
         FarragoSessionVariables inheritedVariables)
     {
         // TODO:  keep track of clones and make sure they aren't left hanging
-        // around by the time stmt finishes executing
+        // around by the time stmt finishes executing; also,
+        // maybe auto-propagate unretrieved warnings from clones?
         try {
             FarragoDbSession clone = (FarragoDbSession) super.clone();
             clone.isClone = true;
             clone.allocations = new LinkedList();
             clone.savepointList = new ArrayList();
+            clone.warningQueue = new FarragoWarningQueue();
             if (isTxnInProgress()) {
                 // Calling statement has already started a transaction:
                 // make sure clone doesn't interfere by autocommitting.
@@ -413,7 +435,8 @@ public class FarragoDbSession
             if (inheritedVariables == null) {
                 inheritedVariables = sessionVariables;
             }
-            clone.sessionVariables = inheritedVariables.cloneVariables();
+            clone.sessionVariables =
+                personality.createInheritedSessionVariables(inheritedVariables);
             return clone;
         } catch (CloneNotSupportedException ex) {
             throw Util.newInternal(ex);
@@ -439,7 +462,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public boolean isTxnInProgress()
+    public synchronized boolean isTxnInProgress()
     {
         // TODO jvs 9-Mar-2006:  Unify txn state.
         if (txnId != null) {
@@ -452,7 +475,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSessionTxnId getTxnId(boolean createIfNeeded)
+    public synchronized FarragoSessionTxnId getTxnId(boolean createIfNeeded)
     {
         if ((txnId == null) && createIfNeeded) {
             txnId = getTxnMgr().beginTxn(this);
@@ -467,7 +490,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void setAutoCommit(boolean autoCommit)
+    public synchronized void setAutoCommit(boolean autoCommit)
     {
         ResourceDefinition txnFeature =
             EigenbaseResource.instance().SQLFeature_E151;
@@ -493,7 +516,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void endTransactionIfAuto(boolean commit)
+    public synchronized void endTransactionIfAuto(boolean commit)
     {
         if (isAutoCommit) {
             if (commit) {
@@ -510,19 +533,45 @@ public class FarragoDbSession
         return repos;
     }
 
-    public synchronized void kill()
+    // NOTE jvs 16-Jan-2007:  Don't make this synchronized, since that
+    // would reverse the synchronization order inside of closeAllocation,
+    // leading to deadlock
+    
+    // implement FarragoSession
+    public void kill()
     {
         closeAllocation();
         wasKilled = true;
     }
 
+    // implement FarragoSession
+    public void cancel()
+    {
+        for (Long id : sessionInfo.getExecutingStmtIds()) {
+            FarragoSessionExecutingStmtInfo info =
+                sessionInfo.getExecutingStmtInfo(id);
+            info.getStmtContext().cancel();
+        }
+    }
+    
     // implement FarragoAllocation
     public void closeAllocation()
     {
+        if (isClone) {
+            // avoid synchronization for reentrant sessions; the
+            // reverse ordering can cause deadlock:
+            // top-level session close takes FarragoDbSingleton.class lock,
+            // then statement context lock,
+            // while top-level statement execution holds a lock on the
+            // statement context, and then tries to acquire
+            // FarragoDbSingleton.class lock
+            super.closeAllocation();
+            return;
+        }
         synchronized (FarragoDbSingleton.class) {
             synchronized (this) {
                 super.closeAllocation();
-                if (isClone || isClosed()) {
+                if (isClosed()) {
                     return;
                 }
                 if (isTxnInProgress()) {
@@ -550,7 +599,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void commit()
+    public synchronized void commit()
     {
         if (isAutoCommit) {
             throw FarragoResource.instance().SessionNoCommitInAutocommit.ex();
@@ -559,7 +608,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public FarragoSessionSavepoint newSavepoint(String name)
+    public synchronized FarragoSessionSavepoint newSavepoint(String name)
     {
         if (name != null) {
             if (findSavepointByName(name, false) != -1) {
@@ -571,14 +620,14 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void releaseSavepoint(FarragoSessionSavepoint savepoint)
+    public synchronized void releaseSavepoint(FarragoSessionSavepoint savepoint)
     {
         int iSavepoint = validateSavepoint(savepoint);
         releaseSavepoint(iSavepoint);
     }
 
     // implement FarragoSession
-    public FarragoSessionAnalyzedSql analyzeSql(
+    public synchronized FarragoSessionAnalyzedSql analyzeSql(
         String sql,
         RelDataTypeFactory typeFactory,
         RelDataType paramRowType,
@@ -623,9 +672,15 @@ public class FarragoDbSession
         return database;
     }
 
-    public FarragoDbSessionIndexMap getSessionIndexMap()
+    public FarragoSessionIndexMap getSessionIndexMap()
     {
         return sessionIndexMap;
+    }
+
+    public synchronized void setSessionIndexMap(
+        FarragoSessionIndexMap sessionIndexMap)
+    {
+        this.sessionIndexMap = sessionIndexMap;
     }
 
     Map getTxnCodeCache()
@@ -667,6 +722,9 @@ public class FarragoDbSession
         savepointList.clear();
         Iterator iter = txnCodeCache.values().iterator();
         while (iter.hasNext()) {
+            // REVIEW jvs 26-Nov-2006:  for pinned ExecStreamGraphs
+            // (and maybe other statement-related resources) can
+            // we verify that they are no longer in use?
             FarragoAllocation alloc = (FarragoAllocation) iter.next();
             alloc.closeAllocation();
         }
@@ -674,7 +732,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void rollback(FarragoSessionSavepoint savepoint)
+    public synchronized void rollback(FarragoSessionSavepoint savepoint)
     {
         if (isAutoCommit) {
             throw FarragoResource.instance().SessionNoRollbackInAutocommit.ex();
@@ -688,7 +746,7 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public Collection<RefObject> executeLurqlQuery(
+    public synchronized Collection<RefObject> executeLurqlQuery(
         String lurql,
         Map<String,?> argMap)
     {
@@ -713,7 +771,8 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public void setOptRuleDescExclusionFilter(Pattern exclusionFilter)
+    public synchronized void setOptRuleDescExclusionFilter(
+        Pattern exclusionFilter)
     {
         optRuleDescExclusionFilter = exclusionFilter;
     }
@@ -840,14 +899,10 @@ public class FarragoDbSession
                 sqlTimingTracer,
                 "begin prepare");
 
-        // TODO jvs 20-Mar-2006: Get rid of this big mutex.  First we need
-        // to make object-level DDL-locking incremental (rather than deferring
-        // it all to the end of preparation).  For now the contention is the
-        // same as that due to the TODO below since the MDR write lock is
-        // exclusive.
+        // TODO jvs 20-Jan-2007: Replace this big mutex with a
+        // readers/writers lock.
         synchronized (database.DDL_LOCK) {
-            FarragoReposTxnContext reposTxnContext =
-                new FarragoReposTxnContext(repos);
+            FarragoReposTxnContext reposTxnContext = repos.newTxnContext();
 
             boolean [] pRollback = new boolean[1];
             pRollback[0] = true;

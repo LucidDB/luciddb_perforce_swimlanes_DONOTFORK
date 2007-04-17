@@ -79,6 +79,11 @@ public class RexProgram
     private final List<RexLocalRef> projectReadOnlyList;
     private final List<RexNode> exprReadOnlyList;
 
+    /**
+     * Reference counts for each expression, computed on demand.
+     */
+    private int [] refCounts;
+
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -147,8 +152,11 @@ public class RexProgram
     //~ Methods ----------------------------------------------------------------
 
     /**
-     * Returns the common sub-expressions of this program. Never null, may be
-     * empty, and never contain common sub-expressions.
+     * Returns the common sub-expressions of this program.
+     *
+     * <p>The list is never null but may be empty; each the expression in the
+     * list is not null; and no further reduction into smaller common
+     * subexpressions is possible.
      *
      * @post return != null
      * @post !containCommonExprs(exprs)
@@ -261,15 +269,16 @@ public class RexProgram
         List<Object> valueList = new ArrayList<Object>();
         termList.add("child");
         collectExplainTerms("", termList, valueList, pw.getDetailLevel());
-        String [] terms =
-            (String []) termList.toArray(new String[termList.size()]);
-        Object [] values =
-            (Object []) valueList.toArray(new Object[valueList.size()]);
+
+        if (pw.getDetailLevel() == SqlExplainLevel.DIGEST_ATTRIBUTES && false) {
+            termList.add("type");
+            valueList.add(rel.getRowType());
+        }
 
         // Relational expressions which contain a program should report their
         // children in a different way than getChildExps().
         assert rel.getChildExps().length == 0;
-        pw.explain(rel, terms, values);
+        pw.explain(rel, termList, valueList);
     }
 
     public void collectExplainTerms(
@@ -677,6 +686,32 @@ loop:
     }
 
     /**
+     * Gets reference counts for each expression in the program, where the
+     * references are detected from later expressions in the same program, as
+     * well as the project list and condition.  Expressions with references
+     * counts greater than 1 are true common subexpressions.
+     *
+     * @return array of reference counts; the ith element in the returned array
+     * is the number of references to getExprList()[i]
+     */
+    public int [] getReferenceCounts()
+    {
+        if (refCounts != null) {
+            return refCounts;
+        }
+        refCounts = new int[exprs.length];
+        ReferenceCounter refCounter = new ReferenceCounter();
+        apply(refCounter, exprs, null);
+        if (condition != null) {
+            refCounter.visitLocalRef(condition);
+        }
+        for (int i = 0; i < projects.length; ++i) {
+            refCounter.visitLocalRef(projects[i]);
+        }
+        return refCounts;
+    }
+
+    /**
      * Applies a visitor to an array of expressions and, if specified, a single
      * expression.
      *
@@ -983,6 +1018,26 @@ loop:
                     fieldAccess.getField());
         }
     }
+
+    /**
+     * Visitor which marks which expressions are used.
+     */
+    private class ReferenceCounter
+        extends RexVisitorImpl<Void>
+    {
+        ReferenceCounter()
+        {
+            super(true);
+        }
+
+        public Void visitLocalRef(RexLocalRef localRef)
+        {
+            final int index = localRef.getIndex();
+            refCounts[index]++;
+            return null;
+        }
+    }
 }
 
 // End RexProgram.java
+

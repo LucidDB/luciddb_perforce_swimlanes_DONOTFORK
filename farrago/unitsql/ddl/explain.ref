@@ -52,7 +52,7 @@
 +-----------------------------------------------------------------------------------------------------------------------------------------------------+
 | IterCalcRel(expr#0=[{inputs}], expr#1=[1], EXPR$0=[$t1])                                                                                            |
 |   FennelToIteratorConverter                                                                                                                         |
-|     FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])  |
+|     FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])  |
 +-----------------------------------------------------------------------------------------------------------------------------------------------------+
 > 
 > -- Explain physical plan verbose
@@ -63,7 +63,7 @@
 +-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | IterCalcRel(expr#0=[{inputs}], expr#1=[1], EXPR$0=[$t1]): rowcount = 100.0, cumulative cost = 1200.0                                                                                            |
 |   FennelToIteratorConverter: rowcount = 100.0, cumulative cost = 1100.0                                                                                                                         |
-|     FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false]): rowcount = 100.0, cumulative cost = 1000.0  |
+|     FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false]): rowcount = 100.0, cumulative cost = 1000.0  |
 +-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 > 
 > -- Explain physical plan in XML format.
@@ -88,7 +88,7 @@
 | 					<Property name="projection">                                 |
 | 						[0]					</Property>                                         |
 | 					<Property name="index">                                      |
-| 						SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY					</Property>  |
+| 						SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS					</Property>  |
 | 					<Property name="preserveOrder">                              |
 | 						false					</Property>                                       |
 | 					<Inputs/>                                                    |
@@ -117,6 +117,18 @@
 | EXPR$0 INTEGER NOT NULL  |
 +--------------------------+
 > 
+> -- Verify rendering of literals in plans
+> explain plan for
+> values (1, -1.25, 1.0e50, true, 'bonjour', _ISO-8859-1'bonjour', 
+> _US-ASCII'bonjour', date '2006-11-08', time '15:05:05', 
+> timestamp '2006-11-08 15:05:05', X'CAFEBABE');
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|                                                                            column0                                                                            |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| FennelToIteratorConverter                                                                                                                                     |
+|   FennelValuesRel(tuples=[[{ 1, -1.25, 1.0E50, true, 'bonjour', 'bonjour', _US-ASCII'bonjour', 2006-11-08, 15:05:05, 2006-11-08 15:05:05.0, X'CAFEBABE' }]])  |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> 
 > -- Apply a tweak to the session personality and verify that
 > -- the costing changes accordingly.
 > 
@@ -129,9 +141,9 @@
 +----------------------------------------------------------------------------------------------------------+
 |                                                 column0                                                  |
 +----------------------------------------------------------------------------------------------------------+
-| FennelToIteratorConverter: rowcount = 0.1, cumulative cost = 4.1                                         |
-|   FennelRenameRel(fieldNames=[[EXPR$0]]): rowcount = 0.1, cumulative cost = 4.0                          |
-|     FennelAggRel(groupCount=[0], agg#0=[COUNT()]): rowcount = 0.1, cumulative cost = 3.0                 |
+| FennelToIteratorConverter: rowcount = 1.0, cumulative cost = 5.0                                         |
+|   FennelRenameRel(fieldNames=[[EXPR$0]]): rowcount = 1.0, cumulative cost = 4.0                          |
+|     FennelAggRel(groupCount=[0], agg#0=[COUNT()]): rowcount = 1.0, cumulative cost = 3.0                 |
 |       FennelCalcRel(expr#0=[{inputs}], expr#1=[true], $f0=[$t1]): rowcount = 1.0, cumulative cost = 2.0  |
 |         FennelValuesRel(tuples=[[{ 0 }]]): rowcount = 1.0, cumulative cost = 1.0                         |
 +----------------------------------------------------------------------------------------------------------+

@@ -28,7 +28,9 @@ import java.util.*;
 
 import net.sf.farrago.namespace.impl.*;
 
+import org.eigenbase.resource.*;
 import org.eigenbase.util.*;
+import org.eigenbase.util14.*;
 
 
 /**
@@ -68,7 +70,10 @@ class FlatFileParams
     public static final String PROP_DATE_FORMAT = "DATE_FORMAT";
     public static final String PROP_TIME_FORMAT = "TIME_FORMAT";
     public static final String PROP_TIMESTAMP_FORMAT = "TIMESTAMP_FORMAT";
-
+    public static final String PROP_LENIENT = "LENIENT";
+    public static final String PROP_TRIM = "TRIM";
+    public static final String PROP_MAPPED = "MAPPED";
+    
     public static final String FILE_EXTENSION_PREFIX = ".";
     public static final String LOG_FILE_EXTENSION = "err";
 
@@ -81,6 +86,9 @@ class FlatFileParams
     protected static final boolean DEFAULT_WITH_HEADER = true;
     protected static final int DEFAULT_NUM_ROWS_SCAN = 5;
     protected static final boolean DEFAULT_WITH_LOGGING = true;
+    protected static final boolean DEFAULT_LENIENT = true;    
+    protected static final boolean DEFAULT_TRIM = true;    
+    protected static final boolean DEFAULT_MAPPED = false;
 
     //~ Enums ------------------------------------------------------------------
 
@@ -103,7 +111,7 @@ class FlatFileParams
          * Schema name for a typical query, in which columns are casted
          * to typed data
          */
-        QUERY("BCP"),
+        QUERY(new String[] {"BCP", "DEFAULT"}),
         /**
          * Schema name for a query in which columns are returned as text.
          * Similar to sample, except headers are not returned, and there
@@ -116,7 +124,9 @@ class FlatFileParams
         static {
             types = new HashMap<String, SchemaType>();
             for (SchemaType type : SchemaType.values()) {
-                types.put(type.schemaName, type);
+                for (String name : type.schemaNames) {
+                    types.put(name, type);
+                }
             }
         }
 
@@ -126,10 +136,18 @@ class FlatFileParams
         }
 
         private String schemaName;
+        private String[] schemaNames;
 
         private SchemaType(String schemaName)
         {
             this.schemaName = schemaName;
+            this.schemaNames = new String[] {schemaName};
+        }
+
+        private SchemaType(String[] schemaNames)
+        {
+            this.schemaName = schemaNames[0];
+            this.schemaNames = schemaNames;
         }
 
         public String getSchemaName()
@@ -141,12 +159,14 @@ class FlatFileParams
     //~ Instance fields --------------------------------------------------------
 
     private Properties props;
-    private String directory, logDirectory, schemaName;
+    private String directory, logDirectory;
     private String fileExtension, controlFileExtension;
     private char fieldDelimiter, lineDelimiter;
     private char quoteChar, escapeChar;
     private boolean withHeader, withLogging;
     private int numRowsScan;
+    private boolean lenient, trim, mapped;
+    private String dateFormat, timeFormat, timestampFormat;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -220,6 +240,24 @@ class FlatFileParams
         logDirectory =
             decodeDirectory(
                 props.getProperty(PROP_LOG_DIRECTORY, null));
+        lenient = 
+            getBooleanProperty(
+                props, PROP_LENIENT, DEFAULT_LENIENT);
+        trim = 
+            getBooleanProperty(
+                props, PROP_TRIM, DEFAULT_TRIM);
+        mapped = 
+            getBooleanProperty(
+                props, PROP_MAPPED, DEFAULT_MAPPED);
+        dateFormat = 
+            decodeDatetimeFormat(
+                props.getProperty(PROP_DATE_FORMAT));
+        timeFormat = 
+            decodeDatetimeFormat(
+                props.getProperty(PROP_TIME_FORMAT));
+        timestampFormat = 
+            decodeDatetimeFormat(
+                props.getProperty(PROP_TIMESTAMP_FORMAT));
     }
 
     /**
@@ -260,6 +298,11 @@ class FlatFileParams
         int b = delim.indexOf("\\n");
         if ((a == 0) || (a == 1) || (a == 2) || (b == 0) || (b == 1)
             || (b == 2)) {
+            return '\n';
+        }
+        // Windows parsing seems to directly provide carriage returns; 
+        // replace these with newline too.
+        if (delim.charAt(0) == '\r') {
             return '\n';
         }
         return delim.charAt(0);
@@ -322,6 +365,20 @@ class FlatFileParams
         return FILE_EXTENSION_PREFIX + extension;
     }
 
+    private String decodeDatetimeFormat(String format)
+    {
+        if (format == null) {
+            return null;
+        }
+        try {
+            DateTimeUtil.checkDateFormat(format);
+        } catch (IllegalArgumentException ex) {
+            throw EigenbaseResource.instance()
+            .InvalidDatetimeFormat.ex(format, ex);
+        }
+        return format;
+    }
+
     public String getDirectory()
     {
         return directory;
@@ -379,17 +436,32 @@ class FlatFileParams
 
     public String getDateFormat()
     {
-        return props.getProperty(PROP_DATE_FORMAT);
+        return dateFormat;
     }
 
     public String getTimeFormat()
     {
-        return props.getProperty(PROP_TIME_FORMAT);
+        return timeFormat;
     }
 
     public String getTimestampFormat()
     {
-        return props.getProperty(PROP_TIMESTAMP_FORMAT);
+        return timestampFormat;
+    }
+
+    public boolean getLenient()
+    {
+        return lenient;
+    }
+
+    public boolean getTrim()
+    {
+        return trim;
+    }
+
+    public boolean getMapped()
+    {
+        return mapped;
     }
 
     /**

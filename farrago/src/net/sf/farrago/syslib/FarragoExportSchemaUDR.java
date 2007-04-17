@@ -28,11 +28,13 @@ import java.sql.*;
 import java.text.*;
 
 import java.util.*;
+import java.util.logging.*;
 
 import net.sf.farrago.resource.*;
+import net.sf.farrago.util.*;
+import net.sf.farrago.trace.*;
 
 import org.eigenbase.util.*;
-
 
 /**
  * FarragoExportSchemaUDR provides system procedures to export tables from a
@@ -43,6 +45,7 @@ import org.eigenbase.util.*;
  */
 public abstract class FarragoExportSchemaUDR
 {
+    private static Logger tracer = FarragoTrace.getSyslibTracer();
 
     //~ Static fields/initializers ---------------------------------------------
 
@@ -67,11 +70,146 @@ public abstract class FarragoExportSchemaUDR
         "Incremental",
         "Merge"
     };
-    
+
     //~ Methods ----------------------------------------------------------------
 
     /**
-     * Exports tables within a schema to CSV/BCP files
+     * Exports tables within a schema to flat files with BCP files
+     *
+     * @param catalog name of the catalog where schema resides, if null, 
+     * default catalog
+     * @param schema name of local schema
+     * @param exclude if true, tables matching either the table_list of the
+     * table_pattern will be excluded. if false, tables will be included
+     * @param tableList comma separated list of tables or null value if
+     * table_pattern is being used
+     * @param tablePattern table name pattern where '_' represents any single
+     * character
+     * @param directory the directory in which to place the exported CSV and 
+     * BCP files
+     * @param withBcp indicates whether BCP files should be created. If true,
+     * BCP files will be created. If false, they will not be created
+     * @param deleteFailedFiles if true, csv and bcp files for tables which
+     * fail during export will be deleted, otherwise they will remain
+     * @param fieldDelimiter used to delimit column fields in the flat file
+     * if null, defaults to tab separated
+     * @param fileExtension the file extension for the created flat file, if 
+     * null, defaults to .txt
+     * @param dateFormat format for DATE fields ({@link SimpleDateFormat})
+     * @param timeFormat format for TIME fields ({@link SimpleDateFormat})
+     * @param timestampFormat format for TIMESTAMP fields ({@link
+     * SimpleDateFormat})
+     */
+    public static void exportSchemaToFile(
+        String catalog,
+        String schema,
+        boolean exclude,
+        String tableList,
+        String tablePattern,
+        String directory,
+        boolean withBcp,
+        boolean deleteFailedFiles,
+        String fieldDelimiter,
+        String fileExtension,
+        String dateFormat,
+        String timeFormat,
+        String timestampFormat)
+        throws SQLException
+    {
+        Connection conn =
+            DriverManager.getConnection("jdbc:default:connection");
+
+        HashSet<String> tableNames = getLocalTableNames(
+            catalog, 
+            schema, 
+            exclude, 
+            tableList,
+            tablePattern,
+            conn);
+
+        // create Csv files
+        toCsv(
+            FULL_EXPORT,
+            catalog, 
+            schema, 
+            null,  // lastModified  
+            null,  // columnName
+            null,  // incrCatalog
+            null,  // incrSchema
+            directory, 
+            withBcp,
+            true,
+            deleteFailedFiles,
+            fieldDelimiter,
+            fileExtension,
+            dateFormat,
+            timeFormat,
+            timestampFormat,
+            tableNames,
+            null,  // querySql
+            conn);
+    }
+
+    /**
+     * Exports tables within a schema to flat files with BCP files
+     *
+     * @param catalog name of the catalog where schema resides, if null, 
+     * default catalog
+     * @param schema name of local schema
+     * @param exclude if true, tables matching either the table_list of the
+     * table_pattern will be excluded. if false, tables will be included
+     * @param tableList comma separated list of tables or null value if
+     * table_pattern is being used
+     * @param tablePattern table name pattern where '_' represents any single
+     * character
+     * @param directory the directory in which to place the exported CSV and 
+     * BCP files
+     * @param withBcp indicates whether BCP files should be created. If true,
+     * BCP files will be created. If false, they will not be created
+     * @param deleteFailedFiles if true, csv and bcp files for tables which
+     * fail during export will be deleted, otherwise they will remain
+     * @param fieldDelimiter used to delimit column fields in the flat file
+     * if null, defaults to tab separated
+     * @param fileExtension the file extension for the created flat file, if 
+     * null, defaults to .txt
+     */
+    public static void exportSchemaToFile(
+        String catalog,
+        String schema,
+        boolean exclude,
+        String tableList,
+        String tablePattern,
+        String directory,
+        boolean withBcp,
+        boolean deleteFailedFiles,
+        String fieldDelimiter,
+        String fileExtension)
+        throws SQLException
+    {
+        exportSchemaToFile(
+            catalog,
+            schema,
+            exclude,
+            tableList,
+            tablePattern,
+            directory,
+            withBcp,
+            deleteFailedFiles,
+            fieldDelimiter,
+            fileExtension,
+            null,     // dateFormat
+            null,     // timeFormat
+            null);     // timestampFormat
+
+    }
+
+
+    /**
+     * Exports tables within a schema to flat files with BCP files
+     *
+     * Older version of the export local schema UDP without file extension,
+     * field delimiter and datetime format parameters.  To be eventually
+     * either retired, or changed to output csv files instead of tab separated
      *
      * @param catalog name of the catalog where schema resides, if null, 
      * default catalog
@@ -122,8 +260,15 @@ public abstract class FarragoExportSchemaUDR
             null,  // incrSchema
             directory, 
             withBcp,
-            deleteFailedFiles, 
-            tableNames, 
+            true,
+            deleteFailedFiles,
+            null,  // fieldDelimiter
+            null,  //fileExtension
+            null,  // dateFormat
+            null,  // timeFormat
+            null,  // timestampFormat
+            tableNames,
+            null,  // querySql
             conn);
     }
 
@@ -286,8 +431,15 @@ public abstract class FarragoExportSchemaUDR
             null,      // incrSchema
             directory, 
             withBcp,
+            true,
             deleteFailedFiles, 
-            tableNames, 
+            null,      // fieldDelimiter
+            null,      // fileExtension
+            null,      // dateFormat
+            null,      // timeFormat
+            null,      // timestampFormat
+            tableNames,
+            null,      // querySql
             conn);
     }
 
@@ -470,8 +622,15 @@ public abstract class FarragoExportSchemaUDR
             incrSchema,
             directory,
             withBcp,
+            true,
             deleteFailedFiles,
+            null,   // fieldDelimiter
+            null,   // fileExtension
+            null,   // dateFormat
+            null,   // timeFormat
+            null,   // timestampFormat
             incrTblNames,
+            null,   // querySql
             conn);
     }
 
@@ -778,9 +937,16 @@ public abstract class FarragoExportSchemaUDR
                 null,  // incrCatalog
                 null,  // incrSchema
                 directory, 
-                withBcp, 
+                withBcp,
+                true,
                 deleteFailedFiles,
-                tableNames, 
+                null,  // fieldDelimiter
+                null,  // fileExtension
+                null,  // dateFormat
+                null,  // timeFormat
+                null,  // timestampFormat
+                tableNames,
+                null,  // querySql
                 conn);
 
             // drop temp schema
@@ -836,10 +1002,17 @@ public abstract class FarragoExportSchemaUDR
      * incremental data
      * @param directory location to write CSV and BCP files
      * @param withBcp if true creates BCP files, if false, doesn't
+     * @param withData if true creates data files, if false, doesn't
      * @param deleteFailedFiles if true, csv and bcp files for tables which
      * fail during export will be deleted, otherwise they will remain
+     * @param dateFormat format for DATE fields ({@link SimpleDateFormat})
+     * @param timeFormat format for TIME fields ({@link SimpleDateFormat})
+     * @param timestampFormat format for TIMESTAMP fields ({@link
+     * SimpleDateFormat})
      * @param tableNames HashSet with names of the table to export
-     * @param conn connection to the database
+     * @param querySql SQL query to execute (if non-null, all table-related
+     * parameters should be null; and vice versa)
+     * @param conn connection to the dtaabase
      */
     private static void toCsv(
         int expType,
@@ -851,38 +1024,57 @@ public abstract class FarragoExportSchemaUDR
         String incrSchema,
         String directory,
         boolean withBcp,
+        boolean withData,
         boolean deleteFailedFiles,
+        String fieldDelimiter,
+        String fileExtension,
+        String dateFormat,
+        String timeFormat,
+        String timestampFormat,
         HashSet<String> tableNames,
+        String querySql,
         Connection conn)
         throws SQLException
     {
         File csvFile = null;
         File bcpFile = null;
         File logFile = null;
-        FileWriter csvOut = null;
-        FileWriter bcpOut = null;
-        FileWriter logOut = null;
+        Writer csvOut = null;
+        Writer bcpOut = null;
+        Writer logOut = null;
 
-        // get rid of spaces and colons in directory name
-        directory = directory.replaceAll("\\s*", "");
-        directory = directory.replaceAll(":", "");
+        boolean tracing = tracer.isLoggable(Level.FINE);
+
+        // Expand stuff like ${FARRAGO_HOME}.
+        directory = FarragoProperties.instance().expandProperties(directory);
 
         // create export csv directory
         File csvDir = new File(directory);
+        if (querySql != null) {
+            // If we're exporting a query, then directory is
+            // actually pathWithoutExtension, in which case
+            // we need to strip off the base filename.
+            csvDir = csvDir.getParentFile();
+        }
         try {
             csvDir.mkdirs();
-        } catch (SecurityException e) {
+        } catch (Throwable e) {
             throw FarragoResource.instance().ExportSchemaCreateDirFailed.ex(
-                directory,
+                csvDir.toString(),
                 e.getMessage(),
                 e);
         }
+        if (!csvDir.exists() || !csvDir.isDirectory()) {
+            throw FarragoResource.instance().ExportSchemaCreateDirFailed.ex(
+                csvDir.toString(), "mkdir");
+        }
 
         // create export log file
-        String logFileName =
-            directory + File.separator + LOGFILE_PREFIX + EXPORT_TYPES[expType]
-            + "_" + getTimestampString() + ".log";
-        logFile = new File(logFileName);
+        logFile = new File(
+            csvDir,
+            LOGFILE_PREFIX + EXPORT_TYPES[expType]
+            + "_" + getTimestampString() + ".log");
+        String logFileName = logFile.toString();
         try {
             logOut = new FileWriter(logFile, false);
         } catch (IOException e) {
@@ -892,8 +1084,16 @@ public abstract class FarragoExportSchemaUDR
                 e.getMessage(),
                 e);
         }
+        logOut = new BufferedWriter(logOut);
 
-        Iterator<String> tableIter = tableNames.iterator();
+        Iterator<String> tableIter;
+        if (tableNames != null) {
+            assert(querySql == null);
+            tableIter = tableNames.iterator();
+        } else {
+            assert(querySql != null);
+            tableIter = Collections.singleton("{QUERY}").iterator();
+        }
         Statement stmt = conn.createStatement();
         ResultSet tblData;
         ResultSetMetaData tblMeta;
@@ -922,6 +1122,15 @@ public abstract class FarragoExportSchemaUDR
                 ie);
         }
 
+        // field delimiter for data file defaults to tab
+        if ((fieldDelimiter == null) || (fieldDelimiter.contains("\\t"))) {
+            fieldDelimiter = TAB;
+        }
+        // file extension for data file defaults to .txt
+        if (fileExtension == null) {
+            fileExtension = ".txt";
+        }
+
         // loop through the tables and output data to csv/bcp files
         while (tableIter.hasNext()) {
             String tblName = tableIter.next();
@@ -942,18 +1151,24 @@ public abstract class FarragoExportSchemaUDR
                     columnName,
                     conn);
 
-                String querySql = buildQuerySql(
-                    export,
-                    catalog,
-                    schema,
-                    tblName,
-                    lastModified,
-                    columnName,
-                    incrCatalog,
-                    incrSchema);
+                if (tableNames != null) {
+                    querySql = buildQuerySql(
+                        export,
+                        catalog,
+                        schema,
+                        tblName,
+                        lastModified,
+                        columnName,
+                        incrCatalog,
+                        incrSchema);
+                }
 
                 logOut.write(EXPORT_TYPES[export] + TAB);
 
+                // TODO jvs 21-Oct-2006:  For case of !withData,
+                // don't bother executing query; just prepare and
+                // use ResultSetMetaData
+                
                 tblData = stmt.executeQuery(querySql);
                 tblMeta = tblData.getMetaData();
             } catch (SQLException se) {
@@ -987,35 +1202,50 @@ public abstract class FarragoExportSchemaUDR
                     ie);
             }
 
-            String csvName = directory + File.separator + tblName + ".txt";
-            String bcpName = directory + File.separator + tblName + ".bcp";
+            String csvName;
+            String bcpName;
+            if (tableNames == null) {
+                csvName = directory + fileExtension;
+                bcpName = directory + ".bcp";
+            } else {
+                csvName = directory + File.separator + tblName + fileExtension;
+                bcpName = directory + File.separator + tblName + ".bcp";
+            }
             boolean tableFailed = false;
             try {
-                csvFile = new File(csvName);
-                csvOut = new FileWriter(csvFile, false);
+                if (withData) {
+                    csvFile = new File(csvName);
+                    csvOut = new OutputStreamWriter(
+                        new FileOutputStream(csvFile), "ISO-8859-1");
+                    csvOut = new BufferedWriter(csvOut);
+                }
                 int numCols = tblMeta.getColumnCount();
                 if (withBcp) {
                     // write BCP header
                     bcpFile = new File(bcpName);
-                    bcpOut = new FileWriter(bcpFile, false);
-
+                    bcpOut = new OutputStreamWriter(
+                        new FileOutputStream(bcpFile), "ISO-8859-1");
+                    bcpOut = new BufferedWriter(bcpOut);
+ 
                     // version using BroadBase
                     bcpOut.write("6.0" + NEWLINE);
                     bcpOut.write(numCols + NEWLINE);
                 }
 
                 for (int i = 1; i <= numCols; i++) {
-                    // write column names to CSV, tab separated, quoted
-                    csvOut.write(QUOTE + tblMeta.getColumnName(i));
-                    if (i != numCols) {
-                        csvOut.write(QUOTE + TAB);
-                    } else {
-                        csvOut.write(QUOTE + NEWLINE);
+                    if (withData) {
+                        // write column names to CSV, delimited and quoted
+                        csvOut.write(QUOTE + tblMeta.getColumnName(i));
+                        if (i != numCols) {
+                            csvOut.write(QUOTE + fieldDelimiter);
+                        } else {
+                            csvOut.write(QUOTE + NEWLINE);
+                        }
                     }
 
                     // write bcp file
                     if (withBcp) {
-                        bcpOut.write(getBcpLine(i, tblMeta));
+                        bcpOut.write(getBcpLine(i, tblMeta, fieldDelimiter));
                     }
                 }
 
@@ -1023,13 +1253,40 @@ public abstract class FarragoExportSchemaUDR
                     bcpOut.flush();
                 }
 
+                long nRows = 0;
+
                 // write the csv file
-                while (tblData.next()) {
+                while (withData && tblData.next()) {
                     for (int i = 1; i <= numCols; i++) {
-                        String field = tblData.getString(i);
+                        String field;
+
+                        // format date/time/timestamp fields 
+                        int columnType = tblMeta.getColumnType(i);
+
+                        if ((columnType == Types.DATE) && (dateFormat != null))
+                        {
+                            field = FarragoConvertDatetimeUDR.date_to_char(
+                                dateFormat, tblData.getDate(i), true);
+                        } else if ((columnType == Types.TIME) && 
+                            (timeFormat != null))
+                        {
+                            field = FarragoConvertDatetimeUDR.time_to_char(
+                                timeFormat, tblData.getTime(i), true);
+                        } else if ((columnType == Types.TIMESTAMP) &&
+                            (timestampFormat != null))
+                        {
+                            field = 
+                                FarragoConvertDatetimeUDR.timestamp_to_char(
+                                    timestampFormat, tblData.getTimestamp(i),
+                                    true);
+                        } else {
+                            // everything else
+                            field = tblData.getString(i);
+                        }
+
                         if (field == null) {
                             if (i != numCols) {
-                                csvOut.write(TAB);
+                                csvOut.write(fieldDelimiter);
                             } else {
                                 csvOut.write(NEWLINE);
                             }
@@ -1040,12 +1297,28 @@ public abstract class FarragoExportSchemaUDR
                             csvOut.write(quote(field));
 
                             if (i != numCols) {
-                                csvOut.write(QUOTE + TAB);
+                                csvOut.write(QUOTE + fieldDelimiter);
                             } else {
                                 csvOut.write(QUOTE + NEWLINE);
                             }
                         }
                     }
+
+                    if (tracing) {
+                        if ((nRows % 100) == 0) {
+                            // When trace is on, be nice to the poor little
+                            // Windows users, otherwise they can't see anything
+                            // until the very end because the file size only
+                            // gets updated on explicit flush.  Do this on row
+                            // 1 so that they'll know something's happening if
+                            // it takes a long time to compute the rest.
+                            // Normally, don't do any explicit flushing because
+                            // it's bad for performance.
+                            csvOut.flush();
+                            tracer.fine("Exported row #" + nRows);
+                        }
+                    }
+                    ++nRows;
                 }
 
                 // log success
@@ -1169,6 +1442,162 @@ public abstract class FarragoExportSchemaUDR
                 ie);
         }
         stmt.close();
+
+        if (tableNames == null) {
+            // For a successful single-query export, delete when done
+            // to reduce clutter.
+            logFile.delete();
+        }
+    }
+
+    // TODO jvs 25-Sept-2006: Versions of two methods below in UDX form so that
+    // querySql doesn't have to be quoted.  Or, better, enhance procedure
+    // support to take CURSOR parameters.
+
+    /**
+     * Exports results of a single query to CSV/BCP files.
+     * (Actually currently tab-separated .txt rather than CSV; see
+     * FRG-197).
+     *
+     * @param querySql query whose result is to be executed
+     * @param pathWithoutExtension location to write CSV and BCP files; this
+     * should be a directory-qualified filename without an extension
+     * (correct extension will be appended automatically)
+     * @param withBcp if true creates BCP files, if false, doesn't
+     * @param deleteFailedFiles if true, csv and bcp files will be deleted
+     * if export fails, otherwise they may remain
+     * rowcount
+     *
+     * @deprecated Use widest version instead.
+     */
+    public static void exportQueryToFile(
+        String querySql,
+        String pathWithoutExtension,
+        boolean withBcp,
+        boolean deleteFailedFiles)
+        throws SQLException
+    {
+        exportQueryToFile(
+            querySql,
+            pathWithoutExtension,
+            withBcp,
+            deleteFailedFiles,
+            null,               // fieldDelimiter
+            null,               // fileExtension
+            null,               // dateFormat
+            null,               // timeFormat
+            null                // timestampFormat
+            );
+    }
+    
+    /**
+     * Exports results of a single query to CSV/BCP files.
+     *
+     * @param querySql query whose result is to be executed
+     * @param pathWithoutExtension location to write CSV and BCP files; this
+     * should be a directory-qualified filename without an extension
+     * (correct extension will be appended automatically)
+     * @param withBcp if true creates BCP files, if false, doesn't
+     * @param deleteFailedFiles if true, csv and bcp files will be deleted
+     * if export fails, otherwise they may remain
+     * rowcount
+     * @param fieldDelimiter used to delimit column fields in the flat file
+     * if null, defaults to tab separated
+     * @param fileExtension the file extension for the created flat file, if 
+     * null, defaults to .txt
+     * @param dateFormat format for DATE fields ({@link SimpleDateFormat})
+     * @param timeFormat format for TIME fields ({@link SimpleDateFormat})
+     * @param timestampFormat format for TIMESTAMP fields ({@link
+     * SimpleDateFormat})
+     *
+     * @deprecated Use widest version instead.
+     */
+    public static void exportQueryToFile(
+        String querySql,
+        String pathWithoutExtension,
+        boolean withBcp,
+        boolean deleteFailedFiles,
+        String fieldDelimiter,
+        String fileExtension,
+        String dateFormat,
+        String timeFormat,
+        String timestampFormat)
+        throws SQLException
+    {
+        exportQueryToFile(
+            querySql,
+            pathWithoutExtension,
+            withBcp,
+            true,
+            deleteFailedFiles,
+            null,               // fieldDelimiter
+            null,               // fileExtension
+            null,               // dateFormat
+            null,               // timeFormat
+            null                // timestampFormat
+            );
+    }
+    
+    /**
+     * Exports results of a single query to CSV/BCP files.
+     *
+     * @param querySql query whose result is to be executed
+     * @param pathWithoutExtension location to write CSV and BCP files; this
+     * should be a directory-qualified filename without an extension
+     * (correct extension will be appended automatically)
+     * @param withBcp if true creates BCP file, if false, doesn't
+     * @param withData if true creates data file, if false, doesn't
+     * @param deleteFailedFiles if true, csv and bcp files will be deleted
+     * if export fails, otherwise they may remain
+     * rowcount
+     * @param fieldDelimiter used to delimit column fields in the flat file
+     * if null, defaults to tab separated
+     * @param fileExtension the file extension for the created flat file, if 
+     * null, defaults to .txt
+     * @param dateFormat format for DATE fields ({@link SimpleDateFormat})
+     * @param timeFormat format for TIME fields ({@link SimpleDateFormat})
+     * @param timestampFormat format for TIMESTAMP fields ({@link
+     * SimpleDateFormat})
+     */
+    public static void exportQueryToFile(
+        String querySql,
+        String pathWithoutExtension,
+        boolean withBcp,
+        boolean withData,
+        boolean deleteFailedFiles,
+        String fieldDelimiter,
+        String fileExtension,
+        String dateFormat,
+        String timeFormat,
+        String timestampFormat)
+        throws SQLException
+    {
+        Connection conn =
+            DriverManager.getConnection("jdbc:default:connection");
+
+        // TODO jvs 5-Oct-2006:  implement dateFormat, timeFormat,
+        // and timestampFormat
+        
+        toCsv(
+            FULL_EXPORT,
+            null,               // catalog
+            null,               // schema
+            null,               // lastModified
+            null,               // columnName
+            null,               // incrCatalog
+            null,               // incrSchema
+            pathWithoutExtension,
+            withBcp,
+            withData,
+            deleteFailedFiles,
+            fieldDelimiter,
+            fileExtension,
+            dateFormat,
+            timeFormat,
+            timestampFormat,
+            null,               // tableNames
+            querySql,
+            conn);
     }
 
     /**
@@ -1180,111 +1609,121 @@ public abstract class FarragoExportSchemaUDR
      * @param colNum column number to return BCP control data for
      * @param rsmd metadata for the table
      */
-    public static String getBcpLine(int colNum, ResultSetMetaData rsmd)
+    public static String getBcpLine(
+        int colNum, ResultSetMetaData rsmd, String fieldDelim)
         throws SQLException
     {
         String literalSep;
         if (colNum == rsmd.getColumnCount()) {
             literalSep = "\"\\r\\n\"";
-        } else {
+        } else if (fieldDelim == TAB) {
             literalSep = "\"\\t\"";
+        } else {
+            literalSep = "\"" + fieldDelim + "\"";
         }
         String colStr = String.valueOf(colNum);
         int colJdbcType = rsmd.getColumnType(colNum);
+        String colName = rsmd.getColumnName(colNum);
+
+        // if spaces exist within column name, quote it
+        if (colName.contains(" ")) {
+            colName = QUOTE + colName + QUOTE;
+        }
 
         switch (colJdbcType) {
         case Types.BIGINT:
             return
                 colStr + TAB + "SQLBIGINT" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.BINARY:
             return
                 colStr + TAB + "SQLBINARY" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.BOOLEAN:
             return
                 colStr + TAB + "SQLBIT" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.CHAR:
             return
                 colStr + TAB + "SQLCHAR" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.DATE:
             return
                 colStr + TAB + "SQLDATE" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.DECIMAL:
             return
                 colStr + TAB + "SQLDECIMAL" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + TAB
+                + TAB + colStr + TAB + colName + TAB
                 + String.valueOf(rsmd.getPrecision(colNum)) + TAB
                 + String.valueOf(rsmd.getScale(colNum)) + NEWLINE;
         case Types.DOUBLE:
             return
                 colStr + TAB + "SQLFLT8" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.FLOAT:
             return
                 colStr + TAB + "SQLFLT4" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.INTEGER:
             return
                 colStr + TAB + "SQLINT" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.NUMERIC:
             return
                 colStr + TAB + "SQLNUMERIC" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + TAB
+                + TAB + colStr + TAB + colName + TAB
                 + String.valueOf(rsmd.getPrecision(colNum)) + TAB
                 + String.valueOf(rsmd.getScale(colNum)) + NEWLINE;
         case Types.REAL:
             return
                 colStr + TAB + "SQLREAL" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.SMALLINT:
             return
                 colStr + TAB + "SQLSMALLINT" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.TIME:
             return
                 colStr + TAB + "SQLTIME" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.TIMESTAMP:
             return
                 colStr + TAB + "SQLTIMESTAMP" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.TINYINT:
             return
                 colStr + TAB + "SQLTINYINT" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.VARBINARY:
             return
                 colStr + TAB + "SQLBINARY" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         case Types.VARCHAR:
         default:
             return
                 colStr + TAB + "SQLVARCHAR" + TAB + "0" + TAB
                 + rsmd.getColumnDisplaySize(colNum) + TAB + literalSep
-                + TAB + colStr + TAB + rsmd.getColumnName(colNum) + NEWLINE;
+                + TAB + colStr + TAB + colName + NEWLINE;
         }
     }
+
 
     /** 
      * Helper function which escapes the quotes by quoting them

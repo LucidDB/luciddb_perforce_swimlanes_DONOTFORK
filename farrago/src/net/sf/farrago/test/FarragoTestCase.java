@@ -331,27 +331,33 @@ public abstract class FarragoTestCase
 
     protected static void saveParameters(FarragoRepos repos)
     {
-        FarragoReposTxnContext reposTxn = new FarragoReposTxnContext(repos);
-        reposTxn.beginReadTxn();
-        savedFarragoConfig =
-            JmiUtil.getAttributeValues(repos.getCurrentConfig());
-        savedFennelConfig =
-            JmiUtil.getAttributeValues(
-                repos.getCurrentConfig().getFennelConfig());
-        reposTxn.commit();
+        FarragoReposTxnContext reposTxn = repos.newTxnContext();
+        try {
+            reposTxn.beginReadTxn();
+            savedFarragoConfig =
+                JmiUtil.getAttributeValues(repos.getCurrentConfig());
+            savedFennelConfig =
+                JmiUtil.getAttributeValues(
+                    repos.getCurrentConfig().getFennelConfig());
+        } finally {
+            reposTxn.commit();
+        }
     }
 
     protected static void restoreParameters(FarragoRepos repos)
     {
-        FarragoReposTxnContext reposTxn = new FarragoReposTxnContext(repos);
-        reposTxn.beginWriteTxn();
-        JmiUtil.setAttributeValues(
-            repos.getCurrentConfig(),
-            savedFarragoConfig);
-        JmiUtil.setAttributeValues(
-            repos.getCurrentConfig().getFennelConfig(),
-            savedFennelConfig);
-        reposTxn.commit();
+        FarragoReposTxnContext reposTxn = repos.newTxnContext();
+        try {
+            reposTxn.beginWriteTxn();
+            JmiUtil.setAttributeValues(
+                repos.getCurrentConfig(),
+                savedFarragoConfig);
+            JmiUtil.setAttributeValues(
+                repos.getCurrentConfig().getFennelConfig(),
+                savedFennelConfig);
+        } finally {
+            reposTxn.commit();
+        }
     }
 
     // NOTE: Repos open/close is slow and causes sporadic problems when done
@@ -431,9 +437,14 @@ public abstract class FarragoTestCase
         super.setUp();
         stmt = connection.createStatement();
 
-        // discard any cached query plans
-        stmt.executeUpdate("alter system set \"codeCacheMaxBytes\" = min");
-        stmt.executeUpdate("alter system set \"codeCacheMaxBytes\" = max");
+        // discard any cached query plans (can't call
+        // sys_boot.mgmt.flush_code_cache because it may not exist yet,
+        // plus it's slow)
+        FarragoObjectCache codeCache =
+            ((FarragoDbSession) getSession()).getDatabase().getCodeCache();
+        long savedBytesMax = codeCache.getBytesMax();
+        codeCache.setMaxBytes(0);
+        codeCache.setMaxBytes(savedBytesMax);
 
         resultSet = null;
     }
@@ -517,7 +528,7 @@ public abstract class FarragoTestCase
                 driverName, "-n",
                 FarragoCatalogInit.SA_USER_NAME,
                 "--force=true", "--silent=true",
-                "--showWarnings=false", "--maxWidth=1024"
+                "--maxWidth=1024"
             };
         PrintStream savedOut = System.out;
         PrintStream savedErr = System.err;
@@ -732,10 +743,38 @@ public abstract class FarragoTestCase
                 || name.startsWith("SYS_");
         }
 
+        /**
+         * Decides whether wrapper should be preserved as a global fixture.
+         * Extension project test case can override this method to bless
+         * additional schemas or use attributes other than the name to make the
+         * determination.
+         *
+         * @param wrapper wrapper to check
+         *
+         * @return true iff wrapper should be preserved as fixture
+         */
         protected boolean isBlessedWrapper(FemDataWrapper wrapper)
         {
             String name = wrapper.getName();
             return name.startsWith("SYS_");
+        }
+
+        /**
+         * Decides whether authId should be preserved as a global fixture.
+         * Extension project test case can override this method to bless
+         * additional authIds or use attributes other than the name to make the
+         * determination.
+         *
+         * @param authId authorization ID to check
+         *
+         * @return true iff authId should be preserved as fixture
+         */
+        protected boolean isBlessedAuthId(FemAuthId authId)
+        {
+            String name = authId.getName();
+            return name.equals(FarragoCatalogInit.SYSTEM_USER_NAME)
+                || name.equals(FarragoCatalogInit.PUBLIC_ROLE_NAME)
+                || name.equals(FarragoCatalogInit.SA_USER_NAME);
         }
 
         private void dropSchemas()
@@ -812,12 +851,7 @@ public abstract class FarragoTestCase
         {
             List<String> list = new ArrayList<String>();
             for (FemAuthId authId : getRepos().allOfType(FemAuthId.class)) {
-                if (authId.getName().equals(
-                        FarragoCatalogInit.SYSTEM_USER_NAME)
-                    || authId.getName().equals(
-                        FarragoCatalogInit.PUBLIC_ROLE_NAME)
-                    || authId.getName().equals(
-                        FarragoCatalogInit.SA_USER_NAME)) {
+                if (isBlessedAuthId(authId)) {
                     continue;
                 }
                 list.add(

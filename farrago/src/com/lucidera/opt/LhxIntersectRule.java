@@ -72,10 +72,14 @@ public class LhxIntersectRule
         List<String> newJoinOutputNames =
             RelOptUtil.getFieldNameList(leftRel.getRowType());
 
-        // make up the condition
+        // make up the join condition
         List<Integer> leftKeys = new ArrayList<Integer>();
         List<Integer> rightKeys = new ArrayList<Integer>();
-
+        
+        // an empty array means no filtering of null values
+        // i.e. a null value is considered to match another null value
+        List<Integer> filterNulls = new ArrayList<Integer>();
+        
         for (int i = 0; i < leftRel.getRowType().getFieldCount(); i++) {
             leftKeys.add(i);
             rightKeys.add(i);
@@ -110,9 +114,6 @@ public class LhxIntersectRule
             }
 
             Double numBuildRows = RelMetadataQuery.getRowCount(fennelRight);
-            if (numBuildRows == null) {
-                numBuildRows = 10000.0;
-            }
 
             // Derive cardinality of build side(RHS) join keys.
             Double cndBuildKey;
@@ -127,8 +128,8 @@ public class LhxIntersectRule
                     fennelRight,
                     joinKeyMap);
 
-            if ((cndBuildKey == null) || (cndBuildKey > numBuildRows)) {
-                cndBuildKey = numBuildRows;
+            if (cndBuildKey == null) {
+                cndBuildKey = -1.0;
             }
 
             boolean isSetop = true;
@@ -142,9 +143,10 @@ public class LhxIntersectRule
                     isSetop,
                     leftKeys,
                     rightKeys,
+                    filterNulls,
                     newJoinOutputNames,
-                    numBuildRows.intValue(),
-                    cndBuildKey.intValue());
+                    numBuildRows.longValue(),
+                    cndBuildKey.longValue());
         }
         call.transformTo(leftRel);
     }

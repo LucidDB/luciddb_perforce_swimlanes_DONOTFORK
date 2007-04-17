@@ -50,6 +50,16 @@
 | 235        | Peter "peg leg", Jimmy & Samantha "Sam"  | G            |
 +------------+------------------------------------------+--------------+
 > 
+> -- verify that we can buffer cartesian product inputs instead
+> -- of trying to restart them
+> select count(*) 
+> from csv_schema.explicit_example e1, csv_schema.explicit_example e2;
++---------+
+| EXPR$0  |
++---------+
+| 36      |
++---------+
+> 
 > -- should fail:  required metadata support not available
 > import foreign schema testdata
 > from server csv_server
@@ -90,5 +100,39 @@ Error: Value required for property TABLE_NAME (state=,code=0)
 > server csv_server
 > options (table_name 'example', schema_name 'grub');
 Error: Values ('TESTDATA', 'grub') for property SCHEMA_NAME do not match (state=,code=0)
+> 
+> -- test an extended option
+> create server csv_server_with_extended_option
+> foreign data wrapper sys_jdbc
+> options(
+>     driver_class 'org.relique.jdbc.csv.CsvDriver',
+>     url 'jdbc:relique:csv:unitsql/med',
+>     extended_options 'TRUE',
+>     schema_name 'TESTDATA',
+>     "suppressHeaders" 'true');
+> 
+> select count(*) from csv_server_with_extended_option.testdata."example";
++---------+
+| EXPR$0  |
++---------+
+| 7       |
++---------+
+> 
+> -- verify that without extended_option enabled, extra properties are
+> -- not passed through
+> create server csv_server_without_extended_option
+> foreign data wrapper sys_jdbc
+> options(
+>     driver_class 'org.relique.jdbc.csv.CsvDriver',
+>     url 'jdbc:relique:csv:unitsql/med',
+>     schema_name 'TESTDATA',
+>     "suppressHeaders" 'true');
+> 
+> select count(*) from csv_server_without_extended_option.testdata."example";
++---------+
+| EXPR$0  |
++---------+
+| 6       |
++---------+
 > 
 > !quit

@@ -29,11 +29,7 @@ import org.eigenbase.rel.*;
 import org.eigenbase.rel.convert.*;
 import org.eigenbase.rel.jdbc.*;
 import org.eigenbase.relopt.*;
-import org.eigenbase.reltype.*;
-
-import java.util.*;
-import java.text.*;
-
+import org.eigenbase.util.*;
 
 /**
  * LoptIterCalcRule decorates an IterCalcRel with an error handling tag, 
@@ -124,16 +120,26 @@ public abstract class LoptIterCalcRule extends RelOptRule
                     })
         }));
 
+    public static LoptIterCalcRule hashJoinInstance =
+        new HashJoinRule(
+            new RelOptRuleOperand(
+                IterCalcRel.class,
+                new RelOptRuleOperand[] {
+                    new RelOptRuleOperand(
+                        ConverterRel.class,
+                        new RelOptRuleOperand[] {
+                            new RelOptRuleOperand(
+                                LhxJoinRel.class,
+                                null)
+                    })
+        }));
+
     public static LoptIterCalcRule defaultInstance =
         new DefaultRule(
             new RelOptRuleOperand(
                 IterCalcRel.class, null));
 
     // index acess rule, hash rules
-
-    private static String tagTimestampFormat = "yyyy-MM-dd-HH-mm-ss";
-    private static DateFormat tagTimestampFormatter = 
-        new SimpleDateFormat(tagTimestampFormat);
 
     //~ Constructors -----------------------------------------------------------
 
@@ -192,7 +198,7 @@ public abstract class LoptIterCalcRule extends RelOptRule
      * elements of the qualified name, joined by dots. The tag is prefixed 
      * with an action name, and is optionally suffixed with a unique 
      * identifier. The tag has the overall format:
-     * "<code>[action].catalog.schema.table[.uniqueSuffix]</code>".
+     * "<code>action.table[.uniqueSuffix]</code>".
      * The unique suffix is appended when the table's relation is provided. 
      * The suffix has a combination of the relation's runtime id and the 
      * current timestamp.
@@ -206,12 +212,10 @@ public abstract class LoptIterCalcRule extends RelOptRule
     {
         assert (qualifiedName.length == 3);
         StringBuffer sb = new StringBuffer(action);
-        for (int i = 0; i < qualifiedName.length; i++) {
-            sb.append(".").append(qualifiedName[i]);
-        }
+        sb.append(".").append(qualifiedName[2]);
         if (rel != null) {
             sb.append("." + rel.getId());
-            sb.append("_" + tagTimestampFormatter.format(new Date()));
+            sb.append("_" + Util.getFileTimestamp());
         }
         return sb.toString();
     }
@@ -225,8 +229,7 @@ public abstract class LoptIterCalcRule extends RelOptRule
     {
         // the timestamp should guarantee a unique default tag
         // and might be more readable than a uuid
-        return "IterCalcRel" + rel.getId() + "_" 
-            + tagTimestampFormatter.format(new Date());
+        return "IterCalcRel" + rel.getId() + "_" + Util.getFileTimestamp();
     }
 
     protected void setIterCalcTypeMap(
@@ -246,6 +249,7 @@ public abstract class LoptIterCalcRule extends RelOptRule
     public static final String TABLE_APPEND_PREFIX = "Insert";
     public static final String TABLE_MERGE_PREFIX = "Merge";
     public static final String TABLE_DELETE_PREFIX = "Delete";
+    public static final String HASH_JOIN_PREFIX = "PostJoin";
 
     /**
      * A rule for tagging a calculator on top of a table scan.
@@ -268,7 +272,7 @@ public abstract class LoptIterCalcRule extends RelOptRule
             TableAccessRelBase tableRel = (TableAccessRelBase) call.rels[2];
             String tag = getTableTag(
                 TABLE_ACCESS_PREFIX,
-                tableRel.getTable().getQualifiedName(), null);
+                tableRel.getTable().getQualifiedName(), tableRel);
             transformToTag(call, calc, tag);
         }
     }
@@ -431,6 +435,29 @@ public abstract class LoptIterCalcRule extends RelOptRule
                     replaceTagAsFennel(converter, calc, tag),
                     tableRel.getOperation(),
                     tableRel.getUpdateColumnList()));
+        }
+    }
+
+    /**
+     * A rule for tagging a calculator on top of a hash join.
+     */
+    private static class HashJoinRule extends LoptIterCalcRule
+    {
+        public HashJoinRule(RelOptRuleOperand operand)
+        {
+            super(operand);
+        }
+        
+        // implement RelOptRule
+        public void onMatch(RelOptRuleCall call)
+        {
+            IterCalcRel calc = (IterCalcRel) call.rels[0];
+            if (calc.getTag() != null) {
+                return;
+            }
+
+            String tag = HASH_JOIN_PREFIX + getDefaultTag(calc);
+            transformToTag(call, calc, tag);
         }
     }
 

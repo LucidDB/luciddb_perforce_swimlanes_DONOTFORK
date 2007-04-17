@@ -157,8 +157,24 @@ public class FarragoDefaultHeuristicPlanner
         // from clause can be optimized with the rest of the query
         builder.addRuleInstance(RemoveTrivialProjectRule.instance);
 
-        // Push filters down past joins.
-        builder.addRuleInstance(new PushFilterPastJoinRule());
+        // Push filters.
+        builder.addGroupBegin();
+        builder.addRuleInstance(new PushFilterPastSetOpRule());
+        builder.addRuleInstance(new PushFilterPastProjectRule());
+        builder.addRuleInstance(
+            new PushFilterPastJoinRule(
+                new RelOptRuleOperand(
+                    FilterRel.class,
+                    new RelOptRuleOperand[] {
+                        new RelOptRuleOperand(JoinRel.class, null)
+                    }),
+                "with filter above join"));
+        builder.addRuleInstance(
+            new PushFilterPastJoinRule(
+                new RelOptRuleOperand(JoinRel.class, null),
+                "without filter above join"));      
+        builder.addRuleInstance(new MergeFilterRule());
+        builder.addGroupEnd();
 
         // This rule will also get run as part of medPluginRules, but
         // we need to do it now before pushing down projections, otherwise
@@ -175,6 +191,7 @@ public class FarragoDefaultHeuristicPlanner
         // index joins don't like projections underneath the join.
         builder.addGroupBegin();
         builder.addRuleInstance(RemoveTrivialProjectRule.instance);
+        builder.addRuleInstance(new PushProjectPastSetOpRule());
         builder.addRuleInstance(new PushProjectPastJoinRule());
         builder.addRuleInstance(new PushProjectPastFilterRule());
         builder.addRuleInstance(new MergeProjectRule());
@@ -201,6 +218,10 @@ public class FarragoDefaultHeuristicPlanner
         // after other join strategies such as hash join have been attempted,
         // because they rely on the join condition being part of the join.
         builder.addRuleInstance(ExtractJoinFilterRule.instance);
+
+        // Change "is not distinct from" condition to a case expression
+        // which can be evaluated by CalcRel.
+        builder.addRuleInstance(RemoveIsNotDistinctFromRule.instance);
 
         // Replace AVG with SUM/COUNT (need to do this BEFORE calc conversion
         // and decimal reduction).

@@ -41,7 +41,8 @@ class ExternalSortExecStreamTest : public ExecStreamUnitTestBase
         SharedMockProducerExecStreamGenerator pGenerator,
         MockProducerExecStreamGenerator &verifier,
         bool storeFinalRun = false,
-        bool stopEarly = false);
+        bool stopEarly = false,
+        bool desc = false);
     
 public:
     explicit ExternalSortExecStreamTest()
@@ -53,6 +54,8 @@ public:
         FENNEL_UNIT_TEST_CASE(
             ExternalSortExecStreamTest,testRandomInMem);
         FENNEL_UNIT_TEST_CASE(
+            ExternalSortExecStreamTest,testRandomDescInMem);
+        FENNEL_UNIT_TEST_CASE(
             ExternalSortExecStreamTest,testRandomExternal);
         FENNEL_UNIT_TEST_CASE(
             ExternalSortExecStreamTest,testRandomExternalStoreFinal);
@@ -63,6 +66,7 @@ public:
     void testPresortedInMem();
     void testPresortedExternal();
     void testRandomInMem();
+    void testRandomDescInMem();
     void testRandomExternal();
     void testRandomExternalStoreFinal();
     void testRandomExternalFault();
@@ -93,6 +97,18 @@ void ExternalSortExecStreamTest::testRandomInMem()
         new PermutationGenerator(100));
     RampExecStreamGenerator verifier;
     testImpl(100, pGenerator, verifier);
+}
+
+void ExternalSortExecStreamTest::testRandomDescInMem()
+{
+    SharedMockProducerExecStreamGenerator pGenerator(
+        new PermutationGenerator(100));
+    std::vector< boost::shared_ptr<ColumnGenerator<int64_t> > > colGens;
+    colGens.push_back(
+        boost::shared_ptr< ColumnGenerator<int64_t> >(
+            new SeqColumnGenerator(99, -1)));
+    CompositeExecStreamGenerator verifier(colGens);
+    testImpl(100, pGenerator, verifier, false, false, true);
 }
 
 void ExternalSortExecStreamTest::testRandomExternal()
@@ -139,7 +155,8 @@ void ExternalSortExecStreamTest::testImpl(
     SharedMockProducerExecStreamGenerator pGenerator,
     MockProducerExecStreamGenerator &verifier,
     bool storeFinalRun,
-    bool stopEarly)
+    bool stopEarly,
+    bool desc)
 {
     StandardTypeDescriptorFactory stdTypeFactory;
     TupleAttributeDescriptor attrDesc(
@@ -158,6 +175,7 @@ void ExternalSortExecStreamTest::testImpl(
     sortParams.outputTupleDesc.push_back(attrDesc);
     sortParams.distinctness = DUP_ALLOW;
     sortParams.estimatedNumRows = nRows;
+    sortParams.earlyClose = false;
     sortParams.pTempSegment = pRandomSegment;
     sortParams.pCacheAccessor = pCache;
     // 10 total cache pages, 5% in reserve ==> 9 scratch pages per stream graph
@@ -165,6 +183,7 @@ void ExternalSortExecStreamTest::testImpl(
         pSegmentFactory->newScratchSegment(pCache, 9);
     sortParams.keyProj.push_back(0);
     sortParams.storeFinalRun = storeFinalRun;
+    sortParams.descendingKeyColumns.push_back(desc);
     
     ExecStreamEmbryo sortStreamEmbryo;
     sortStreamEmbryo.init(

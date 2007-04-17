@@ -78,6 +78,10 @@ public class FarragoRelMetadataProvider
         args.add((Class) BitSet.class);
         args.add((Class) RexNode.class);
         mapParameterTypes("getDistinctRowCount", args);
+        
+        mapParameterTypes(
+            "areColumnsUnique",
+            Collections.singletonList((Class) BitSet.class));
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -146,6 +150,11 @@ public class FarragoRelMetadataProvider
     {
         return columnMd.getUniqueKeys(rel, repos);
     }
+    
+    public Boolean areColumnsUnique(RelNode rel, BitSet columns)
+    {
+        return columnMd.areColumnsUnique(rel, columns, repos);
+    }
 
     public Double getPopulationSize(RelNode rel, BitSet groupKey)
     {
@@ -158,6 +167,20 @@ public class FarragoRelMetadataProvider
         RexNode predicate)
     {
         return columnMd.getDistinctRowCount(rel, groupKey, predicate);
+    }
+
+    public Boolean canRestart(RelNode rel)
+    {
+        // TODO jvs 4-Nov-2006:  Override this to ignore children
+        // and return true in cases where we know buffering
+        // is already being done.
+        
+        for (RelNode child : rel.getInputs()) {
+            if (!FarragoRelMetadataQuery.canRestart(child)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
 

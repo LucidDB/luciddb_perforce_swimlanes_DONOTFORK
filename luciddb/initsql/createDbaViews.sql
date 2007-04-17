@@ -1,4 +1,4 @@
-create schema localdb.sys_root;
+create or replace schema localdb.sys_root;
 set schema 'localdb.sys_root';
 set path 'localdb.sys_root';
 
@@ -7,16 +7,26 @@ set path 'localdb.sys_root';
 -- corresponding user_ views which show just the subset accessible
 -- to CURRENT_USER
 
-create view dba_schemas as
+create or replace function convert_nullable_int_to_boolean(n integer)
+returns boolean
+contains sql
+deterministic
+return case
+  when n=0 then false
+  when n=1 then true
+  else unknown
+end;
+
+create or replace view dba_schemas as
   select
     catalog_name,
     schema_name,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
     last_modified_timestamp,
     remarks,
-    si."mofId" as mofid,
-    si."lineageId" as lineageid
+    cast(si."mofId" as varchar(128)) as mof_id,
+    cast(si."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_schemas_internal2 si
   inner join
@@ -27,18 +37,18 @@ create view dba_schemas as
 
 grant select on dba_schemas to public;
 
-create view dba_tables as
+create or replace view dba_tables as
   select
     catalog_name,
     schema_name,
     table_name,
     table_type,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
-    last_modification_timestamp,
+    last_modification_timestamp as last_modified_timestamp,
     remarks,
-    dti."mofId" as mofid,
-    dti."lineageId" as lineageid
+    cast(dti."mofId" as varchar(128)) as mof_id,
+    cast(dti."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_tables_internal2 dti
   inner join
@@ -49,20 +59,20 @@ create view dba_tables as
 
 grant select on dba_tables to public;
 
-create view dba_columns as
+create or replace view dba_columns as
   select
-    table_cat as catalog_name,
-    table_schem as schema_name,
-    table_name,
-    column_name,
+    cast(table_cat as varchar(128)) as catalog_name,
+    cast(table_schem as varchar(128)) as schema_name,
+    cast(table_name as varchar(128)) as table_name,
+    cast(column_name as varchar(128)) as column_name,
     ordinal_position,
     dt."name" as datatype,
     column_size as "PRECISION",
     dec_digits,
-    is_nullable,
+    sys_root.convert_nullable_int_to_boolean(nullable) as is_nullable,
     remarks,
-    ci."mofId" as mofid,
-    ci."lineageId" as lineageid
+    cast(ci."mofId" as varchar(128)) as mof_id,
+    cast(ci."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.jdbc_metadata.columns_view_internal ci
   inner join
@@ -73,18 +83,18 @@ create view dba_columns as
 
 grant select on dba_columns to public;
 
-create view dba_views as
+create or replace view dba_views as
   select
     catalog_name,
     schema_name,
     view_name,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
-    last_modification_timestamp,
+    last_modification_timestamp as last_modified_timestamp,
     original_text,
     remarks,
-    vi."mofId" as mofid,
-    vi."lineageId" as lineageid
+    cast(vi."mofId" as varchar(128)) as mof_id,
+    cast(vi."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_views_internal2 vi
   inner join
@@ -95,19 +105,21 @@ create view dba_views as
 
 grant select on dba_views to public;
 
-create view dba_stored_tables as
+create or replace view dba_stored_tables as
   select
     catalog_name,
     schema_name,
     table_name,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
-    last_modification_timestamp,
+    last_modification_timestamp as last_modified_timestamp,
     last_analyze_row_count,
     last_analyze_timestamp,
+    current_row_count,
+    deleted_row_count,
     remarks,
-    sti."mofId" as mofid,
-    sti."lineageId" as lineageid
+    cast(sti."mofId" as varchar(128)) as mof_id,
+    cast(sti."lineageId" as varchar(128))as lineage_id
   from
     sys_boot.mgmt.dba_stored_tables_internal2 sti
   inner join
@@ -118,7 +130,7 @@ create view dba_stored_tables as
 
 grant select on dba_stored_tables to public;
 
-create view dba_routines as
+create or replace view dba_routines as
   select
     catalog_name,
     schema_name,
@@ -126,7 +138,7 @@ create view dba_routines as
     specific_name,
     external_name,
     routine_type,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
     last_modified_timestamp,
     is_table_function,
@@ -134,8 +146,8 @@ create view dba_routines as
     is_deterministic,
     data_access,
     remarks,
-    ri."mofId" as mofid,
-    ri."lineageId" as lineageid
+    cast(ri."mofId" as varchar(128)) as mof_id,
+    cast(ri."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_routines_internal2 ri
   inner join
@@ -146,41 +158,79 @@ create view dba_routines as
 
 grant select on dba_routines to public;
 
-create view dba_routine_parameters as
+create or replace view dba_functions as
+  select 
+    * 
+  from sys_root.dba_routines
+  where routine_type='FUNCTION'
+;
+    
+grant select on dba_functions to public;
+
+create or replace view dba_routine_parameters as
   select
     catalog_name,
     schema_name,
     routine_specific_name,
     parameter_name,
-    ordinal,
-    case when rpi.is_table_function and parameter_name='RETURN' then 'TABLE'
-         else dt."name" end as datatype,
+    (ordinal + 1) as ordinal_position,
+    cast(dt."name" as varchar(128)) as datatype,
     "PRECISION",
     dec_digits,
     remarks,
-    rpi."mofId" as mofid,
-    rpi."lineageId" as lineageid
+    cast(rpi."mofId" as varchar(128)) as mof_id,
+    cast(rpi."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_routine_parameters_internal1 rpi
   inner join
     sys_cwm."Relational"."SQLDataType" dt
   on
     rpi."type" = dt."mofId"
+  where parameter_name <> 'RETURN'
 ;
 
 grant select on dba_routine_parameters to public;
 
-create view dba_foreign_wrappers as
+create or replace view dba_function_parameters as
+  select
+    catalog_name,
+    schema_name,
+    routine_specific_name,
+    parameter_name,
+    (ordinal + 1) as ordinal_position,
+    case 
+      when rpi.is_table_function and parameter_name='RETURN' 
+        then cast('TABLE' as varchar(128))
+      else cast(dt."name" as varchar(128)) 
+      end as datatype,
+    cast(dt."name" as varchar(128)) as datatype,
+    "PRECISION",
+    dec_digits,
+    remarks,
+    cast(rpi."mofId" as varchar(128)) as mof_id,
+    cast(rpi."lineageId" as varchar(128)) as lineage_id
+  from
+    sys_boot.mgmt.dba_routine_parameters_internal1 rpi
+  inner join
+    sys_cwm."Relational"."SQLDataType" dt
+  on
+    rpi."type" = dt."mofId"
+  where routine_type = 'FUNCTION'
+;
+
+grant select on dba_function_parameters to public;
+
+create or replace view dba_foreign_wrappers as
   select
     foreign_wrapper_name,
     library,
     "LANGUAGE",
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     creation_timestamp,
     last_modified_timestamp,
     remarks,
-    fwi."mofId" as mofid,
-    fwi."lineageId" as lineageid
+    cast(fwi."mofId" as varchar(128)) as mof_id,
+    cast(fwi."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_foreign_wrappers_internal fwi
   inner join
@@ -191,12 +241,12 @@ create view dba_foreign_wrappers as
 
 grant select on dba_foreign_wrappers to public;
 
-create view dba_foreign_wrapper_options as 
+create or replace view dba_foreign_wrapper_options as 
   select
-    dw."name" as foreign_wrapper_name,
-    so."name" as option_name,
-    so."value" as option_value,
-    so."mofId" as mofid
+    cast(dw."name" as varchar(128)) as foreign_wrapper_name,
+    cast(so."name" as varchar(128)) as option_name,
+    cast(so."value" as varchar(128)) as option_value,
+    cast(so."mofId" as varchar(128)) as mof_id
   from
     sys_fem.med."DataWrapper" dw
   inner join
@@ -209,14 +259,16 @@ create view dba_foreign_wrapper_options as
 
 grant select on dba_foreign_wrapper_options to public;
 
-create view dba_foreign_servers as
+create or replace view dba_foreign_servers as
   select
     fsi.foreign_wrapper_name,
     fsi.foreign_server_name,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     fsi.creation_timestamp,
     fsi.last_modified_timestamp,
     fsi.remarks,
+    cast(fsi."mofId" as varchar(128)) as mof_id,
+    cast(fsi."lineageId" as varchar(128)) as lineage_id,
     fsi."mofId" as mofid,
     fsi."lineageId" as lineageid
   from
@@ -229,12 +281,13 @@ create view dba_foreign_servers as
 
 grant select on dba_foreign_servers to public;
 
-create view dba_foreign_server_options as
+create or replace view dba_foreign_server_options as
   select
     foreign_wrapper_name,
     foreign_server_name,
-    so."name" as option_name,
-    so."value" as option_value,
+    cast(so."name" as varchar(65535)) as option_name,
+    cast(so."value" as varchar(65535)) as option_value,
+    cast(so."mofId" as varchar(128)) as mof_id,
     so."mofId" as mofid
   from
     sys_boot.mgmt.dba_foreign_servers_internal1 fsi
@@ -246,19 +299,19 @@ create view dba_foreign_server_options as
 
 grant select on dba_foreign_server_options to public;
 
-create view dba_foreign_tables as
+create or replace view dba_foreign_tables as
   select
     fti.foreign_wrapper_name,
     fti.foreign_server_name,
     fti.foreign_table_name,
-    ai."name" as creator,
+    cast(ai."name" as varchar(128)) as creator,
     fti.creation_timestamp,
     fti.last_modified_timestamp,
     fti.last_analyze_row_count,
     fti.last_analyze_timestamp,
     fti.remarks,
-    fti."mofId" as mofid,
-    fti."lineageId" as lineageid
+    cast(fti."mofId" as varchar(128)) as mof_id,
+    cast(fti."lineageId" as varchar(128)) as lineage_id
   from
     sys_boot.mgmt.dba_foreign_tables_internal2 fti
   inner join
@@ -269,14 +322,14 @@ create view dba_foreign_tables as
 
 grant select on dba_foreign_tables to public;
 
-create view dba_foreign_table_options as
+create or replace view dba_foreign_table_options as
   select
     foreign_wrapper_name,
     foreign_server_name,
     foreign_table_name,
-    so."name" as option_name,
-    so."value" as option_value,
-    so."mofId" as mofid
+    cast(so."name" as varchar(65535)) as option_name,
+    cast(so."value" as varchar(65535)) as option_value,
+    cast(so."mofId" as varchar(128)) as mof_id
   from
     sys_boot.mgmt.dba_foreign_tables_internal1 fti
   inner join
@@ -287,7 +340,7 @@ create view dba_foreign_table_options as
 
 grant select on dba_foreign_table_options to public;
 
-create view dba_system_parameters as
+create or replace view dba_system_parameters as
 select col_name as param_name, col_value as param_value from 
 ((select * from table(
   applib.pivot_columns_to_rows(
@@ -302,7 +355,7 @@ where col_name not in
 
 grant select on dba_system_parameters to public;
 
-create view dba_sessions as
+create or replace view dba_sessions as
 select 
 id as session_id,
 url as connect_url,
@@ -323,7 +376,7 @@ from sys_boot.mgmt.sessions_view;
 
 grant select on dba_sessions to public;
 
-create view dba_sql_statements as
+create or replace view dba_sql_statements as
 select
 id as stmt_id,
 session_id,
@@ -334,37 +387,37 @@ from sys_boot.mgmt.statements_view;
 
 grant select on dba_sql_statements to public;
 
-create view dba_repository_properties as
+create or replace view dba_repository_properties as
 select * from sys_boot.mgmt.repository_properties_view;
 
 grant select on dba_repository_properties to public;
 
-create view dba_repository_integrity_violations as
+create or replace view dba_repository_integrity_violations as
 select * from table(sys_boot.mgmt.repository_integrity_violations());
 
 grant select on dba_repository_integrity_violations to public;
 
-create view dba_objects_in_use as
+create or replace view dba_objects_in_use as
 select * from sys_boot.mgmt.objects_in_use_view;
 
 grant select on dba_objects_in_use to public;
 
-create view dba_threads
+create or replace view dba_threads
 as select * from table(sys_boot.mgmt.threads());
 
 grant select on dba_threads to public;
 
-create view dba_thread_stack_entries
+create or replace view dba_thread_stack_entries
 as select * from table(sys_boot.mgmt.thread_stack_entries());
 
 grant select on dba_thread_stack_entries to public;
 
-create view dba_performance_counters
+create or replace view dba_performance_counters
 as select * from table(sys_boot.mgmt.performance_counters());
 
 grant select on dba_performance_counters to public;
 
-create view dba_system_info
+create or replace view dba_system_info
 as 
 (select * from table(sys_boot.mgmt.system_info()))
 union all
@@ -375,13 +428,13 @@ grant select on dba_system_info to public;
 -- NOTE jvs 17-Sept-2006:  This view is intentionally NOT prefixed
 -- with dba_ because it shows information about the current session only
 
-create view user_session_parameters as
+create or replace view user_session_parameters as
 select * from sys_boot.mgmt.session_parameters_view;
 
 grant select on user_session_parameters to public;
 
 -- Flush all entries from the global code cache
-create procedure flush_code_cache()
+create or replace procedure flush_code_cache()
   language java
   parameter style java
   reads sql data
@@ -389,37 +442,59 @@ create procedure flush_code_cache()
   'class net.sf.farrago.syslib.FarragoManagementUDR.flushCodeCache';
 
 -- Kill a session by its ID (see dba_sessions)
-create procedure kill_session(in id bigint)
+create or replace procedure kill_session(in id bigint)
 language java
 parameter style java
 no sql
 external name 'class net.sf.farrago.syslib.FarragoKillUDR.killSession';
 
+create or replace procedure kill_session(in id bigint, in cancel_only boolean)
+language java
+parameter style java
+no sql
+specific kill_session_cancel
+external name 'class net.sf.farrago.syslib.FarragoKillUDR.killSession';
+
 -- Kill a statement by its ID (see dba_sql_statements)
-create procedure kill_statement(in id bigint)
+create or replace procedure kill_statement(in id bigint)
 language java
 parameter style java
 no sql
 external name 'class net.sf.farrago.syslib.FarragoKillUDR.killStatement';
 
+create or replace procedure kill_statement(in id bigint, in cancel_only boolean)
+language java
+parameter style java
+no sql
+specific kill_statement_cancel
+external name 'class net.sf.farrago.syslib.FarragoKillUDR.killStatement';
+
 -- Kill all statements whose sql_stmt text contains the input string
 -- (similar to Unix killall)
-create procedure kill_all_matching_statements(in s varchar(256))
+create or replace procedure kill_all_matching_statements(in s varchar(256))
 language java
 parameter style java
 no sql
 external name 'class net.sf.farrago.syslib.FarragoKillUDR.killStatementMatch';
 
+create or replace procedure kill_all_matching_statements(
+    in s varchar(256), in cancel_only boolean)
+language java
+parameter style java
+no sql
+specific kill_all_matching_statements_cancel
+external name 'class net.sf.farrago.syslib.FarragoKillUDR.killStatementMatch';
+
 -- Exports the complete contents of the catalog to an XMI file
-create procedure export_catalog_xmi(in filename varchar(65535))
+create or replace procedure export_catalog_xmi(in filename varchar(65535))
 language java
 parameter style java
 no sql
 external name 'class net.sf.farrago.syslib.FarragoManagementUDR.exportCatalog';
 
--- Export schema to csv files UDP. Standard version always creates bcp files
--- and deletes incomplete files for a failed table export
-create procedure export_schema_to_csv(
+-- Export schema to file UDP, field delimiter and file extension can be 
+-- specified by user
+create or replace procedure export_schema_to_file(
   in cat varchar(128),
   in schma varchar(128),
   in exclude boolean, 
@@ -427,14 +502,56 @@ create procedure export_schema_to_csv(
   in tpattern varchar(65535),
   in dir varchar(65535),
   in bcp boolean,
-  in delete_failed_file boolean) 
+  in delete_failed_file boolean,
+  in field_delimiter varchar(2),
+  in file_extension varchar(5)) 
+language java
+reads sql data
+specific export_schema_to_file
+called on null input
+external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaToFile';
+
+-- Export schema to file UDP with field delimiter, file extention and
+-- datetime formats
+create or replace procedure export_schema_to_file(
+  in cat varchar(128),
+  in schma varchar(128),
+  in exclude boolean, 
+  in tlist varchar(65535),
+  in tpattern varchar(65535),
+  in dir varchar(65535),
+  in bcp boolean,
+  in delete_failed_file boolean,
+  in field_delimiter varchar(2),
+  in file_extension varchar(5),
+  in date_format varchar(50),
+  in time_format varchar(50),
+  in timestamp_format varchar(50))
+language java
+reads sql data
+specific export_schema_to_file_2
+called on null input
+external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaToFile';
+
+
+-- Export schema to csv files UDP. Standard version always creates bcp files
+-- and deletes incomplete files for a failed table export. 
+create or replace procedure export_schema_to_csv(
+  in cat varchar(128),
+  in schma varchar(128),
+  in exclude boolean, 
+  in tlist varchar(65535),
+  in tpattern varchar(65535),
+  in dir varchar(65535),
+  in bcp boolean,
+  in delete_failed_file boolean)
 language java
 reads sql data
 specific export_schema_with_options
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaToCsv';
 
-create procedure export_schema_to_csv(
+create or replace procedure export_schema_to_csv(
   in cat varchar(128),
   in schma varchar(128),
   in exclude boolean, 
@@ -448,8 +565,8 @@ called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaToCsv';
 
 -- Export foreign schema to csv files UDP. Standard version always creates bcp
--- files and deletes incomplete files for a failed table export
-create procedure export_foreign_schema_to_csv(
+-- files and deletes incomplete files for a failed table export.
+create or replace procedure export_foreign_schema_to_csv(
   in serv varchar(128),
   in fschema varchar(128),
   in exclude boolean,
@@ -464,7 +581,7 @@ specific export_foreign_schema_with_options
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportForeignSchemaToCsv';
 
-create procedure export_foreign_schema_to_csv(
+create or replace procedure export_foreign_schema_to_csv(
   in serv varchar(128),
   in fschema varchar(128),
   in exclude boolean,
@@ -479,8 +596,8 @@ external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportForeignS
 
 -- Incremental export for local schema, gets rows where 
 -- last_mod_col > last_mod_ts.  Standard version always creates bcp files and
--- deletes incomplete files for a failed table export
-create procedure export_schema_incremental_to_csv(
+-- deletes incomplete files for a failed table export.
+create or replace procedure export_schema_incremental_to_csv(
   in cat varchar(128),
   in schma varchar(128),
   in exclude boolean, 
@@ -497,7 +614,7 @@ specific export_schema_incremental_with_options
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaIncrementalToCsv';
 
-create procedure export_schema_incremental_to_csv(
+create or replace procedure export_schema_incremental_to_csv(
   in cat varchar(128),
   in schma varchar(128),
   in exclude boolean, 
@@ -514,8 +631,8 @@ external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportSchemaIn
 
 -- Incremental export for foreign schema, gets rows where 
 -- last_mod_col > last_mod_ts.  Standard version always creates bcp files and
--- deletes incomplete files for a failed table export
-create procedure export_foreign_schema_incremental_to_csv(
+-- deletes incomplete files for a failed table export.
+create or replace procedure export_foreign_schema_incremental_to_csv(
   in serv varchar(128),
   in fschema varchar(128),
   in exclude boolean,
@@ -532,7 +649,7 @@ specific export_foreign_schema_incremental_with_options
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportForeignSchemaIncrementalToCsv';
 
-create procedure export_foreign_schema_incremental_to_csv(
+create or replace procedure export_foreign_schema_incremental_to_csv(
   in serv varchar(128),
   in fschema varchar(128),
   in exclude boolean,
@@ -551,8 +668,8 @@ external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportForeignS
 -- two schemas must have the same structure. Data from the original schema 
 -- which has been deleted will not be seen, only updates and new records 
 -- from the incremental schema.  Standard version always creates bcp files and
--- deletes incomplete files for a failed table export
-create procedure export_merged_schemas_to_csv(
+-- deletes incomplete files for a failed table export.
+create or replace procedure export_merged_schemas_to_csv(
   in orig_catalog varchar(128),
   in orig_schema varchar(128),
   in incr_catalog varchar(128),
@@ -570,7 +687,7 @@ specific export_merged_schema_with_options
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportMergedSchemas';
 
-create procedure export_merged_schemas_to_csv(
+create or replace procedure export_merged_schemas_to_csv(
   in orig_catalog varchar(128),
   in orig_schema varchar(128),
   in incr_catalog varchar(128),
@@ -585,3 +702,54 @@ contains sql
 specific export_merged_schema_standard
 called on null input
 external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportMergedSchemas';
+
+-- Export result of a single query to a file
+-- NOTE:  query must be quoted as a string literal (TODO:  UDX or
+-- support for cursor parameter to procedures)
+create or replace procedure export_query_to_file(
+  in query_sql varchar(65535),
+  in path_without_extension varchar(65535),
+  in bcp boolean,
+  in delete_failed_file boolean)
+language java
+reads sql data
+called on null input
+external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportQueryToFile';
+
+-- Export result of a single query to a file, with control over field
+-- delimiter, datafile extension, and date/time formatting
+create or replace procedure export_query_to_file(
+  in query_sql varchar(65535),
+  in path_without_extension varchar(65535),
+  in bcp boolean,
+  in delete_failed_file boolean,
+  in field_delimiter varchar(2),
+  in file_extension varchar(5),
+  in date_format varchar(128),
+  in time_format varchar(128),
+  in timestamp_format varchar(128))
+language java
+reads sql data
+specific export_query_to_file_2
+called on null input
+external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportQueryToFile';
+
+-- Export result of a single query to a file, with control over field
+-- delimiter, datafile extension, date/time formatting, and whether
+-- to even export data at all
+create or replace procedure export_query_to_file(
+  in query_sql varchar(65535),
+  in path_without_extension varchar(65535),
+  in bcp boolean,
+  in include_data boolean,
+  in delete_failed_file boolean,
+  in field_delimiter varchar(2),
+  in file_extension varchar(5),
+  in date_format varchar(128),
+  in time_format varchar(128),
+  in timestamp_format varchar(128))
+language java
+reads sql data
+specific export_query_to_file_3
+called on null input
+external name 'class net.sf.farrago.syslib.FarragoExportSchemaUDR.exportQueryToFile';

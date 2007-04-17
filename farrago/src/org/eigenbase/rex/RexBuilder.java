@@ -506,7 +506,7 @@ public class RexBuilder
         return
             makeLiteral(
                 ByteBuffer.wrap(byteArray),
-                typeFactory.createSqlType(SqlTypeName.Varbinary,
+                typeFactory.createSqlType(SqlTypeName.Binary,
                     byteArray.length),
                 SqlTypeName.Binary);
     }

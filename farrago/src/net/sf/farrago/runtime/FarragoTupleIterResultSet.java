@@ -50,7 +50,7 @@ public class FarragoTupleIterResultSet
 
     //~ Static fields/initializers ---------------------------------------------
 
-    private static final Logger tracer =
+    protected static final Logger tracer =
         FarragoTrace.getFarragoTupleIterResultSetTracer();
     private static final Logger jdbcTracer =
         FarragoTrace.getFarragoJdbcEngineDriverTracer();
@@ -62,6 +62,20 @@ public class FarragoTupleIterResultSet
 
     //~ Constructors -----------------------------------------------------------
 
+    public FarragoTupleIterResultSet(
+        TupleIter tupleIter,
+        Class clazz,
+        RelDataType rowType,
+        FarragoSessionRuntimeContext runtimeContext)
+    {
+        this(
+            tupleIter,
+            clazz,
+            rowType,
+            runtimeContext,
+            new SyntheticColumnGetter(clazz));
+    }
+    
     /**
      * Creates a new FarragoTupleIterResultSet object.
      *
@@ -69,16 +83,17 @@ public class FarragoTupleIterResultSet
      * @param clazz Class for objects which iterator will produce
      * @param rowType type info for rows produced
      * @param runtimeContext runtime context for this execution
+     * @param columnGetter object used to read individual columns from the the
+     * underlying iterator
      */
     public FarragoTupleIterResultSet(
         TupleIter tupleIter,
         Class clazz,
         RelDataType rowType,
-        FarragoSessionRuntimeContext runtimeContext)
+        FarragoSessionRuntimeContext runtimeContext,
+        ColumnGetter columnGetter)
     {
-        super(
-            tupleIter,
-            new SyntheticColumnGetter(clazz));
+        super(tupleIter, columnGetter);
         this.rowType = rowType;
         this.runtimeContext = runtimeContext;
         if (tracer.isLoggable(Level.FINE)) {
@@ -97,7 +112,11 @@ public class FarragoTupleIterResultSet
                 tracer.fine(toString());
             }
             if (runtimeContext != null) {
-                runtimeContext.checkCancel();
+                // Inform context that cursor is becoming active, so any
+                // subsequent cancel request has to wait until the
+                // corresponding call in the finally block before cleaning up
+                // the cursor.  This also checks for any pending cancel.
+                runtimeContext.setCursorState(true);
             }
             boolean rc = super.next();
             if (!rc) {
@@ -108,6 +127,7 @@ public class FarragoTupleIterResultSet
                         // Connection.setAutoCommit, returning the last
                         // row of a cursor in autocommit mode ends
                         // the transaction.
+                        runtimeContext.setCursorState(false);
                         close();
                     }
                 }
@@ -116,6 +136,12 @@ public class FarragoTupleIterResultSet
         } catch (Throwable ex) {
             // trace exceptions as part of JDBC API
             throw FarragoJdbcUtil.newSqlException(ex, jdbcTracer);
+        } finally {
+            if (runtimeContext != null) {
+                // Inform context that we're done with cursor processing until
+                // next fetch call.
+                runtimeContext.setCursorState(false);
+            }
         }
     }
 
@@ -147,7 +173,11 @@ public class FarragoTupleIterResultSet
     protected Object getRaw(int columnIndex)
     {
         Object obj = super.getRaw(columnIndex);
-        if (obj instanceof DataValue) {
+        if (obj instanceof SpecialDataValue) {
+            SpecialDataValue specialValue = (SpecialDataValue) obj;
+            obj = specialValue.getSpecialData();
+            wasNull = (obj == null);
+        } else if (obj instanceof DataValue) {
             DataValue nullableValue = (DataValue) obj;
             obj = nullableValue.getNullableData();
             wasNull = (obj == null);

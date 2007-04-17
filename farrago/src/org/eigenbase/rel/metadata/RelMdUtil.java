@@ -168,28 +168,46 @@ public class RelMdUtil
     }
 
     /**
-     * Returns true if the columns represented in a bit mask form a unique
-     * column set
+     * Returns true if the columns represented in a bit mask are definitely
+     * known to form a unique column set.
      *
      * @param rel the relnode that the column mask correponds to
-     * @param colMask bit mask containing columns that will be determined if
-     * they are unique
+     * @param colMask bit mask containing columns that will be tested
+     * for uniqueness
      *
-     * @return true if bit mask represents a unique column set, or null if no
-     * information on unique keys
+     * @return true if bit mask represents a unique column set; false
+     * if not (or if no metadata is available)
      */
-    public static Boolean areColumnsUnique(RelNode rel, BitSet colMask)
+    public static boolean areColumnsDefinitelyUnique(
+        RelNode rel, BitSet colMask)
     {
-        Set<BitSet> uniqueColSets = RelMetadataQuery.getUniqueKeys(rel);
-        if (uniqueColSets == null) {
-            return null;
+        Boolean b = RelMetadataQuery.areColumnsUnique(rel, colMask);
+        if (b == null) {
+            return false;
         }
-        for (BitSet colSet : uniqueColSets) {
-            if (RelOptUtil.contains(colMask, colSet)) {
-                return true;
-            }
+        return b;
+    }
+
+    public static Boolean areColumnsUnique(
+        RelNode rel, List<RexInputRef> columnRefs)
+    {
+        BitSet colMask = new BitSet();
+        
+        for (int i = 0; i < columnRefs.size(); i++) {
+            colMask.set(columnRefs.get(i).getIndex());
         }
-        return false;
+        
+        return RelMetadataQuery.areColumnsUnique(rel, colMask);
+    }
+
+    public static boolean areColumnsDefinitelyUnique(
+        RelNode rel, List<RexInputRef> columnRefs)
+    {
+        Boolean b = areColumnsUnique(rel, columnRefs);
+        if (b == null) {
+            return false;
+        }
+        return b;
     }
 
     /**
@@ -302,7 +320,7 @@ public class RelMdUtil
         double artificialSel = 1.0;
 
         List<RexNode> predList = new ArrayList<RexNode>();
-        RelOptUtil.decompCF(predicate, predList);
+        RelOptUtil.decomposeConjunction(predicate, predList);
 
         for (RexNode pred : predList) {
             if ((pred instanceof RexCall)
@@ -393,8 +411,8 @@ public class RelMdUtil
         List<RexNode> list1 = new ArrayList<RexNode>();
         List<RexNode> list2 = new ArrayList<RexNode>();
         List<RexNode> unionList = new ArrayList<RexNode>();
-        RelOptUtil.decompCF(pred1, list1);
-        RelOptUtil.decompCF(pred2, list2);
+        RelOptUtil.decomposeConjunction(pred1, list1);
+        RelOptUtil.decomposeConjunction(pred2, list2);
 
         for (RexNode rex : list1) {
             unionList.add(rex);
@@ -436,8 +454,8 @@ public class RelMdUtil
         List<RexNode> list1 = new ArrayList<RexNode>();
         List<RexNode> list2 = new ArrayList<RexNode>();
         List<RexNode> minusList = new ArrayList<RexNode>();
-        RelOptUtil.decompCF(pred1, list1);
-        RelOptUtil.decompCF(pred2, list2);
+        RelOptUtil.decomposeConjunction(pred1, list1);
+        RelOptUtil.decomposeConjunction(pred2, list2);
 
         for (RexNode rex1 : list1) {
             boolean add = true;
@@ -610,20 +628,18 @@ public class RelMdUtil
      * Computes the population size for a set of keys returned from a join
      * 
      * @param joinRel the join rel
-     * @param left left join input
-     * @param right right join key
      * @param groupKey keys to compute the population for
      * 
      * @return computed population size
      */
     public static Double getJoinPopulationSize(
         RelNode joinRel,
-        RelNode left,
-        RelNode right,
         BitSet groupKey)
     {
         BitSet leftMask = new BitSet();
         BitSet rightMask = new BitSet();
+        RelNode left = joinRel.getInputs()[0];
+        RelNode right = joinRel.getInputs()[1];
 
         // separate the mask into masks for the left and right
         RelMdUtil.setLeftRightBitmaps(
@@ -652,8 +668,6 @@ public class RelMdUtil
      * a join
      * 
      * @param joinRel RelNode representing the join
-     * @param left left join child
-     * @param right right join child
      * @param joinType type of join
      * @param groupKey keys that the distinct row count will be computed for
      * @param predicate join predicate
@@ -662,8 +676,6 @@ public class RelMdUtil
      */
     public static Double getJoinDistinctRowCount(
         RelNode joinRel,
-        RelNode left,
-        RelNode right,
         JoinRelType joinType,
         BitSet groupKey,
         RexNode predicate)
@@ -671,6 +683,8 @@ public class RelMdUtil
         Double distRowCount;
         BitSet leftMask = new BitSet();
         BitSet rightMask = new BitSet();
+        RelNode left = joinRel.getInputs()[0];
+        RelNode right = joinRel.getInputs()[1];
 
         RelMdUtil.setLeftRightBitmaps(
             groupKey,
@@ -686,11 +700,10 @@ public class RelMdUtil
             List<RexNode> rightFilters = new ArrayList<RexNode>();
             List<RexNode> joinFilters = new ArrayList<RexNode>();
             List<RexNode> predList = new ArrayList<RexNode>();
-            RelOptUtil.decompCF(predicate, predList);
+            RelOptUtil.decomposeConjunction(predicate, predList);
 
             RelOptUtil.classifyFilters(
                 joinRel,
-                left.getRowType().getFieldCount(),
                 predList,
                 (joinType == JoinRelType.INNER),
                 !joinType.generatesNullsOnLeft(),

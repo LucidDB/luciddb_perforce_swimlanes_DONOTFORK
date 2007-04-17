@@ -92,20 +92,6 @@ ${farrago.test.jvmargs}
   <!-- JRE location for test execution -->
   <property name="farrago.jre.dir" location="${javahome.dir}"/>
 
-  <!-- if JRE location doesn't match javahome, assume we should retroweave -->
-  <condition property="farrago.need.retroweave">
-    <not>
-      <equals arg1="${farrago.jre.dir}" arg2="${javahome.dir}"/>
-    </not>
-  </condition>
-
-  <condition property="farrago.jre.14">
-    <or>
-      <isset property="farrago.javasrc.14"/>
-      <isset property="farrago.need.retroweave"/>
-    </or>
-  </condition>
-
   <!-- import thirdparty library settings -->
   <property file="${thirdparty.dir}/build.properties"/>
 
@@ -119,7 +105,6 @@ ${farrago.test.jvmargs}
   <fail unless="sqlline.lib.dir"/>
   <fail unless="mdrlibs.dir"/>
   <fail unless="rmijdbc.dir"/>
-  <fail unless="retroweaver.dir"/>
   <fail unless="emma.dir"/>
   <fail unless="vjdbc.dir"/>
 
@@ -196,13 +181,15 @@ ${farrago.test.jvmargs}
   <!-- directory for initialization scripts -->
   <property name="farrago.initsql.dir" location="${farrago.dir}/initsql"/>
 
-  <!-- Directory for SqlLine history/properties. We direct SqlLine to 
-       place its history file in sqlline.hist.file by setting the system
+  <!-- We direct SqlLine to squelch its history file by setting the system
        property sqlline.historyFile. This keeps the normal history
        file (~/.sqlline/history under Unix) free from the clutter
-       of Farrago sqlline test commands. -->
-  <property name="sqlline.hist.file"
-    location="${project.testlog.dir}/sqlline.history"/>
+       of Farrago sqlline test commands, and also speeds up 
+       SQL-based tests by avoiding reloading history on startup. -->
+  <condition property="sqlline.hist.file" value="nul">
+    <os family="windows"/>
+  </condition>
+  <property name="sqlline.hist.file" location="/dev/null"/>
   <!-- Files -->
 
   <!-- file controlling repository storage -->
@@ -244,13 +231,9 @@ ${farrago.test.jvmargs}
   <property name="FarragoExtMetamodelTransformed.xmi"
     location="${farrago.xmi.dir}/FarragoExtMetamodelTransformed.xmi"/>
 
-  <!-- XMI file containing UML representation of Farrago metamodel -->
-  <property name="FarragoExtMetamodelUML.xmi"
-    location="${farrago.xmi.dir}/FarragoExtMetamodelUML.xmi"/>
-
-  <!-- Same as FarragoExtMetamodelUML, but with diagrams deleted -->
-  <property name="FarragoExtMetamodelUMLSansDiagrams.xmi"
-    location="${farrago.xmi.dir}/FarragoExtMetamodelUMLSansDiagrams.xmi"/>
+  <!-- Same as FarragoExtMetamodel.xmi, but with diagrams deleted -->
+  <property name="FarragoExtMetamodelSansDiagrams.xmi"
+    location="${farrago.xmi.dir}/FarragoExtMetamodelSansDiagrams.xmi"/>
 
   <!-- File containing ArgoUML XMI representation of -->
   <!-- Farrago metamodel -->
@@ -275,6 +258,16 @@ ${farrago.test.jvmargs}
   <!-- Set a default for this classpath in case it's not set in a
        properties file.  The properties file will take precedence. -->
   <property name="farrago.custom.classpath" value=""/>
+
+ <!-- set test.emma.classpath for emma test only -->
+  <if>
+    <not>
+      <isset property="test.emma.classpath"/>
+    </not>
+    <then>
+	    <property name="test.emma.classpath" value=""/>
+    </then>
+  </if>
 
   <!-- xerces path -->
   <path id="xerces.classpath">
@@ -321,28 +314,17 @@ ${farrago.test.jvmargs}
   <!-- classpath for execution -->
   <path id="farrago.run.classpath">
     <pathelement path="${farrago.3p.classpath}"/>
-    <fileset dir="${retroweaver.dir}">
-      <include name="release/retroweaver-rt.jar" if="farrago.need.retroweave"/>
-    </fileset>
     <fileset dir="${jgrapht.dir}">
-      <include name="jgrapht-jdk1.4.jar" if="farrago.jre.14"/>
-      <include name="jgrapht-jdk1.5.jar" unless="farrago.jre.14"/>
+      <include name="jgrapht-jdk1.5.jar"/>
     </fileset>
     <fileset dir="${jgrapht7.dir}">
       <include name="jgrapht7-jdk1.5.jar" />
     </fileset>
     <pathelement location="${farrago.classes.dir}"/>
     <pathelement location="${farrago.catalog.src.dir}"/>
+    <pathelement path="${test.emma.classpath}" />
   </path>
   <property name="farrago.run.classpath" refid="farrago.run.classpath"/>
-
-  <!-- classpath for retroweaving -->
-  <path id="farrago.retro.classpath">
-    <pathelement location="${java14rt.jar}"/>
-    <pathelement location="${retroweaver.dir}/release/retroweaver-rt.jar"/>
-    <pathelement path="${farrago.run.classpath}"/>
-  </path>
-  <property name="farrago.retro.classpath" refid="farrago.retro.classpath"/>
 
   <!-- classpath for reentrantly invoking ant -->
   <path id="ant.classpath">
@@ -427,6 +409,7 @@ ${farrago.test.jvmargs}
         inheritAll="@{inheritAll}"
         fork="true"
         classpathref="@{classpathref}">
+        <jvmarg line="-Xmx256m"/>
         <jvmarg line="&FarragoSqlLineProps;"/>
         <jvmarg line="${assertions.jvmarg}"/>
         <sysproperty key="gtlf.dtd.use.remote" value="@{gtlf.dtd.use.remote}"/>
@@ -728,14 +711,6 @@ ${farrago.test.jvmargs}
     <taskdef name="mdr" classname="org.netbeans.mdrant.MdrTask"
       classpathref="farrago.3p.classpath"/>
   </target>
-
-  <taskdef name="retroweaver"
-    classname="com.rc.retroweaver.ant.RetroWeaverTask">
-    <classpath>
-      <fileset dir="${retroweaver.dir}/lib" includes="**/*"/>
-      <pathelement location="${retroweaver.dir}/release/retroweaver.jar"/>
-    </classpath>
-  </taskdef>
 
   <!-- Macro for creating a TAGS file suitable for use in Emacs -->
   <macrodef name="farrago.createEmacsTags">

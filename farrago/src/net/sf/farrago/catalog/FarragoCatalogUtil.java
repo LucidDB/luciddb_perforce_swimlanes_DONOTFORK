@@ -32,6 +32,7 @@ import javax.jmi.reflect.*;
 
 import net.sf.farrago.cwm.behavioral.*;
 import net.sf.farrago.cwm.core.*;
+import net.sf.farrago.cwm.keysindexes.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.fem.med.*;
@@ -179,7 +180,22 @@ public abstract class FarragoCatalogUtil
      */
     public static boolean isIndexPrimaryKey(FemLocalIndex index)
     {
-        return index.getName().startsWith("SYS$PRIMARY_KEY");
+        return index.getName().startsWith(
+            "SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY");
+    }
+    
+    /**
+     * Determines whether an index implements either a primary key or a
+     * unique constraint
+     * 
+     * @param index the index in question
+     *
+     * @return true if is either the primary key index or a unique constraint
+     * index
+     */
+    public static boolean isIndexUnique(FemLocalIndex index)
+    {
+        return ((CwmIndex) index).isUnique();
     }
 
     /**
@@ -231,6 +247,63 @@ public abstract class FarragoCatalogUtil
             }
         }
         return null;
+    }
+    
+    /**
+     * Returns a bitmap with bits set for any column from a table that is part
+     * of either a primary key or a unique constraint
+     * 
+     * @param table the table of interest
+     * 
+     * @return bitmap with set bits
+     */
+    public static BitSet getUniqueKeyCols(CwmClassifier table)
+    {
+        BitSet uniqueCols = new BitSet();
+        
+        // first retrieve the columns from the primary key
+        FemPrimaryKeyConstraint primKey =
+            FarragoCatalogUtil.getPrimaryKey(table);
+        if (primKey != null) {
+            addKeyCols((List) primKey.getFeature(), uniqueCols);
+        }
+
+        // then, loop through each unique constraint
+        List<FemUniqueKeyConstraint> uniqueConstraints =
+            FarragoCatalogUtil.getUniqueKeyConstraints(table);
+        for (FemUniqueKeyConstraint uniqueConstraint : uniqueConstraints) {
+            addKeyCols((List) uniqueConstraint.getFeature(), uniqueCols);
+        }
+        
+        return uniqueCols;
+    }
+    
+    private static void addKeyCols(
+        List<FemAbstractColumn> keyCols,
+        BitSet keys)
+    {
+        for (FemAbstractColumn keyCol : keyCols) {
+            keys.set(keyCol.getOrdinal());
+        }
+    }
+    
+    /**
+     * Determines whether a table contains a unique key
+     * 
+     * @param table the table of interest
+     * 
+     * @return true if the table has a unique key
+     */
+    public static boolean hasUniqueKey(CwmClassifier table)
+    {
+        for (CwmModelElement obj : table.getOwnedElement()) {
+            if (obj instanceof FemPrimaryKeyConstraint ||
+                obj instanceof FemUniqueKeyConstraint)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -346,8 +419,7 @@ public abstract class FarragoCatalogUtil
         CwmSqlindex index)
     {
         String name =
-            "SYS$CONSTRAINT_INDEX$" + constraint.getNamespace().getName()
-            + "$" + constraint.getName();
+            "SYS$CONSTRAINT_INDEX$" + constraint.getName();
         index.setName(uniquifyGeneratedName(repos, constraint, name));
     }
 
@@ -361,14 +433,18 @@ public abstract class FarragoCatalogUtil
         FarragoRepos repos,
         FemAbstractUniqueConstraint constraint)
     {
+        String name;
         if (constraint instanceof FemPrimaryKeyConstraint) {
-            constraint.setName("SYS$PRIMARY_KEY");
+            name = "SYS$PRIMARY_KEY$"
+                + constraint.getNamespace().getName();
         } else {
-            String name =
+            name =
                 "SYS$UNIQUE_KEY$"
+                + constraint.getNamespace().getName()
+                + "$"
                 + generateUniqueConstraintColumnList(constraint);
-            constraint.setName(uniquifyGeneratedName(repos, constraint, name));
         }
+        constraint.setName(uniquifyGeneratedName(repos, constraint, name));
     }
 
     /**
@@ -930,6 +1006,7 @@ public abstract class FarragoCatalogUtil
     {
         columnSet.setAnalyzeTime(createTimestamp());
         columnSet.setRowCount(rowCount);
+        columnSet.setLastAnalyzeRowCount(rowCount);
     }
 
     /**
@@ -985,6 +1062,27 @@ public abstract class FarragoCatalogUtil
     }
 
     /**
+     * Updates system-maintained attributes of an object.
+     *
+     * @param annotatedElement object to update
+     *
+     * @param timestamp timestamp to use for creation/modification
+     *
+     * @parem isNew true iff object is being created
+     */
+    public static void updateAnnotatedElement(
+        FemAnnotatedElement annotatedElement,
+        String timestamp,
+        boolean isNew)
+    {
+        annotatedElement.setModificationTimestamp(timestamp);
+        if (isNew) {
+            annotatedElement.setCreationTimestamp(timestamp);
+            annotatedElement.setLineageId(UUID.randomUUID().toString());
+        }
+    }
+
+    /**
      * Creates a timestamp reflecting the current time
      *
      * @return the timestamp encoded as a string
@@ -992,6 +1090,18 @@ public abstract class FarragoCatalogUtil
     public static String createTimestamp()
     {
         return new Timestamp(System.currentTimeMillis()).toString();
+    }
+    
+    /**
+     * Resets the rowcounts for a table
+     * 
+     * @param table a column set table
+     */
+    public static void resetRowCounts(FemAbstractColumnSet table)
+    {
+        long zero = 0;
+        table.setRowCount(zero);
+        table.setDeletedRowCount(zero);
     }
 }
 

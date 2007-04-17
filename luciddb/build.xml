@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 // $Id$
 // LucidDB is a DBMS optimized for business intelligence.
 // Copyright (C) 2005-2005 LucidEra, Inc.
@@ -14,7 +14,7 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-//  
+//
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -57,11 +57,11 @@ ${farrago.test.jvmargs}
   <import file="${luciddb.dir}/properties.xml" />
 
   <!-- farrago distribution file -->
-  <condition property="farrago.dist.file" 
+  <condition property="farrago.dist.file"
     value="${farrago.dist.dir}/farrago.zip">
     <os family="windows"/>
   </condition>
-  <condition property="farrago.dist.file" 
+  <condition property="farrago.dist.file"
     value="${farrago.dist.dir}/farrago.tar.bz2">
     <not>
       <os family="windows"/>
@@ -79,6 +79,7 @@ ${farrago.test.jvmargs}
   <property name="luciddb.test.dir" location="${luciddb.dir}/test" />
   <property name="luciddb.plugin.dir" location="${luciddb.dir}/plugin" />
   <property name="applib.dir" location="${luciddb.plugin.dir}/applib" />
+  <property name="mbean.dir" location="${luciddb.plugin.dir}/mbean" />
 
   <!-- directory in which catalog data is stored -->
   <property name="catalog.dir" location="${luciddb.dir}/catalog" />
@@ -93,7 +94,7 @@ ${farrago.test.jvmargs}
 
   <property name="trace.dir" location="${luciddb.dir}/trace" />
 
-  <property name="LucidDbTrace.properties" 
+  <property name="LucidDbTrace.properties"
     location="${trace.dir}/LucidDbTrace.properties" />
 
   <property name="LucidDbTrace.log" location="${trace.dir}/LucidDbTrace.log" />
@@ -109,6 +110,7 @@ ${farrago.test.jvmargs}
 
   <property name="project.testlog.dir" location="${testlog.dir}" />
   <import file="${open.dir}/farrago/buildMacros.xml" />
+  <import file="${luciddb.dir}/buildMacros.xml" />
 
    <!-- Template developer configuration file. -->
   <property name="FarragoConfTemplate.xmi"
@@ -123,11 +125,8 @@ ${farrago.test.jvmargs}
 
   <property name="dist.dir"
     location="${luciddb.dir}/dist"/>
-  
-  <property name="emma.luciddb.classes.dir" location="${luciddb.dir}/classes-cov"/>
 
-  <!-- directory for init SQL scripts -->
-  <property name="initSql.dir" value="${luciddb.dir}/initsql"/>
+  <property name="emma.luciddb.classes.dir" location="${luciddb.dir}/classes-cov"/>
 
   <property name="coverage.dir" value="${luciddb.dir}/coverage"/>
 
@@ -150,6 +149,7 @@ ${farrago.test.jvmargs}
     <pathelement path="${ant.classpath}"/>
     <pathelement path="${blackhawk.run.classpath}"/>
     <pathelement path="${luciddb.plugin.dir}/FarragoMedJdbc3p.jar"/>
+    <pathelement path="${test.emma.classpath}" />
   </path>
   <property name="test.classpath" refid="test.classpath"/>
 
@@ -187,6 +187,25 @@ ${farrago.test.jvmargs}
   </path>
   <property name="applib.run.classpath" refid="applib.run.classpath"/>
 
+  <path id="mbean.build.classpath">
+    <pathelement path="${mbean.dir}"/>
+    <pathelement path="${farrago.classes.dir}"/>
+    <pathelement path="${farrago.catalog.src.dir}"/>
+    <pathelement path="${resgen.dir}/lib/eigenbase-resgen.jar"/>
+    <pathelement path="${resgen.dir}/lib/eigenbase-xom.jar"/>
+    <pathelement path="${mdrlibs.dir}/jmi.jar"/>
+    <fileset dir="${jgrapht7.dir}">
+      <include name="jgrapht7-jdk1.5.jar" />
+    </fileset>
+  </path>
+  <property name="mbean.build.classpath" refid="mbean.build.classpath"/>
+
+  <path id="mbean.run.classpath">
+    <pathelement path="${farrago.run.classpath}"/>
+    <pathelement path="${mbean.dir}"/>
+  </path>
+  <property name="mbean.run.classpath" refid="mbean.run.classpath"/>
+
   <target name="gen-bh-report">
     <xslt basedir="testlog" destdir="testlog" style="bh-html.xsl" includes="**/bh.xml" extension=".html"/>
   </target>
@@ -198,28 +217,31 @@ ${farrago.test.jvmargs}
   <taskdef name="foreach" classname="net.sf.antcontrib.logic.ForEach" classpath="${ant.classpath}"/>
   <taskdef name="if" classname="net.sf.antcontrib.logic.IfTask" classpath="${ant.classpath}"/>
 
-  <target name="gen-all-sql">
+  <target name="gen-properties">
+    <!-- generate run.properties -->
+    <available file="run.properties" type="file"
+      property="run.properties.exists"/>
+    <if>
+      <isset property="run.properties.exists"/>
+      <then/>
+      <else>
+        <copy file="run.properties.tmpl" tofile="run.properties"/>
+        <property file="run.properties"/>
+      </else>
+    </if>
+  </target>
+
+  <target name="gen-all-sql" depends="gen-properties">
     <property name="target.name" value="gen-all-sql"/>
     <foreach param="target.file" target="call-subdir-target" inheritAll="true">
       <path>
         <fileset dir="${luciddb.dir}/test/sql">
           <include name="**/build.xml"/>
-          <exclude name="calc/**"/>
-          <exclude name="conv_types/**"/>
-          <exclude name="numerics/build.xml"/>
-          <exclude name="txn/build.xml"/>
-          <exclude name="udr/udx/**"/>
-          <exclude name="VI/recovery/build.xml"/>
-          <exclude name="VI/build.xml"/>
-          <exclude name="hashjoin/**"/>
-          <exclude name="dml/delete/**"/>
-          <exclude name="setops/**"/>
-          <exclude name="sequences/build.xml"/>
         </fileset>
       </path>
     </foreach>
   </target>
-          
+
   <target name="call-subdir-target">
     <echo>
       This is the target.file: ${target.file}
@@ -236,7 +258,7 @@ ${farrago.test.jvmargs}
     <antcall target="gen-all-sql"/>
   </target>
 
-  <target name="test-nondb">
+  <target name="test-nondb" depends="gen-properties">
     <property name="bh.filter.runDuration" value="short,medium,null"/>
     <property name="foreign.db" value="nondb"/>
     <property name="bh.log.gtlf.env.ForeignDb" value="${foreign.db}"/>
@@ -249,7 +271,7 @@ ${farrago.test.jvmargs}
       classpathref="test.classpath"/>
   </target>
 
-  <target name="test-flatfile">
+  <target name="test-flatfile" depends="gen-properties">
     <property name="bh.filter.runDuration" value="short,medium,null"/>
     <property name="foreign.db" value="flatfile"/>
     <property name="bh.log.gtlf.env.ForeignDb" value="${foreign.db}"/>
@@ -262,7 +284,7 @@ ${farrago.test.jvmargs}
       classpathref="test.classpath"/>
   </target>
 
-  <target name="test-oracle">
+  <target name="test-oracle" depends="gen-properties">
     <property name="bh.filter.runDuration" value="short,medium,null"/>
     <property name="foreign.db" value="oracle"/>
     <property name="bh.log.gtlf.env.ForeignDb" value="${foreign.db}"/>
@@ -275,7 +297,7 @@ ${farrago.test.jvmargs}
       classpathref="test.classpath"/>
   </target>
 
-  <target name="test-sqlserver">
+  <target name="test-sqlserver" depends="gen-properties">
     <property name="bh.filter.runDuration" value="short,medium,null"/>
     <property name="foreign.db" value="sqlserver"/>
     <property name="bh.log.gtlf.env.ForeignDb" value="${foreign.db}"/>
@@ -288,7 +310,7 @@ ${farrago.test.jvmargs}
       classpathref="test.classpath"/>
   </target>
 
-  <target name="test-csvjdbc">
+  <target name="test-csvjdbc" depends="gen-properties">
     <property name="bh.filter.runDuration" value="short,medium,null"/>
     <property name="foreign.db" value="csvjdbc"/>
     <property name="bh.log.gtlf.env.ForeignDb" value="${foreign.db}"/>
@@ -309,8 +331,6 @@ ${farrago.test.jvmargs}
       </fileset>
     </foreach>
   </target>
-
-<!-- Begin Experiment -->
 
   <target name="test-long">
     <property name="bh.filter.runDuration" value="long"/>
@@ -334,9 +354,17 @@ ${farrago.test.jvmargs}
     <antcall target="gen-bh-report"/>
   </target>
 
-<!-- End Experiment-->
+  <!-- ************** test ****************** 
+  Split 'test' to 'test-only' and 'test-only-setup' so Emma can plugin a instr.
+  -->
 
-  <target name="test" depends="cleanJars,createCatalog,gen-all-sql">
+  <target name="test" depends="test-only-setup,test-only">
+  </target>
+
+  <target name="test-only-setup" depends="cleanJars,createCatalog,gen-all-sql">
+  </target>
+
+  <target name="test-only">
     <property name="bh.filter.knownFailures" value="false,null"/>
     <property file="run.properties"/>
     <property name="bh.log.basedir" value="${testlog.dir}/bh"/>
@@ -347,6 +375,9 @@ ${farrago.test.jvmargs}
       classpathref="test.classpath"/>
     <antcall target="gen-bh-report"/>
   </target>
+
+  <!-- ************** Emma ****************** 
+  -->
 
   <target name="emmaTest" depends="cleanJars,createCatalog,gen-all-sql">
     <property name="bh.filter.knownFailures" value="false,null"/>
@@ -361,24 +392,24 @@ ${farrago.test.jvmargs}
   </target>
 
   <target name="bhShortregSanity">
-    <blackhawk.fork 
+    <blackhawk.fork
       dir="${luciddb.dir}"
-      basedir="${luciddb.dir}/test/sql/shortreg" 
+      basedir="${luciddb.dir}/test/sql/shortreg"
       testscript="test.xml"
       classpathref="test.classpath"/>
   </target>
 
   <target name="emmaBh">
-    <blackhawk.fork 
+    <blackhawk.fork
       dir="${luciddb.dir}"
-      basedir="${luciddb.dir}/test/sql/shortreg" 
+      basedir="${luciddb.dir}/test/sql/shortreg"
       testscript="test.xml"
       classpathref="emma.test.classpath"/>
   </target>
-    
+
 
   <target name="compile" depends="clean,makeOutputDirs">
-    <!-- compile farrago first -->    
+    <!-- compile farrago first -->
     <ant dir="${farrago.dir}" target="compile"/>
     <farrago.javaCompile
       deprecation="off"
@@ -386,10 +417,19 @@ ${farrago.test.jvmargs}
       destdir="${classes.dir}"
       classpathref="luciddb.build.classpath">
       <include name="**/*.java" />
+      <exclude name="**/mbean/**/*.java"/>
     </farrago.javaCompile>
-    <antcall target="buildApplibPlugin"/>    
+    <antcall target="buildApplibPlugin"/>
+    <antcall target="buildMBeanPlugin"/>
     <antcall target="buildJdbcPlugin" />
     <antcall target="buildClientJar"/>
+    <farrago.javaCompile
+      deprecation="off"
+      srcdir="${luciddb.test.dir}/src"
+      destdir="${classes.dir}"
+      classpath="${luciddb.plugin.dir}/luciddb-mbean.jar">
+      <include name="**/mbean/**/*.java"/>
+    </farrago.javaCompile>
   </target>
 
   <!-- creates catalog and populates with initial metadata -->
@@ -399,9 +439,9 @@ ${farrago.test.jvmargs}
     <antcall target="importConfig"/>
     <antcall target="configureTrace"/>
     <antcall target="populateCatalog"/>
-    <!-- runInitSql needs FarragoMedJdbc.jar in the luciddb plugin dir -->
+    <!-- runFarragoInitSql needs FarragoMedJdbc.jar in luciddb plugin dir-->
     <copy todir="${luciddb.plugin.dir}" file="${farrago.plugin.dir}/FarragoMedJdbc.jar"/>
-    <antcall target="runInitSql"/>
+    <antcall target="runFarragoInitSql"/>
     <antcall target="runLuciddbInitSql"/>
     <antcall target="backupCatalog"/>
   </target>
@@ -413,10 +453,12 @@ ${farrago.test.jvmargs}
     </delete>
     <ant dir="test/sql/shortreg" target="clean"/>
     <ant dir="test/sql/txn" target="clean"/>
+    <ant dir="test/sql/company" target="clean"/>
     <ant dir="test/sql/concurrency" target="clean"/>
     <ant dir="test/sql/udr/udf" target="clean"/>
     <ant dir="test/sql/udr/udx" target="clean"/>
     <ant dir="test/sql/VI/tbs" target="clean"/>
+    <delete file="run.properties"/>
   </target>
 
   <!-- Copies the Farrago unconfigured catalog to our catalog directory. -->
@@ -453,6 +495,7 @@ ${farrago.test.jvmargs}
       <replacefilter token="@fennel.disabled@" value="${fennel.disabled}"/>
       <replacefilter token="@resourceDir@" value="$${FARRAGO_HOME}/catalog/fennel"/>
       <replacefilter token="@jniHandleTraceFile@" value="${trace.fennel.handles}"/>
+      <replacefilter token="@calcVirtualMachine@" value="CALCVM_JAVA"/>
     </replace>
     <farrago.mdrFork target="forked_importConfig"/>
   </target>
@@ -467,7 +510,7 @@ ${farrago.test.jvmargs}
 
   <!-- back up the current catalog contents -->
   <target name="backupCatalog">
-    <farrago.backupCatalog 
+    <farrago.backupCatalog
       catalogDir="${catalog.dir}" backupDir="${catalog.backup.dir}"/>
   </target>
 
@@ -495,6 +538,7 @@ ${farrago.test.jvmargs}
   <target name="makePluginDirs">
     <mkdir dir="${luciddb.plugin.dir}"/>
     <mkdir dir="${luciddb.plugin.dir}/applib"/>
+    <mkdir dir="${luciddb.plugin.dir}/mbean"/>
   </target>
 
   <!-- task for generating resources -->
@@ -502,42 +546,17 @@ ${farrago.test.jvmargs}
     <classpath refid="applib.run.classpath"/>
   </taskdef>
 
-  <target name="runInitSql" >
-    <filelist dir="${farrago.initsql.dir}" id="filelist.initsql"
-      files="createStorageWrappers.sql,createSqljSchema.sql,createJdbcViews.sql,createMgmtViews.sql"/>
-    <pathconvert property="filelist.initsql" refid="filelist.initsql"
-      pathsep="${line.separator}" dirsep="${file.separator}" />
-    <junit printsummary="yes" fork="yes" haltonerror="yes" haltonfailure="yes"
-      tempdir="${testlog.dir}">
-      <classpath refid="farrago.sqlline.classpath"/>
-      <jvmarg line="${assertions.jvmarg}"/>
-      <jvmarg line="&FarragoSqlLineProps;"/>
-      <sysproperty key="net.sf.farrago.fileset.unitsql"
-        value="${filelist.initsql}"/>
-      <formatter type="plain"/>
-      <formatter type="xml"/> <!-- for integration builds -->
-      <test todir="${testlog.dir}" name="net.sf.farrago.test.FarragoSqlTest" />
-    </junit>
-  </target>
+  <!-- task for generating resources -->
+  <taskdef name="resgen-mbean" classname="org.eigenbase.resgen.ResourceGenTask">
+    <classpath refid="mbean.run.classpath"/>
+  </taskdef>
 
-  <macrodef name="runSqlTests">
-    <attribute name="filelist" default="unspecified"/>
-    <attribute name="sqltest.classpath" default="unspecified"/>
-    <sequential>
-      <junit printsummary="yes" fork="yes" haltonerror="yes" haltonfailure="yes"
-        tempdir="${testlog.dir}">
-        <classpath path="@{sqltest.classpath}"/>
-        <jvmarg line="${assertions.jvmarg}"/>
-        <jvmarg line="&FarragoSqlLineProps;"/>
-        <sysproperty key="net.sf.farrago.fileset.unitsql"
-          value="@{filelist}"/>
-        <formatter type="plain"/>
-        <formatter type="xml"/> <!-- for integration builds -->
-        <test todir="${testlog.dir}" 
-          name="com.lucidera.luciddb.test.LucidDbSqlTest" />
-      </junit>
-    </sequential>
-  </macrodef>
+  <target name="runFarragoInitSql">
+    <pathconvert property="farrago.initsql.prop"
+      refid="farrago.filelist.initsql" pathsep="${line.separator}"
+      dirsep="${file.separator}" />
+    <farrago.runSqlTest file="${farrago.initsql.prop}"/>
+  </target>
 
   <!-- create plugin/LucidDbClient.jar -->
   <target name="buildClientJar" depends="makePluginDirs">
@@ -554,19 +573,19 @@ ${farrago.test.jvmargs}
         <include name="FarragoRelease.properties"/>
       </fileset>
       <fileset dir="${farrago.classes.dir}">
-        <include 
+        <include
           name="com/lucidera/jdbc/LucidDbRmiDriver.class"/>
-        <include 
+        <include
           name="net/sf/farrago/jdbc/client/FarragoVjdbcClientDriver.class"/>
-        <include 
+        <include
           name="net/sf/farrago/jdbc/client/FarragoUnregisteredVjdbcClientDriver.class"/>
-        <include 
+        <include
           name="net/sf/farrago/jdbc/FarragoAbstractJdbcDriver.class"/>
-        <include 
+        <include
           name="net/sf/farrago/release/*"/>
-        <include 
+        <include
           name="org/eigenbase/util/property/*"/>
-        <include 
+        <include
           name="org/eigenbase/util14/ConnectStringParser.class"/>
       </fileset>
     </jar>
@@ -576,27 +595,34 @@ ${farrago.test.jvmargs}
   <!-- FarragoMedJdbc.jar + jtds and oracle jdbc drivers -->
   <target name="buildJdbcPlugin" depends="makePluginDirs">
     <!-- assume farrago jdbc plugin has already been created -->
-    <jar jarfile="${luciddb.plugin.dir}/FarragoMedJdbc3p.jar"
-      filesetmanifest="merge">
-      <zipgroupfileset dir="${farrago.plugin.dir}">
-        <include name="FarragoMedJdbc.jar"/>
-      </zipgroupfileset>
-      <zipgroupfileset dir="${open.dir}/thirdparty/jtds">
-        <include name="jtds-1.2.jar"/>
-      </zipgroupfileset>
-      <zipgroupfileset dir="${env.LUCIDERA_PLATFORM_HOME}/thirdparty">
-        <include name="ojdbc14_g.jar"/>
-      </zipgroupfileset>
-    </jar>
+    <if>
+      <not>
+        <istrue value="${release.gpl}"/>
+      </not>
+      <then>
+        <jar jarfile="${luciddb.plugin.dir}/FarragoMedJdbc3p.jar"
+          filesetmanifest="merge">
+          <zipgroupfileset dir="${farrago.plugin.dir}">
+            <include name="FarragoMedJdbc.jar"/>
+          </zipgroupfileset>
+          <zipgroupfileset dir="${open.dir}/thirdparty/jtds">
+            <include name="jtds-1.2.jar"/>
+          </zipgroupfileset>
+          <zipgroupfileset dir="${env.LUCIDERA_PLATFORM_HOME}/thirdparty">
+            <include name="ojdbc14_g.jar"/>
+          </zipgroupfileset>
+        </jar>
+      </then>
+    </if>
   </target>
 
   <!-- create applib plugin jar -->
-  <target name="buildApplibPlugin" 
-    depends="makePluginDirs,checkApplibPluginUptodate" 
+  <target name="buildApplibPlugin"
+    depends="makePluginDirs,checkApplibPluginUptodate"
     unless="plugin.applib.uptodate">
     <antcall target="generateApplibResource"/>
     <farrago.javaCompile
-      deprecation="off" 
+      deprecation="off"
       srcdir="${luciddb.dir}/src"
       destdir="${applib.dir}"
       classpathref="applib.build.classpath">
@@ -631,20 +657,61 @@ ${farrago.test.jvmargs}
   <target name="checkApplibPluginUptodate">
     <uptodate property="plugin.applib.uptodate"
       targetfile="${luciddb.plugin.dir}/applib.jar">
-      <srcfiles dir="${luciddb.dir}/src"> 
+      <srcfiles dir="${luciddb.dir}/src">
         <include name="**/applib/**/*.java"/>
         <include name="**/applib/**/*.xml"/>
       </srcfiles>
     </uptodate>
   </target>
 
+  <!-- create mbean plugin jar -->
+  <target name="buildMBeanPlugin"
+    depends="makePluginDirs,checkMBeanPluginUptodate"
+    unless="plugin.mbean.uptodate">
+    <antcall target="generateMBeanResource"/>
+    <farrago.javaCompile
+      deprecation="off"
+      srcdir="${luciddb.dir}/src"
+      destdir="${mbean.dir}"
+      classpathref="mbean.build.classpath">
+      <include name="**/mbean/**/*.java"/>
+    </farrago.javaCompile>
+    <jar jarfile="${luciddb.plugin.dir}/luciddb-mbean.jar">
+      <fileset dir="${mbean.dir}">
+        <include name="**/mbean/**/*"/>
+      </fileset>
+      <fileset dir="${farrago.classes.dir}">
+        <include name="com/lucidera/jdbc/LucidDbRmiDriver.class"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="generateMBeanResource">
+    <resgen
+      srcdir="${luciddb.dir}/src"
+      destdir="${luciddb.dir}/src"
+      resdir="${mbean.dir}"
+      style="functor"
+      locales="en_US">
+      <include name="com/lucidera/luciddb/mbean/resource/MBeanQuery.xml"/>
+    </resgen>
+  </target>
+
+  <target name="checkMBeanPluginUptodate">
+    <uptodate property="plugin.mbean.uptodate"
+      targetfile="${luciddb.plugin.dir}/luciddb-mbean.jar">
+      <srcfiles dir="${luciddb.dir}/src">
+        <include name="**/mbean/**/*.java"/>
+        <include name="**/mbean/**/*.xml"/>
+      </srcfiles>
+    </uptodate>
+  </target>
+
   <target name="runLuciddbInitSql">
-    <filelist dir="${initSql.dir}" id="filelist.InitSql"
-      files="installApplib.sql, createTestHarness.sql, createDbaViews.sql, createForeignWrappers.sql"/>
-    <pathconvert property="filelist.InitSql" 
-      refid="filelist.InitSql" pathsep="${line.separator}"
+    <pathconvert property="luciddb.initsql.prop"
+      refid="luciddb.filelist.initsql" pathsep="${line.separator}"
       dirsep="${file.separator}" />
-    <runSqlTests filelist="${filelist.InitSql}"
+    <luciddb.runSqlTests filelist="${luciddb.initsql.prop}"
       sqltest.classpath="${test.classpath}"/>
   </target>
 
@@ -652,6 +719,7 @@ ${farrago.test.jvmargs}
   <target name="cleanJars">
     <antcall target="cleanClientJar"/>
     <antcall target="cleanApplib"/>
+    <antcall target="cleanMBean"/>
     <antcall target="cleanJdbcPlugins"/>
   </target>
 
@@ -673,6 +741,17 @@ ${farrago.test.jvmargs}
       </fileset>
     </delete>
     <delete file="${luciddb.plugin.dir}/applib.jar" quiet="true"/>
+  </target>
+
+  <target name="cleanMBean">
+    <delete dir="${mbean.dir}" quiet="true"/>
+    <delete quiet="true">
+      <fileset dir="${luciddb.dir}/src">
+        <include name="**/MBeanQuery.java"/>
+        <include name="**/MBeanQuery_en_US.java"/>
+      </fileset>
+    </delete>
+    <delete file="${luciddb.plugin.dir}/luciddb-mbean.jar" quiet="true"/>
   </target>
 
   <target name="shortreg" depends="compile" >
@@ -721,7 +800,7 @@ ${farrago.test.jvmargs}
         customersload.sql,productsload.sql,salesload.sql,joinEqSanity.sql"/>
     <pathconvert property="filelist.shortregsql" refid="filelist.shortregsql"
       pathsep="${line.separator}" dirsep="${file.separator}" />
-    <runSqlTests filelist="${filelist.shortregsql}" 
+    <runSqlTests filelist="${filelist.shortregsql}"
       sqltest.classpath="${test.classpath}"/>
   </target>
 
@@ -732,7 +811,7 @@ ${farrago.test.jvmargs}
         customersload.sql,productsload.sql,salesload.sql,joinEqSanity.sql"/>
     <pathconvert property="filelist.shortregsql" refid="filelist.shortregsql"
       pathsep="${line.separator}" dirsep="${file.separator}" />
-    <runSqlTests filelist="${filelist.shortregsql}" 
+    <runSqlTests filelist="${filelist.shortregsql}"
       sqltest.classpath="${emma.test.classpath}"/>
   </target>
 
@@ -776,16 +855,16 @@ ${farrago.test.jvmargs}
 
   <target name="emmaInstr" depends="emmaClean">
     <emma verbosity="verbose">
-      <instr 
-        mode="copy" 
-        outdir="${emma.luciddb.classes.dir}" 
-        metadatafile="${luciddb.dir}/coverage.em" 
+      <instr
+        mode="copy"
+        outdir="${emma.luciddb.classes.dir}"
+        metadatafile="${luciddb.dir}/coverage.em"
         instrpath="${classes.dir}">
         <filter excludes="*_Stub*"/>
       </instr>
     </emma>
   </target>
- 
+
   <target name="emmaTest.old" depends="emmaInstr">
     <antcall target="emmaShortregSanity"/>
     <antcall target="emmaTxn"/>
@@ -818,7 +897,7 @@ ${farrago.test.jvmargs}
           value="@{filelist}"/>
         <formatter type="plain"/>
         <formatter type="xml"/> <!-- for integration builds -->
-        <test todir="${testlog.dir}" 
+        <test todir="${testlog.dir}"
           name="com.lucidera.luciddb.test.LucidDbSqlTest" />
       </junit>
     </sequential>
@@ -872,7 +951,7 @@ ${farrago.test.jvmargs}
     </antcall>
   </target>
 
-  <target name="test-setup" depends="createCatalog">
+  <target name="test-setup" depends="createCatalog,gen-properties">
     <filelist dir="${testsrc.log}/shortreg" id="filelist.setup"
       files="creschema.sql,locationload.sql,deptload.sql,empload.sql,
         customersload.sql,productsload.sql,salesload.sql"/>
@@ -885,15 +964,15 @@ ${farrago.test.jvmargs}
 
   <target name="dist" depends="clean-dist,buildJdbcPlugin">
     <property file="${release.properties.source}" />
-    <property name="lucidera.release.spec" 
+    <property name="lucidera.release.spec"
       value="${package.name}-${product.version.major}.${product.version.minor}.${product.version.point}"/>
-    <property name="release.lib.dir" 
+    <property name="release.lib.dir"
       location="${dist.dir}/${lucidera.release.spec}/lib"/>
-    <property name="release.plugin.dir" 
+    <property name="release.plugin.dir"
       location="${dist.dir}/${lucidera.release.spec}/plugin"/>
-    <property name="release.bin.dir" 
+    <property name="release.bin.dir"
       location="${dist.dir}/${lucidera.release.spec}/bin"/>
-    <property name="release.properties.target" 
+    <property name="release.properties.target"
       location="${release.lib.dir}/FarragoRelease.properties"/>
 
     <delete dir="${dist.dir}" quiet="true"/>
@@ -902,7 +981,7 @@ ${farrago.test.jvmargs}
     <if>
       <equals arg1="${osfamily}" arg2="unix"/>
       <then>
-	<exec executable="/bin/tar" spawn="false" dir="${dist.dir}"> 
+	<exec executable="/bin/tar" spawn="false" dir="${dist.dir}">
           <arg value="--bzip2"/>
           <arg value="-xf"/>
           <arg value="${farrago.dist.file}"/>
@@ -914,10 +993,13 @@ ${farrago.test.jvmargs}
     </if>
 
     <ant target="rename-dir-to-luciddb" inheritAll="false">
-	<property name="lu.package.name" value="${package.name}"/>
-	<property name="lu.product.version.major" value="${product.version.major}"/>
-	<property name="lu.product.version.minor" value="${product.version.minor}"/>
-	<property name="lu.product.version.point" value="${product.version.point}"/>
+      <property name="lu.package.name" value="${package.name}"/>
+      <property name="lu.product.version.major" 
+        value="${product.version.major}"/>
+      <property name="lu.product.version.minor" 
+        value="${product.version.minor}"/>
+      <property name="lu.product.version.point" 
+        value="${product.version.point}"/>
     </ant>
 
     <delete dir="${dist.dir}/${lucidera.release.spec}/catalog" quiet="true"/>
@@ -929,11 +1011,16 @@ ${farrago.test.jvmargs}
     <copy todir="${release.plugin.dir}">
       <fileset dir="${luciddb.plugin.dir}">
         <exclude name="applib/**"/>
+        <exclude name="mbean/**"/>
       </fileset>
     </copy>
     <copy todir="${dist.dir}/${lucidera.release.spec}/examples">
       <fileset dir="${luciddb.dir}/examples"/>
     </copy>
+    <copy 
+      file="${luciddb.dir}/license/README" 
+      todir="${dist.dir}/${lucidera.release.spec}"
+      overwrite="true" />
 
     <copy file="${release.properties.source}"
       todir="${release.lib.dir}" overwrite="true"/>
@@ -957,43 +1044,43 @@ ${farrago.test.jvmargs}
     </if>
 
     <replace file="${release.bin.dir}/${sqllineClient}">
-        <replacefilter token="jdbc:farrago:rmi://localhost" 
+        <replacefilter token="jdbc:farrago:rmi://localhost"
         value="jdbc:luciddb:rmi://localhost"/>
-        <replacefilter 
-        token="net.sf.farrago.jdbc.client.FarragoVjdbcClientDriver" 
+        <replacefilter
+        token="net.sf.farrago.jdbc.client.FarragoVjdbcClientDriver"
         value="com.lucidera.jdbc.LucidDbRmiDriver"/>
         <replacefilter token="guest" value="sa"/>
     </replace>
     <chmod file="${release.bin.dir}/${sqllineClient}" perm="u+x" />
 
-    <move file="${release.bin.dir}/${farragoServer}" 
+    <move file="${release.bin.dir}/${farragoServer}"
       tofile="${release.bin.dir}/${lucidDbServer}"/>
     <replace file="${release.bin.dir}/${lucidDbServer}">
-        <replacefilter token="net.sf.farrago.server.FarragoVjdbcServer" 
+        <replacefilter token="net.sf.farrago.server.FarragoVjdbcServer"
         value="com.lucidera.farrago.LucidDbServer"/>
     </replace>
     <chmod file="${release.bin.dir}/${lucidDbServer}" perm="u+x" />
 
     <replace file="${release.bin.dir}/${sqllineEngine}">
         <replacefilter token="jdbc:farrago:" value="jdbc:luciddb:"/>
-        <replacefilter 
-        token="net.sf.farrago.jdbc.engine.FarragoJdbcEngineDriver" 
+        <replacefilter
+        token="net.sf.farrago.jdbc.engine.FarragoJdbcEngineDriver"
         value="com.lucidera.jdbc.LucidDbLocalDriver"/>
         <replacefilter token="guest" value="sa"/>
     </replace>
     <chmod file="${release.bin.dir}/${sqllineEngine}" perm="u+x" />
 
-    <jar update="true" 
+    <jar update="true"
       destfile="${release.lib.dir}/farrago.jar"
       basedir="${release.lib.dir}"
-      keepcompression="true" 
+      keepcompression="true"
       includes="FarragoRelease.properties"/>
     <delete file="${release.properties.target}"/>
 
     <if>
       <equals arg1="${osfamily}" arg2="unix"/>
       <then>
-	<exec executable="/bin/tar" spawn="false" dir="${dist.dir}"> 
+	<exec executable="/bin/tar" spawn="false" dir="${dist.dir}">
           <arg value="--bzip2"/>
           <arg value="-cf"/>
           <arg value="${lu.release.file}"/>
@@ -1020,12 +1107,12 @@ ${farrago.test.jvmargs}
 
   <target name="rename-dir-to-luciddb">
     <property file="${farrago.dist.dir}/FarragoRelease.properties" />
-    <property 
-      name="farrago.release.spec" 
+    <property
+      name="farrago.release.spec"
       value="${package.name}-${product.version.major}.${product.version.minor}.${product.version.point}"/>
 
-    <property 
-      name="lucidera.release.spec" 
+    <property
+      name="lucidera.release.spec"
       value="${lu.package.name}-${lu.product.version.major}.${lu.product.version.minor}.${lu.product.version.point}"/>
 
     <delete quiet="true" includeEmptyDirs="true">
@@ -1058,5 +1145,44 @@ ${farrago.test.jvmargs}
       <fileset dir="${luciddb.dir}/eclipse/.settings"/>
     </copy>
   </target>
+
+<!-- Begin Experiment -->
+
+  <target name="create-catalog-script">
+    <concat destfile="${luciddb.initsql.dir}/catalog.sql">
+      <filelist refid="farrago.filelist.initsql"/>
+      <filelist refid="luciddb.filelist.initsql"/>
+    </concat>
+  </target>
+
+  <!-- ref file doesn't quite match yet, but makes it easier to compare -->
+  <target name="test-catalog-script" depends="create-catalog-script">
+    <pathconvert property="fcatalog.ref.prop"
+      refid="farrago.filelist.initsql" pathsep="${line.separator}"
+      dirsep="${file.separator}" >
+      <globmapper from="*.sql" to="*.ref"/>
+    </pathconvert>
+    <concat destfile="${luciddb.initsql.dir}/catalog.tmp">
+      <filelist dir="${file.separator}" files="${fcatalog.ref.prop}" />
+      <filterchain>
+        <tokenfilter>
+          <replacestring from="0: jdbc:farrago:>" to="0: jdbc:luciddb:>"/>
+        </tokenfilter>
+      </filterchain>
+    </concat>
+    <pathconvert property="lcatalog.ref.prop"
+      refid="luciddb.filelist.initsql" pathsep="${line.separator}"
+      dirsep="${file.separator}" >
+      <globmapper from="*.sql" to="*.ref"/>
+    </pathconvert>
+    <concat destfile="${luciddb.initsql.dir}/catalog.ref">
+      <filelist dir="${luciddb.initsql.dir}" files="catalog.tmp"/>
+      <filelist dir="${file.separator}" files="${lcatalog.ref.prop}"/>
+    </concat>
+    <luciddb.runSqlTests filelist="${luciddb.initsql.dir}/catalog.sql"
+      sqltest.classpath="${test.classpath}"/>
+  </target>
+
+<!-- End Experiment-->
 
 </project>

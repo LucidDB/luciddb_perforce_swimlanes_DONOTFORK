@@ -462,7 +462,7 @@ public class BytePointer
             return 1;
         }
         int cnt1 = bp1.getByteCount();
-        int cnt = getByteCount() - cnt1;
+        int cnt = 1 + getByteCount() - cnt1;
         for (int i = 0; i < cnt; i++) {
             boolean stillMatch = true;
             for (int j = 0; j < cnt1; j++) {
@@ -737,7 +737,8 @@ public class BytePointer
             }
         }
         
-        if (start >= end) {
+        // read up to 19 digits, the most for a long value
+        if (start >= end || end - start > 19) {
             return Long.MAX_VALUE;
         }
         long value = 0;
@@ -748,6 +749,10 @@ public class BytePointer
             }
             value *= 10;
             value += x;
+        }
+        // handle overflow
+        if (value < 0) {
+            return Long.MAX_VALUE;
         }
         return value;
     }

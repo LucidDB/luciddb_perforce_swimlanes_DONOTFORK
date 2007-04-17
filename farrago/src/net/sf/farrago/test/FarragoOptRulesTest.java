@@ -27,7 +27,6 @@ import java.util.logging.*;
 
 import junit.framework.*;
 
-import net.sf.farrago.namespace.ftrs.*;
 import net.sf.farrago.query.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.trace.*;
@@ -107,7 +106,7 @@ public class FarragoOptRulesTest
             + " options(0)");
         stmt.executeUpdate(
             "alter session implementation set jar"
-            + " plannerviz.plannerviz_plugin");
+            + " plannerviz.plannerviz_plugin");    
     }
 
     protected DiffRepository getDiffRepos()
@@ -337,8 +336,8 @@ public class FarragoOptRulesTest
             programBuilder.createProgram(),
             "select e.name from sales.emps e, sales.depts d "
             + "where e.deptno = d.deptno and e.name = 'foo'");
-    }
-
+    }    
+   
     public void testConvertMultiJoinRule()
         throws Exception
     {
@@ -351,7 +350,7 @@ public class FarragoOptRulesTest
             "select e1.name from sales.emps e1, sales.depts d, sales.emps e2 "
             + "where e1.deptno = d.deptno and d.deptno = e2.deptno");
     }
-
+    
     public void testReduceConstants()
         throws Exception
     {
@@ -360,6 +359,8 @@ public class FarragoOptRulesTest
             new FarragoReduceExpressionsRule(ProjectRel.class));
         programBuilder.addRuleInstance(
             new FarragoReduceExpressionsRule(FilterRel.class));
+        programBuilder.addRuleInstance(
+            new FarragoReduceExpressionsRule(JoinRel.class));
 
         // NOTE jvs 27-May-2006: among other things, this verifies
         // intentionally different treatment for identical coalesce expression
@@ -367,10 +368,11 @@ public class FarragoOptRulesTest
 
         check(
             programBuilder.createProgram(),
-            "select 1+2, deptno+(3+4), (5+6)+deptno, cast(null as integer),"
+            "select 1+2, d.deptno+(3+4), (5+6)+d.deptno, cast(null as integer),"
             + " coalesce(2,null)"
-            + " from sales.depts"
-            + " where deptno=(7+8) and deptno=coalesce(2,null)");
+            + " from sales.depts d inner join sales.emps e"
+            + " on d.deptno = e.deptno + (5-5)"
+            + " where d.deptno=(7+8) and d.deptno=coalesce(2,null)");
     }
 
     public void testRemoveSemiJoin()
@@ -428,6 +430,72 @@ public class FarragoOptRulesTest
             "select e1.name from sales.emps e1, sales.depts d, sales.emps e2 "
             + "where e1.deptno = d.deptno and d.deptno = e2.deptno "
             + "and d.name = 'foo'");
+    }
+    
+    public void testConvertMultiJoinRuleOuterJoins()
+        throws Exception
+    {
+        stmt.executeUpdate("create schema oj");
+        stmt.executeUpdate("set schema 'oj'");
+        stmt.executeUpdate(
+            "create table A(a int primary key)");
+        stmt.executeUpdate(
+            "create table B(b int primary key)");
+        stmt.executeUpdate(
+            "create table C(c int primary key)");
+        stmt.executeUpdate(
+            "create table D(d int primary key)");
+        stmt.executeUpdate(
+            "create table E(e int primary key)");
+        stmt.executeUpdate(
+            "create table F(f int primary key)");
+        stmt.executeUpdate(
+            "create table G(g int primary key)");
+        stmt.executeUpdate(
+            "create table H(h int primary key)");
+        stmt.executeUpdate(
+            "create table I(i int primary key)");
+        stmt.executeUpdate(
+            "create table J(j int primary key)");
+        
+        HepProgramBuilder programBuilder = new HepProgramBuilder();
+        programBuilder.addMatchOrder(HepMatchOrder.BOTTOM_UP);
+        programBuilder.addRuleInstance(RemoveTrivialProjectRule.instance);
+        programBuilder.addRuleInstance(new ConvertMultiJoinRule());
+        check(
+            programBuilder.createProgram(),
+            "select * from " +
+            "    (select * from " +
+            "        (select * from " +
+            "            (select * from A right outer join B on a = b) " +
+            "            left outer join " +
+            "            (select * from C full outer join D on c = d)" +
+            "            on a = c and b = d) " +
+            "        right outer join " +
+            "        (select * from " +
+            "            (select * from E full outer join F on e = f) " +
+            "            right outer join " +
+            "            (select * from G left outer join H on g = h) " +
+            "            on e = g and f = h) " +
+            "        on a = e and b = f and c = g and d = h) " +
+            "    inner join " +
+            "    (select * from I inner join J on i = j) " +
+            "    on a = i and h = j");
+    }
+    
+    public void testPushSemiJoinPastProject()
+        throws Exception
+    {
+        HepProgramBuilder programBuilder = new HepProgramBuilder();
+        programBuilder.addRuleInstance(new PushFilterPastJoinRule());
+        programBuilder.addRuleInstance(new AddRedundantSemiJoinRule());
+        programBuilder.addRuleInstance(new PushSemiJoinPastProjectRule());
+        check(
+            programBuilder.createProgram(),
+            "select e.* from "
+            + "(select name, trim(city), age * 2, deptno from sales.emps) e, "
+            + "sales.depts d "
+            + "where e.deptno = d.deptno");
     }
 }
 

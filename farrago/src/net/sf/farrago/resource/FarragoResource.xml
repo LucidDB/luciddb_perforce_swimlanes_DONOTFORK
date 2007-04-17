@@ -96,6 +96,10 @@
 <text>Failed to modify boot URL list</text>
 </exception>
 
+<message name="CatalogBootstrapObjDescription">
+<text>Created by system initialization</text>
+</message>
+
 <!-- ====================================================================== -->
 <!-- JDBC resources 410,000 - 420,000 -->
 <!-- ====================================================================== -->
@@ -625,6 +629,19 @@ column type family is {1} but default value type family is {2}</text>
 <text>Cannot alter sequence for {0} because it was not defined as an identity column</text>
 </exception>
 
+<exception id="421080" name="ValidatorUniqueKeyUpdate">
+<text>Cannot update unique key column ({0})</text>
+</exception>
+
+<exception id="421090" name="ValidatorNoMatchingSourceCursor"
+    className="org.eigenbase.sql.validate.SqlValidatorException">
+<text>Cannot locate source cursor {0} for COLUMN_LIST {1}</text>
+</exception>
+
+<exception id="421100" name="ValidatorInvalidColumnListParam"
+    className="org.eigenbase.sql.validate.SqlValidatorException">
+<text>COLUMN_LIST parameters for {0} must be declared as java.util.List&lt;String&gt; in the external Java method {1}</text>
+</exception>
 
 <!-- ====================================================================== -->
 <!-- Fennel resources 440,000 - 450,000 -->
@@ -738,9 +755,21 @@ Messages: {3}</text>
 Messages: {1}</text>
 </exception>
 
+<exception id="450152" name="JavaRowError">
+<text>Could not process input:
+{0}
+Messages: {1}</text>
+</exception>
+
 <exception id="450160" name="ErrorLimitExceeded">
 <text>Exceeded limit of {0,number,#} errors. Last error was:
 {1}</text>
+</exception>
+
+<exception id="450170" name="RecoverableErrorWarning"
+    className="java.sql.SQLWarning">
+<text>Statement execution encountered recoverable exceptions; errors: {0,number,#}; warnings: {1,number,#}; see {2} for details
+</text>
 </exception>
 
 <!-- ====================================================================== -->
@@ -788,15 +817,19 @@ Messages: {1}</text>
 </exception>
 
 <exception id="460120" name="MedInvalidUdxId">
-<text>Invalid specific name for SQL/MED UDX:  {0}</text>
+<text>Invalid specific name for UDX loaded via SQL/MED or optimizer:  {0}</text>
 </exception>
 
 <exception id="460130" name="MedUnknownUdx">
-<text>Unknown specific name {0} for SQL/MED UDX</text>
+<text>Unknown specific name {0} for UDX loaded via SQL/MED or optimizer</text>
 </exception>
 
 <exception id="460140" name="MedPropertyMismatch">
 <text>Values (''{0}'', ''{1}'') for property {2} do not match</text>
+</exception>
+
+<exception id="460150" name="RetryableFailure">
+<text>Retryable communication failure</text>
 </exception>
 
 <!-- NOTE:  Mock resources don't really need localization; this one is
@@ -870,6 +903,10 @@ Messages: {1}</text>
 <text>Invalid row {1} in control file {0}</text>
 </exception>
 
+<exception id="469100" name="FlatFileMappedRequiresWithHeader">
+<text>Mapping source columns in data files to target columns specified by control files requires column names to be provided by data file headers.</text>
+</exception>
+
 <message name="MedFlatFile_DIRECTORY_Description">
 <text>OS directory path containing flat files</text>
 </message>
@@ -912,6 +949,30 @@ Messages: {1}</text>
 
 <message name="MedFlatFile_LOG_DIRECTORY_Description">
 <text>OS directory path for writing log files</text>
+</message>
+
+<message name="MedFlatFile_TRIM_Description">
+<text>Whether to trim column values</text>
+</message>
+
+<message name="MedFlatFile_LENIENT_Description">
+<text>Whether to fill in missing columns at the end of rows with null and discard extra columns</text>
+</message>
+
+<message name="MedFlatFile_MAPPED_Description">
+<text>Whether to match source columns in a data file with target columns specified by a control file or foreign table definition. If true, then the data file must have a header and the server must be lenient. Any target columns that are not in a data file will be filled in with nulls.</text>
+</message>
+
+<message name="MedFlatFile_DATE_FORMAT_Description">
+<text>A custom datetime format for date columns</text>
+</message>
+
+<message name="MedFlatFile_TIME_FORMAT_Description">
+<text>A custom datetime format for time columns</text>
+</message>
+
+<message name="MedFlatFile_TIMESTAMP_FORMAT_Description">
+<text>A custom datetime format for timestamp columns</text>
 </message>
 
 <!-- ====================================================================== -->
@@ -972,6 +1033,11 @@ Messages: {1}</text>
 
 <exception id="470130" name="SessionReentrantStmtFailed">
 <text>Failed while executing internal statement</text>
+</exception>
+
+<exception id ="470140" name="SessionClientProcessIdNotNumeric"
+    className="java.sql.SQLWarning">
+<text>clientProcessId ''{0}'' could not be parsed as an integer</text>
 </exception>
 
 <!-- ====================================================================== -->
@@ -1309,6 +1375,10 @@ Messages: {1}</text>
 <text>PRIMARY KEY constraint</text>
 </message>
 
+<message id="510056" name="UmlColumnListRoutineParameter">
+<text>routine parameter</text>
+</message>
+
 <!-- ====================================================================== -->
 <!-- User defined routine resources 520,000 - 530,000 -->
 <!-- ====================================================================== -->
@@ -1363,6 +1433,14 @@ Messages: {1}</text>
 
 <exception id="520012" name="ExportSchemaMergeTablesDiffer">
 <text>Tables differ in schemas to be merged</text>
+</exception>
+
+<exception id="520013" name="InvalidDateString">
+<text>Date format ''{0}'' could not be applied to string ''{1}''</text>
+</exception>
+
+<exception id="520014" name="InvalidConvertDatetimeCaller">
+<text>Caller type ''{0}'' for datetime conversion functions is unknown</text>
 </exception>
 
 <!-- End of last error section ============================================ -->

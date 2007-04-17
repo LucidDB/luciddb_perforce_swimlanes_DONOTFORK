@@ -22,6 +22,7 @@
 #ifndef Fennel_LcsRowScanExecStream_Included
 #define Fennel_LcsRowScanExecStream_Included
 
+#include <boost/scoped_array.hpp>
 #include "fennel/tuple/TupleDataWithBuffer.h"
 #include "fennel/lucidera/colstore/LcsRowScanBaseExecStream.h"
 #include "fennel/lucidera/bitmap/LbmRidReader.h"
@@ -83,7 +84,7 @@ class LcsRowScanExecStream : public LcsRowScanBaseExecStream
      * initializaed to 0.  On execute, the filtering inputs
      * are read sequentially, while this variable is incremented,
      * until an underflow or all filtering inputs have been read. 
-     * On return due to an underflow, this variable allows reading
+     * On return due to an underflow, this variable allows reading to
      * resume where it had left off.
      */
     uint iFilterToInitialize;
@@ -159,7 +160,7 @@ class LcsRowScanExecStream : public LcsRowScanBaseExecStream
      * to facilitate filter data initialization
      * and memory deallocation.
      */
-    std::vector< LcsResidualColumnFilters *> filters;
+    boost::scoped_array<LcsResidualColumnFilters *> filters;
 
     /**
      * Builds outputProj from params.

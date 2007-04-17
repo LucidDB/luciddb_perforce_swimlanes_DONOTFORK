@@ -29,7 +29,6 @@ import org.eigenbase.relopt.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
 
-
 /**
  * PushProjectPastFilterRule implements the rule for pushing a projection past a
  * filter.
@@ -49,17 +48,15 @@ import org.eigenbase.sql.*;
 public class PushProjectPastFilterRule
     extends RelOptRule
 {
-
+    
     //~ Instance fields --------------------------------------------------------
 
     /**
      * Expressions that should be preserved in the projection
      */
-    private Set<SqlOperator> preserveExprs;
+    private final Set<SqlOperator> preserveExprs;
 
-    //~ Constructors -----------------------------------------------------------
-
-    //  ~ Constructors ---------------------------------------------------------
+    // ~ Constructors ----------------------------------------------------------
 
     public PushProjectPastFilterRule()
     {
@@ -112,14 +109,9 @@ public class PushProjectPastFilterRule
             return;
         }
 
-        PushProjector pushProjector = new PushProjector();
-        ProjectRel topProject =
-            pushProjector.convertProject(
-                origProj,
-                origFilter,
-                rel,
-                preserveExprs,
-                null);
+        PushProjector pushProjector =
+            new PushProjector(origProj, origFilter, rel, preserveExprs);
+        ProjectRel topProject = pushProjector.convertProject(null);
 
         if (topProject != null) {
             call.transformTo(topProject);

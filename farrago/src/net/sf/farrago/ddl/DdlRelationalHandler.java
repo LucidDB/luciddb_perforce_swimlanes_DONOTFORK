@@ -86,9 +86,23 @@ public class DdlRelationalHandler
     // implement FarragoSessionDdlHandler
     public void validateDefinition(FemLocalSchema schema)
     {
+        // NOTE jvs 7-Nov-2006:  CWM specifies table constraints as
+        // owned by tables, but SQL:2003 specifies them as identified
+        // directly by schemas.  So we have to flatten out the
+        // schema namespace here.
+
+        List<CwmModelElement> elements =
+            new ArrayList<CwmModelElement>(schema.getOwnedElement());
+
+        for (CwmModelElement element : schema.getOwnedElement()) {
+            if (element instanceof CwmTable) {
+                elements.addAll(((CwmTable) element).getOwnedElement());
+            }
+        }
+        
         validator.validateUniqueNames(
             schema,
-            schema.getOwnedElement(),
+            elements,
             true);
     }
 
@@ -156,7 +170,16 @@ public class DdlRelationalHandler
                     table.refClass()));
         }
 
-        validateLocalTable(table, true);
+        boolean creation = true;
+
+        if (((DdlValidator) validator).isReplace()) {
+            // revalidation of this table is being triggered by
+            // CREATE OR REPLACE of something else, probably
+            // the local data server
+            creation = false;
+        }
+
+        validateLocalTable(table, creation);
     }
 
     // implement FarragoSessionDdlHandler
@@ -227,8 +250,10 @@ public class DdlRelationalHandler
         FarragoMedLocalDataServer medLocalDataServer =
             (FarragoMedLocalDataServer) medDataServer;
         try {
-            medLocalDataServer.validateTableDefinition(table,
-                generatedPrimaryKeyIndex);
+            medLocalDataServer.validateTableDefinition(
+                table,
+                generatedPrimaryKeyIndex,
+                creation);
         } catch (SQLException ex) {
             throw res.ValidatorDataServerTableInvalid.ex(
                 repos.getLocalizedObjectName(table),

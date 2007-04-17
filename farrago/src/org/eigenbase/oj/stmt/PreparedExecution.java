@@ -26,6 +26,7 @@ import java.lang.reflect.*;
 
 import openjava.ptree.*;
 
+import org.eigenbase.rel.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.util.*;
 
@@ -44,21 +45,27 @@ public class PreparedExecution
     //~ Instance fields --------------------------------------------------------
 
     private final ParseTree parseTree;
+    private final RelNode rootRel;
     private final RelDataType rowType;
     private final boolean isDml;
+    private final TableModificationRel.Operation tableModOp;
     private final BoundMethod boundMethod;
 
     //~ Constructors -----------------------------------------------------------
 
     PreparedExecution(
         ParseTree parseTree,
+        RelNode rootRel,
         RelDataType rowType,
         boolean isDml,
+        TableModificationRel.Operation tableModOp,
         BoundMethod boundMethod)
     {
         this.parseTree = parseTree;
+        this.rootRel = rootRel;
         this.rowType = rowType;
         this.isDml = isDml;
+        this.tableModOp = tableModOp;
         this.boundMethod = boundMethod;
     }
 
@@ -72,6 +79,11 @@ public class PreparedExecution
     public boolean isDml()
     {
         return isDml;
+    }
+    
+    public TableModificationRel.Operation getTableModOp()
+    {
+        return tableModOp;
     }
 
     /**
@@ -87,6 +99,11 @@ public class PreparedExecution
     public Method getMethod()
     {
         return boundMethod.method;
+    }
+    
+    public RelNode getRootRel()
+    {
+        return rootRel;
     }
 
     public Object execute()

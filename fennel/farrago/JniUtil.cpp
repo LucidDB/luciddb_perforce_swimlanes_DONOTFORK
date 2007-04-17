@@ -27,6 +27,7 @@
 #include "fennel/common/FennelResource.h"
 #include "fennel/common/ConfigMap.h"
 #include "fennel/common/Backtrace.h"
+#include "fennel/tuple/StoredTypeDescriptor.h"
 
 #ifdef __MINGW32__
 #include <process.h>
@@ -54,6 +55,8 @@ jmethodID JniUtil::methGetIndexRoot = 0;
 jmethodID JniUtil::methToString = 0;
 jmethodID JniUtil::methBase64Decode;
 jclass JniUtil::classRhBase64;
+jmethodID JniUtil::methRandomUUID;
+jclass JniUtil::classUUID;
 jmethodID JniUtil::methFarragoTransformInit = 0;
 jmethodID JniUtil::methFarragoTransformExecute = 0;
 jmethodID JniUtil::methFarragoTransformRestart = 0;
@@ -185,8 +188,12 @@ jint JniUtil::init(JavaVM *pVmInit)
     jclass classIterator = pEnv->FindClass("java/util/Iterator");
 
     // Make sure this jclass is a global ref or the JVM might move it on us.
-    jclass tempRhBase64 = pEnv->FindClass("org/eigenbase/util/RhBase64");
-    classRhBase64 = (jclass)pEnv->NewGlobalRef(tempRhBase64);
+    // This is only required for classes on which we need to invoke
+    // static methods.
+    classRhBase64 = pEnv->FindClass("org/eigenbase/util/RhBase64");
+    classRhBase64 = (jclass) pEnv->NewGlobalRef(classRhBase64);
+    classUUID = pEnv->FindClass("java/util/UUID");
+    classUUID = (jclass) pEnv->NewGlobalRef(classUUID);
 
     jclass classFennelJavaStreamMap = pEnv->FindClass(
         "net/sf/farrago/fennel/FennelJavaStreamMap");
@@ -229,6 +236,8 @@ jint JniUtil::init(JavaVM *pVmInit)
         classObject,"toString","()Ljava/lang/String;");
     methBase64Decode = pEnv->GetStaticMethodID(
         classRhBase64,"decode","(Ljava/lang/String;)[B");
+    methRandomUUID = pEnv->GetStaticMethodID(
+        classUUID,"randomUUID","()Ljava/util/UUID;");
     methFarragoTransformInit = pEnv->GetMethodID(
         classFarragoTransform, "init", 
         "(Lnet/sf/farrago/runtime/FarragoRuntimeContext;Ljava/lang/String;[Lnet/sf/farrago/runtime/FarragoTransform$InputBinding;)V");
@@ -382,6 +391,36 @@ void JniUtil::traceHandleCount(
     }
 }
 
+std::string JniUtil::getXmi(const TupleDescriptor &tupleDescriptor)
+{
+    std::ostringstream oss;
+    oss << "<XMI xmi.version = '1.2' "
+        << "xmlns:FEMFennel = 'org.omg.xmi.namespace.FEMFennel'>" << std::endl;
+    oss << "<XMI.content>" << std::endl;
+    oss << "<FEMFennel:TupleDescriptor>" << std::endl;
+    for (uint i = 0; i < tupleDescriptor.size(); ++i) {
+        TupleAttributeDescriptor const &attrDescriptor =
+            tupleDescriptor[i];
+        oss << "<FEMFennel:TupleDescriptor.AttrDescriptor>";
+        oss << "<FEMFennel:TupleAttrDescriptor ";
+        oss << "typeOrdinal='";
+        oss << attrDescriptor.pTypeDescriptor->getOrdinal();
+        oss << "' ";
+        oss << "isNullable='";
+        oss << (attrDescriptor.isNullable ? "true" : "false");
+        oss << "' ";
+        oss << "byteLength='";
+        oss << attrDescriptor.cbStorage;
+        oss << "' ";
+        oss << "/>" << std::endl;
+        oss << "</FEMFennel:TupleDescriptor.AttrDescriptor>";
+    }
+    oss << "</FEMFennel:TupleDescriptor>" << std::endl;
+    oss << "</XMI.content>" << std::endl;
+    oss << "</XMI>" << std::endl;
+    std::string s = oss.str();
+    return s;
+}
 
 JniExceptionChecker::~JniExceptionChecker()
 {
@@ -401,6 +440,11 @@ JniEnvAutoRef::~JniEnvAutoRef()
     if (needDetach) {
         JniUtil::detachJavaEnv();
     }
+}
+
+void JniEnvAutoRef::suppressDetach()
+{
+    needDetach = false;
 }
 
 void JniEnvRef::handleExcn(std::exception &ex)
@@ -425,6 +469,40 @@ void JniEnvRef::handleExcn(std::exception &ex)
     jthrowable t = (jthrowable)
         pEnv->NewObject(classSQLException,constructor,jMessage);
     pEnv->Throw(t);
+}
+
+JniLocalFrame::JniLocalFrame(JNIEnv *pEnvInit, jint capacity)
+{
+    pEnv = pEnvInit;
+    jint rc = pEnv->PushLocalFrame(capacity);
+
+    if (rc < 0) {
+        success = false;
+        jthrowable excn = pEnv->ExceptionOccurred();
+        if (excn) {
+            throw JavaExcn(excn);
+        }
+    } else {
+        success = true;
+    }
+}
+
+JniLocalFrame::~JniLocalFrame()
+{
+    if (success) {
+        pEnv->PopLocalFrame(NULL);
+    }
+}
+
+void JniPseudoUuidGenerator::generateUuid(PseudoUuid &pseudoUuid)
+{
+    JniEnvAutoRef pEnv;
+    jobject jUuid = pEnv->CallStaticObjectMethod(
+        JniUtil::classUUID,
+        JniUtil::methRandomUUID);
+    jstring jsUuid = JniUtil::toString(pEnv, jUuid);
+    std::string sUuid = JniUtil::toStdString(pEnv, jsUuid);
+    pseudoUuid.parse(sUuid);
 }
 
 FENNEL_END_CPPFILE("$Id$");

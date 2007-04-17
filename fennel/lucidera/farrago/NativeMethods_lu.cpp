@@ -91,6 +91,17 @@ class ExecStreamSubFactory_lu
         }
     }
 
+    void readColumnList(
+        ProxyFlatFileTupleStreamDef &streamDef, 
+        std::vector<std::string> &names)
+    {
+        SharedProxyColumnName pColumnName = streamDef.getColumn();
+        
+        for (; pColumnName; ++pColumnName) {
+            names.push_back(pColumnName->getName());
+        }
+    }
+
     // implement FemVisitor
     virtual void visit(ProxySortingStreamDef &streamDef)
     {
@@ -113,9 +124,20 @@ class ExecStreamSubFactory_lu
         params.pTempSegment = pDatabase->getTempSegment();
         params.storeFinalRun = false;
         params.estimatedNumRows = streamDef.getEstimatedNumRows();
+        params.earlyClose = streamDef.isEarlyClose();
         CmdInterpreter::readTupleProjection(
             params.keyProj,
             streamDef.getKeyProj());
+        params.descendingKeyColumns.resize(params.keyProj.size(), false);
+        if (streamDef.getDescendingProj()) {
+            TupleProjection descendingProj;
+            CmdInterpreter::readTupleProjection(
+                descendingProj,
+                streamDef.getDescendingProj());
+            for (uint i = 0; i < descendingProj.size(); ++i) {
+                params.descendingKeyColumns[descendingProj[i]] = true;
+            }
+        }
         pEmbryo->init(
             ExternalSortExecStream::newExternalSortExecStream(),
             params);
@@ -135,6 +157,10 @@ class ExecStreamSubFactory_lu
         params.quoteChar = readCharParam(streamDef.getQuoteCharacter());
         params.escapeChar = readCharParam(streamDef.getEscapeCharacter());
         params.header = streamDef.isHasHeader();
+        params.lenient = streamDef.isLenient();
+        params.trim = streamDef.isTrim();
+        params.mapped = streamDef.isMapped();
+        readColumnList(streamDef, params.columnNames);
         
         params.numRowsScan = streamDef.getNumRowsScan();
         params.calcProgram = streamDef.getCalcProgram();
@@ -180,6 +206,8 @@ class ExecStreamSubFactory_lu
                                             streamDef.getOutputProj());
         params.isFullScan = streamDef.isFullScan();
         params.hasExtraFilter = streamDef.isHasExtraFilter();
+        CmdInterpreter::readTupleProjection(params.residualFilterCols,
+            streamDef.getResidualFilterColumns());
         pEmbryo->init(new LcsRowScanExecStream(), params);
     }
 
@@ -197,8 +225,8 @@ class ExecStreamSubFactory_lu
         readClusterScan(streamDef, params);
         CmdInterpreter::readTupleProjection(
             params.outputProj, streamDef.getOutputProj());
-        params.dynParamId =
-            readDynamicParamId(streamDef.getRowCountParamId());
+        params.insertRowCountParamId =
+            readDynamicParamId(streamDef.getInsertRowCountParamId());
         params.createIndex = streamDef.isCreateIndex();
 
         pEmbryo->init(new LbmGeneratorExecStream(), params);
@@ -208,10 +236,23 @@ class ExecStreamSubFactory_lu
     virtual void visit(ProxyLbmSplicerStreamDef &streamDef)
     {
         LbmSplicerExecStreamParams params;
-        pExecStreamFactory->readTupleStreamParams(params, streamDef);
-        pExecStreamFactory->readBTreeStreamParams(params, streamDef);
-        params.dynParamId =
-            readDynamicParamId(streamDef.getRowCountParamId());
+        pExecStreamFactory->readExecStreamParams(params, streamDef);
+        pExecStreamFactory->readTupleDescriptor(
+            params.outputTupleDesc,
+            streamDef.getOutputDesc());
+        SharedProxySplicerIndexAccessorDef pIndexAccessorDef =
+            streamDef.getIndexAccessor();
+        for ( ; pIndexAccessorDef; ++pIndexAccessorDef) {
+            BTreeExecStreamParams bTreeParams;
+            pExecStreamFactory->readBTreeParams(
+                bTreeParams,
+                *pIndexAccessorDef);
+            params.bTreeParams.push_back(bTreeParams);
+        }
+        params.insertRowCountParamId =
+            readDynamicParamId(streamDef.getInsertRowCountParamId());
+        params.writeRowCountParamId =
+            readDynamicParamId(streamDef.getWriteRowCountParamId());
         pEmbryo->init(new LbmSplicerExecStream(), params);
     }
 
@@ -335,6 +376,9 @@ class ExecStreamSubFactory_lu
 
         CmdInterpreter::readTupleProjection(
             params.rightKeyProj, streamDef.getRightKeyProj());
+
+        CmdInterpreter::readTupleProjection(
+            params.filterNullKeyProj, streamDef.getFilterNullProj());
 
         /*
          * The optimizer currently estimates these two values.

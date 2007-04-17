@@ -132,15 +132,24 @@ public class FarragoDefaultPlanner
 
         planner.addRule(new ReduceDecimalsRule());
 
-        // REVIEW jvs 26-May-2006:  reduce expressions for JoinRel also?
         planner.addRule(new FarragoReduceExpressionsRule(FilterRel.class));
         planner.addRule(new FarragoReduceExpressionsRule(ProjectRel.class));
+        planner.addRule(new FarragoReduceExpressionsRule(JoinRel.class));
 
         planner.addRule(ReduceAggregatesRule.instance);
 
+        // NOTE zfong 9/27/06: PullUpProjectsAboveJoinRule has not been 
+        // added because together with PushProjectPastJoinRule, it causes
+        // Volcano to go into an infinite loop
+        
         planner.addRule(new PushFilterPastJoinRule());
+        planner.addRule(new PushFilterPastSetOpRule());
+        planner.addRule(new MergeFilterRule());
+        planner.addRule(new PushFilterPastProjectRule());
         planner.addRule(new PushProjectPastFilterRule());
         planner.addRule(new PushProjectPastJoinRule());
+        planner.addRule(new PushProjectPastSetOpRule());
+        planner.addRule(new MergeProjectRule());
 
         if (fennelEnabled) {
             planner.addRule(new FennelSortRule());

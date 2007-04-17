@@ -743,14 +743,17 @@ bool LbmEntry::growEntry(LcsRid rid, uint reserveSpace)
 
 bool LbmEntry::adjustEntry(TupleData &inputTuple)
 {
-    /*
-     * The current entry and the input entry can not be singletons at the same
-     * time, as entries come sorted on (index keys, startRID).
-     */
-    assert(!(isSingleton() && isSingleton(inputTuple)));
-
     LcsRid &inputStartRID = *((LcsRid*)inputTuple[inputTuple.size() - 3].pData);
     
+    /*
+     * It is possible for both the input and the current entry to be singletons
+     * if we're doing random mergeEntry's
+     */
+    if (isSingleton() && isSingleton(inputTuple)) {
+        assert(startRID != inputStartRID);
+        return false;
+    }
+
     if (isSingleton(inputTuple)) {
         /*
          * The current entry must be either compressed bitmap or single
@@ -1004,7 +1007,16 @@ bool LbmEntry::spliceSingleton(TupleData &inputTuple)
         copyToMergeBuffer(origCurrEntry, startRID, pSegStart, pSegDescStart);
 
         setEntryTuple(inputTuple);
-        return mergeEntry(origCurrEntry);
+        bool rc = mergeEntry(origCurrEntry);
+        // if we weren't able to merge the input into the current entry,
+        // the new entry needs to be produced and the current entry becomes
+        // the input entry
+        if (rc == false) {
+            for (int i = 0; i < origCurrEntry.size(); i++) {
+                inputTuple[i] = origCurrEntry[i];
+            }
+        }
+        return rc;
 
     } else {
         // loop through each segment and determine if there already is a
@@ -1040,7 +1052,7 @@ bool LbmEntry::spliceSingleton(TupleData &inputTuple)
         }
         // should never go past the end of the entry, as we would not have
         // entered this method otherwise
-        assert(false);
+        permAssert(false);
         return true;
     }
 }
@@ -1309,42 +1321,47 @@ void LbmEntry::splitEntry(TupleData &inputTuple)
     // very end of an entry are handled by the regular mergeEntry()
     assert(countSegments() > 1);
 
-    // split the current entry in half based on the rid range the current
-    // entry covers
-    uint rowCount = getRowCount();
-    LcsRid endRID = startRID + rowCount - 1;
-    LcsRid midRID = endRID / 2;
+    // split the current entry in half based on the current entry size,
+    // excluding the keysize
+    uint targetSplitSize = (currentEntrySize - keySize) / 2;
 
-    // determine which segment and descriptor contain the midpoint rid
+    // divide up the segments until we reach the target splitSize
     PBuffer segDesc = pSegDescStart;
-    PBuffer prevprevSegDesc = NULL;
+    PBuffer prevPrevSegDesc = NULL;
     PBuffer prevSegDesc = NULL;
     PBuffer seg = pSegStart;
     LcsRid srid = startRID;
+    LcsRid prevSrid = srid;
     uint segBytes;
     uint zeroBytes;
     while (segDesc < pSegDescEnd) {
-        prevprevSegDesc = prevSegDesc;
+        prevPrevSegDesc = prevSegDesc;
         prevSegDesc = segDesc;
         readSegDescAndAdvance(segDesc, segBytes, zeroBytes);
         seg -= segBytes;
+        prevSrid = srid;
         srid += (segBytes + zeroBytes) * LbmOneByteSize;
-        if (midRID < srid) {
+        if ((segDesc - pSegDescStart) + (pSegStart - seg) >= targetSplitSize) {
             break;
         }
     }
-    // if the midpoint rid is in the last segment, then bump the cutoff point
-    // back by one
-    if (segDesc >= pSegDescEnd) {
+
+    // if we effectively haven't split anything, bump the cutoff point back
+    // by one so the split entry has at least 1 segment; also bump back the
+    // cutoff point if the new rid will be inserted before the new last
+    // segment in the current entry; this way, we minimize the size of the
+    // entry that the new rid will be inserted into
+    LcsRid &inputStartRID = *((LcsRid*)inputTuple[inputTuple.size() - 3].pData);
+    if (segDesc >= pSegDescEnd || inputStartRID < prevSrid) {
         segDesc = prevSegDesc;
-        assert(prevprevSegDesc != NULL);
-        prevSegDesc = prevprevSegDesc;
+        permAssert(prevPrevSegDesc != NULL);
+        prevSegDesc = prevPrevSegDesc;
         seg += segBytes;
-        srid -= (segBytes + zeroBytes) * LbmOneByteSize;
+        srid = prevSrid;
     }
 
     // copy the segments and descriptors (starting at the one that follows
-    // the one containing the midpoint) into the secondary scratch buffer
+    // the one where the split was made) into the secondary scratch buffer
     TupleData newEntry;
     copyToMergeBuffer(newEntry, srid, seg, segDesc);
 
@@ -1362,12 +1379,11 @@ void LbmEntry::splitEntry(TupleData &inputTuple)
 
     // if the input rid is in the new current entry, merge it in and then
     // move the newly split off entry into inputTuple
-    LcsRid &inputStartRID = *((LcsRid*)inputTuple[inputTuple.size() - 3].pData);
     if (inputStartRID < srid) {
         bool rc = mergeEntry(inputTuple);
         // there has to be enough space to merge in the input singleton since
         // we've done a split to free up space
-        assert(rc);
+        permAssert(rc);
         for (int i = 0; i < newEntry.size(); i++) {
             inputTuple[i] = newEntry[i];
         }
@@ -1413,7 +1429,7 @@ void LbmEntry::mergeIntoSplitEntry(
     // splice the input into the split entry that now occupies the current
     // entry
     bool rc = mergeEntry(inputTuple);
-    assert(rc);
+    permAssert(rc);
 
     // copy the split entry into inputTuple
     copyToMergeBuffer(inputTuple, splitStartRid, pSegStart, pSegDescStart);
@@ -2005,11 +2021,86 @@ uint LbmEntry::getScratchBufferSize(uint bitmapColSize)
 
 uint LbmEntry::getMaxBitmapSize(uint bitmapColSize)
 {
-    // reserve a portion of the bitmap for building a segment
-    // directory; this is actually slightly more than necessary, but
-    // it's not too much of a loss
-    assert (bitmapColSize % LbmMaxSegSize == 0);
-    return bitmapColSize - (bitmapColSize / LbmMaxSegSize);
+    // The maximum size of the segments combined is when the bitmep entry
+    // is packed with as many LbmMaxSegSize segments as possible. There could
+    // be a non-max length segment at the end.
+    uint descriptorBytesPerSegment = 1;
+    uint maxNumSegments = 
+        (bitmapColSize / (LbmMaxSegSize + descriptorBytesPerSegment))
+        + ((bitmapColSize % (LbmMaxSegSize + descriptorBytesPerSegment)) == 0 ? 0 : 1);
+    return (bitmapColSize - maxNumSegments * descriptorBytesPerSegment);
+}
+
+bool LbmEntry::containsRid(LcsRid rid)
+{
+    LcsRid startRid = startRID;
+
+    if (isSingleton()) {
+        return (startRid == rid);
+    } else {
+        PBuffer pSegDesc = pSegDescStart;
+        PBuffer pSeg = pSegStart;
+        if (pSegDesc) {
+            // loop through each segment
+            while (pSegDesc < pSegDescEnd) {
+                uint nSegBytes;
+                uint nZeroBytes;
+
+                readSegDescAndAdvance(pSegDesc, nSegBytes, nZeroBytes);
+                int rc = segmentContainsRid(rid, startRid, pSeg, nSegBytes);
+                if (rc == 0) {
+                    return true;
+                } else if (rc < 0) {
+                    return false;
+                } else {
+                    // rid wasn't within the current segment range so
+                    // move to the next segment
+                    startRid += (nSegBytes + nZeroBytes) * LbmOneByteSize;
+                    pSeg -= nSegBytes;
+                    // if the rid is in the range of the zeroBytes, then it's
+                    // not contained in the entry
+                    if (rid < startRid) {
+                        return false;
+                    }
+                }
+            }
+            return false;
+        } else {
+            // single bitmap -- just check the one segment
+            int rc =
+                segmentContainsRid(
+                    rid,
+                    startRid,
+                    pSegStart,
+                    pSegStart - pSegEnd);
+            if (rc == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+}
+
+int LbmEntry::segmentContainsRid(
+    LcsRid rid,
+    LcsRid startRid,
+    PBuffer pSeg,   
+    uint nSegBytes)
+{
+    if (rid >= startRid && rid < startRid + (nSegBytes * LbmOneByteSize)) {
+        // rid is within the current segment; check the
+        // appropriate byte
+        uint byteNum = (opaqueToInt(rid - startRid) / LbmOneByteSize) + 1;
+        uint8_t setRid = 1 << (opaqueToInt(rid) % LbmOneByteSize);
+        if (pSeg[-byteNum] & setRid) {
+            return 0;
+        } else {
+            return -1;
+        }
+    } else {
+        return 1;
+    }
 }
 
 FENNEL_END_CPPFILE("$Id$");

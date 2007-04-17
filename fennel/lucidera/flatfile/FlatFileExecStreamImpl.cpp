@@ -41,221 +41,22 @@ FlatFileExecStream *FlatFileExecStream::newFlatFileExecStream()
     return new FlatFileExecStreamImpl();
 }
 
-void FlatFileExecStreamImpl::handleTuple(
-    const FlatFileRowParseResult &result,
-    TupleData &tuple)
-{
-    TupleData *pTupleData = NULL;
-    if (pCalc) {
-        // NOTE: bind calc inputs for real implementation
-        // (output tuple is already bound)
-        pTupleData = &textTuple;
-    } else {
-        // NOTE: just return text tuple for fake implementation
-        pTupleData = &tuple;
-    }
+// NOTE: keep this consistent with the Farrago java file
+//   com.lucidera.farrago.namespace.flatfile.FlatFileFennelRel.java 
+const uint FlatFileExecStreamImpl::MAX_ROW_ERROR_TEXT_WIDTH = 4000;
 
-    // Describe array is initialized here, because describe requires
-    // an unbounded scan, and the number of fields are not known
-    // until the scan is in progress. Note that we use the first row
-    // to determine how many field sizes to return, an imperfect guess.
-    bool initial = false;
-    if (mode == FLATFILE_MODE_DESCRIBE) {
-        if (fieldSizes.size() == 0) {
-            initial = true;
-            fieldSizes.resize(result.offsets.size());
-        }
-        // Ignore rows with wrong number of columns
-        if (fieldSizes.size() != result.offsets.size()) {
-            FlatFileRowParseResult detail = result;
-            if (detail.offsets.size() > fieldSizes.size()) {
-                detail.status = FlatFileRowParseResult::TOO_MANY_COLUMNS;
-            } else {
-                detail.status = FlatFileRowParseResult::TOO_FEW_COLUMNS;
-            }
-            logError(detail);
-            return;
-        }
-    }
-
-    // Prepare values for returning
-    for (uint i = 0; i < result.offsets.size(); i++) {
-        char *value = result.current + result.offsets[i];
-        uint size = result.sizes[i];
-        uint strippedSize = 0;
-        if (value != NULL) {
-            strippedSize = pParser->stripQuoting(value, size, false);
-        }
-        if (mode == FLATFILE_MODE_DESCRIBE) {
-            if (initial) {
-                fieldSizes[i] = strippedSize;
-            } else {
-                fieldSizes[i] = max(fieldSizes[i], strippedSize);
-            }
-            continue;
-        }
-        if (size == 0) {
-            // a value which is empty, (not quoted empty), is null
-            (*pTupleData)[i].pData = NULL;
-            (*pTupleData)[i].cbData = 0;
-        } else {
-            (*pTupleData)[i].pData = (PConstBuffer) value;
-            // quietly truncate long columns
-            strippedSize = std::min(strippedSize, textDesc[i].cbStorage);
-            (*pTupleData)[i].cbData = strippedSize;
-        }
-    }
-
-    if (pCalc) {
-        try {
-            pCalc->exec();
-        } catch (FennelExcn e) {
-            FENNEL_TRACE(TRACE_SEVERE,
-                "error executing calculator: " << e.getMessage());
-            throw e;
-        }
-        if (pCalc->mWarnings.begin() != pCalc->mWarnings.end()) {
-            throw CalcExcn(pCalc->warnings(), textDesc, textTuple);
-        }    
-    }
-
-    if (mode != FLATFILE_MODE_DESCRIBE) {
-        isRowPending = true;
-    } else {
-        // in describe mode, use this to count how many rows have been
-        // read, though this is an abuse of the variable's intended purpose
-        nRowsOutput++;
-    }
-}
-
-void FlatFileExecStreamImpl::describeStream(TupleData &tupleData)
-{
-    if (fieldSizes.size() == 0) {
-        throw FennelExcn(
-            FennelResource::instance().flatfileDescribeFailed(dataFilePath) );
-    }
-    
-    std::ostringstream oss;
-    for (int i = 0; i < fieldSizes.size(); i++) {
-        oss << fieldSizes[i];
-        if (i != fieldSizes.size() - 1) {
-            oss << " ";
-        }
-    }
-    // NOTE: this newly created string is saved as part of the stream 
-    // to avoid being popped off the stack
-    describeResult = oss.str();
-    const char *value = describeResult.c_str();
-    uint cbValue = describeResult.size() * sizeof(char);
-
-    assert(tupleData.size() == 1);
-    tupleData[0].pData = (PConstBuffer) value;
-    tupleData[0].cbData = cbValue;
-    isRowPending = true;
-}
-
-void FlatFileExecStreamImpl::logError(const FlatFileRowParseResult &result)
-{
-    switch (result.status) {   
-    case FlatFileRowParseResult::INCOMPLETE_COLUMN:
-        reason = FennelResource::instance().incompleteColumn();
-        break;
-    case FlatFileRowParseResult::ROW_TOO_LARGE:
-        reason = FennelResource::instance().rowTextTooLong();
-        break;
-    case FlatFileRowParseResult::NO_COLUMN_DELIM:
-        reason = FennelResource::instance().noColumnDelimiter();
-        break;
-    case FlatFileRowParseResult::TOO_FEW_COLUMNS:
-        reason = FennelResource::instance().tooFewColumns();
-        break;
-    case FlatFileRowParseResult::TOO_MANY_COLUMNS:
-        reason = FennelResource::instance().tooManyColumns();
-        break;
-    default:
-        permAssert(false);
-    }
-    logError(reason, result);
-}
-
-void FlatFileExecStreamImpl::logError(
-    const std::string reason,
-    const FlatFileRowParseResult &result)
-{
-    
-    this->reason = reason;
-    std::string rowText =
-        std::string(result.current, result.next-result.current);
-
-    if (! logging) {
-        return;
-    }
-    if (! pErrorFile) {
-        DeviceMode openMode;
-        openMode.create = 1;
-        try {
-            pErrorFile.reset(
-                new RandomAccessFileDevice(errorFilePath, openMode));
-        } catch (SysCallExcn e) {
-            FENNEL_TRACE(TRACE_SEVERE, e.getMessage());
-            throw FennelExcn(
-                FennelResource::instance().writeLogFailed(errorFilePath));
-        }
-        filePosition = pErrorFile->getSizeInBytes();
-    }
-
-    std::ostringstream oss;
-    oss << reason << ", " << rowText << endl;
-    std::string record = oss.str();
-    uint targetSize = record.size()*sizeof(char);
-            
-    pErrorFile->setSizeInBytes(filePosition + targetSize);
-    RandomAccessRequest writeRequest;
-    writeRequest.pDevice = pErrorFile.get();
-    writeRequest.cbOffset = filePosition;
-    writeRequest.cbTransfer = targetSize;
-    writeRequest.type = RandomAccessRequest::WRITE;
-    char *data = const_cast<char *>(record.c_str());
-    FlatFileBinding binding(errorFilePath, data, targetSize);
-    writeRequest.bindingList.push_back(binding);
-    pErrorFile->transfer(writeRequest);
-    filePosition += targetSize;
-}
-
-void FlatFileExecStreamImpl::detectMajorErrors()
-{
-    if (nRowsOutput > 0 && nRowErrors > 0) {
-        // TODO: we probably shouldn't throw an error here, but we should
-        // warn user that errors were encountered and were written to log
-        //throw FennelExcn(FennelResource::instance().errorsEncountered(
-        //                     dataFilePath, errorFilePath));
-    }
-    if (nRowsOutput > 0 || nRowErrors == 0) return;
-    checkRowDelimiter();
-    // REVIEW: perhaps we shouldn't throw an error here. If the data being
-    // read is not crucial, we may want to swallow this.
-    throw FennelExcn(
-        FennelResource::instance().noRowsReturned(dataFilePath, reason));
-}
-
-void FlatFileExecStreamImpl::checkRowDelimiter()
-{
-    if (pBuffer->isDone() && lastResult.nRowDelimsRead == 0) {
-        throw FennelExcn(
-            FennelResource::instance().noRowDelimiter(dataFilePath));
-    }
-}
-
-// FIXME: this method should leverage existing CalcStream code
+// TODO: remove Fennel calc code and linking
 void FlatFileExecStreamImpl::prepare(
     FlatFileExecStreamParams const &params)
 {
     SingleOutputExecStream::prepare(params);
 
     header = params.header;
-    logging = (params.errorFilePath.size() > 0);
     dataFilePath = params.dataFilePath;
-    errorFilePath = params.errorFilePath;
+    lenient = params.lenient;
+    trim = params.trim;
+    mapped = params.mapped;
+    columnNames = params.columnNames;
     
     dataTuple.compute(pOutAccessor->getTupleDesc());
     
@@ -264,10 +65,12 @@ void FlatFileExecStreamImpl::prepare(
 
     mode = params.mode;
     rowDesc = readTupleDescriptor(pOutAccessor->getTupleDesc());
+    rowDesc.setLenient(lenient);
     pBuffer.reset(new FlatFileBuffer(params.dataFilePath));
     pParser.reset(new FlatFileParser(
                       params.fieldDelim, params.rowDelim,
-                      params.quoteChar, params.escapeChar));
+                      params.quoteChar, params.escapeChar,
+                      params.trim));
 
     numRowsScan = params.numRowsScan;
 
@@ -349,29 +152,6 @@ void FlatFileExecStreamImpl::prepare(
     }
 }
 
-FlatFileRowDescriptor FlatFileExecStreamImpl::readTupleDescriptor(
-    const TupleDescriptor &tupleDesc)
-{
-    StandardTypeDescriptorFactory typeFactory;
-    FlatFileRowDescriptor rowDesc;
-    for (uint i=0; i < tupleDesc.size(); i++) {
-        TupleAttributeDescriptor attr = tupleDesc[i];
-        StandardTypeDescriptorOrdinal ordinal =
-            StandardTypeDescriptorOrdinal(
-                attr.pTypeDescriptor->getOrdinal());
-        if (StandardTypeDescriptor::isTextArray(ordinal)) {
-            rowDesc.push_back(FlatFileColumnDescriptor(attr.cbStorage));
-        } else {
-            rowDesc.push_back(
-                FlatFileColumnDescriptor(FLAT_FILE_MAX_NON_CHAR_VALUE_LEN));
-        }
-    }
-    if (mode == FLATFILE_MODE_DESCRIBE) {
-        rowDesc.setUnbounded();
-    }
-    return rowDesc;
-}
-
 void FlatFileExecStreamImpl::getResourceRequirements(
     ExecStreamResourceQuantity &minQuantity,
     ExecStreamResourceQuantity &optQuantity)
@@ -409,6 +189,10 @@ void FlatFileExecStreamImpl::open(bool restart)
                 FlatFileColumnDescriptor(
                     FLAT_FILE_MAX_COLUMN_NAME_LEN));
         }
+        headerDesc.setLenient(lenient);
+        if (mapped) {
+            headerDesc.setUnbounded();
+        }
         pParser->scanRow(
             pBuffer->getReadPtr(), pBuffer->getSize(), headerDesc, lastResult);
         pBuffer->setReadPtr(lastResult.next);
@@ -422,6 +206,40 @@ void FlatFileExecStreamImpl::open(bool restart)
             throw FennelExcn(
                 FennelResource::instance().flatfileNoHeader(
                     dataFilePath, reason));
+        }
+
+        // Generate mapping from text file columns to output columns.
+        // Match names in the header with output field names. Names in
+        // the header are always trimmed.
+        if (mapped) {
+            if (! lenient) {
+                throw FennelExcn(
+                    FennelResource::instance()
+                    .flatfileMappedRequiresLenient());
+            }
+
+            pParser->stripQuoting(lastResult, true);
+            uint nFields = lastResult.getReadCount();
+            int found = 0;
+
+            std::vector<uint> columnMap;
+            columnMap.resize(nFields);
+            for (uint i = 0; i < nFields; i++) {
+                std::string name(
+                    lastResult.getColumn(i),
+                    lastResult.getColumnSize(i));
+                columnMap[i] = findField(name);
+                if (columnMap[i] != -1) {
+                    found++;
+                }
+            }
+            if (found == 0) {
+                throw FennelExcn(
+                    FennelResource::instance().flatfileNoMappedColumns(
+                        std::string(" "),
+                        std::string(" ")));
+            }            
+            rowDesc.setMap(columnMap);
         }
     }
 
@@ -509,12 +327,205 @@ ExecStreamResult FlatFileExecStreamImpl::execute(
 
         // close stream if no more rows are available
         if (done) {
-            detectMajorErrors();
             pOutAccessor->markEOS();
             return EXECRC_EOS;
         }
     }
     return EXECRC_QUANTUM_EXPIRED;
+}
+
+FlatFileRowDescriptor FlatFileExecStreamImpl::readTupleDescriptor(
+    const TupleDescriptor &tupleDesc)
+{
+    StandardTypeDescriptorFactory typeFactory;
+    FlatFileRowDescriptor rowDesc;
+    for (uint i=0; i < tupleDesc.size(); i++) {
+        TupleAttributeDescriptor attr = tupleDesc[i];
+        StandardTypeDescriptorOrdinal ordinal =
+            StandardTypeDescriptorOrdinal(
+                attr.pTypeDescriptor->getOrdinal());
+        if (StandardTypeDescriptor::isTextArray(ordinal)) {
+            rowDesc.push_back(FlatFileColumnDescriptor(attr.cbStorage));
+        } else {
+            rowDesc.push_back(
+                FlatFileColumnDescriptor(FLAT_FILE_MAX_NON_CHAR_VALUE_LEN));
+        }
+    }
+    if (mode == FLATFILE_MODE_DESCRIBE) {
+        rowDesc.setUnbounded();
+    }
+    return rowDesc;
+}
+
+int FlatFileExecStreamImpl::findField(const std::string &name)
+{
+    for (uint i = 0; i < columnNames.size(); i++) {
+        if (strcasecmp(name.c_str(), columnNames[i].c_str()) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void FlatFileExecStreamImpl::handleTuple(
+    FlatFileRowParseResult &result,
+    TupleData &tuple)
+{
+    TupleData *pTupleData = NULL;
+    if (pCalc) {
+        // NOTE: bind calc inputs for real implementation
+        // (output tuple is already bound)
+        pTupleData = &textTuple;
+    } else {
+        // NOTE: just return text tuple for fake implementation
+        pTupleData = &tuple;
+    }
+
+    // Describe array is initialized here, because describe requires
+    // an unbounded scan, and the number of fields are not known
+    // until the scan is in progress. Note that we use the first row
+    // to determine how many field sizes to return, an imperfect guess.
+    if (mode == FLATFILE_MODE_DESCRIBE) {
+        if (fieldSizes.size() == 0) {
+            fieldSizes.resize(result.getReadCount(), 0);
+        }
+        // If not lenient, check for rows with wrong number of columns
+        if ((!lenient) && fieldSizes.size() != result.getReadCount()) {
+            FlatFileRowParseResult detail = result;
+            if (detail.getReadCount() > fieldSizes.size()) {
+                detail.status = FlatFileRowParseResult::TOO_MANY_COLUMNS;
+            } else {
+                detail.status = FlatFileRowParseResult::TOO_FEW_COLUMNS;
+            }
+            logError(detail);
+            return;
+        }
+    }
+
+    // Prepare values for returning
+    pParser->stripQuoting(result, trim);
+    for (uint i = 0; i < result.getReadCount(); i++) {
+        if (mode == FLATFILE_MODE_DESCRIBE) {
+            if (i < fieldSizes.size()) {
+                fieldSizes[i] = max(fieldSizes[i], result.getColumnSize(i));
+            }
+            continue;
+        }
+        (*pTupleData)[i].pData = (PConstBuffer) result.getColumn(i);
+        // quietly truncate long columns
+        (*pTupleData)[i].cbData =
+            std::min(result.getColumnSize(i), textDesc[i].cbStorage);
+    }
+
+    if (pCalc) {
+        try {
+            pCalc->exec();
+        } catch (FennelExcn e) {
+            FENNEL_TRACE(TRACE_SEVERE,
+                "error executing calculator: " << e.getMessage());
+            throw e;
+        }
+        if (pCalc->mWarnings.begin() != pCalc->mWarnings.end()) {
+            throw CalcExcn(pCalc->warnings(), textDesc, textTuple);
+        }    
+    }
+
+    if (mode != FLATFILE_MODE_DESCRIBE) {
+        isRowPending = true;
+    } else {
+        // in describe mode, use this to count how many rows have been
+        // read, though this is an abuse of the variable's intended purpose
+        nRowsOutput++;
+    }
+}
+
+void FlatFileExecStreamImpl::describeStream(TupleData &tupleData)
+{
+    if (fieldSizes.size() == 0) {
+        throw FennelExcn(
+            FennelResource::instance().flatfileDescribeFailed(dataFilePath) );
+    }
+    
+    std::ostringstream oss;
+    for (int i = 0; i < fieldSizes.size(); i++) {
+        oss << fieldSizes[i];
+        if (i != fieldSizes.size() - 1) {
+            oss << " ";
+        }
+    }
+    // NOTE: this newly created string is saved as part of the stream 
+    // to avoid being popped off the stack
+    describeResult = oss.str();
+    const char *value = describeResult.c_str();
+    uint cbValue = describeResult.size() * sizeof(char);
+
+    assert(tupleData.size() == 1);
+    tupleData[0].pData = (PConstBuffer) value;
+    tupleData[0].cbData = cbValue;
+    isRowPending = true;
+}
+
+void FlatFileExecStreamImpl::logError(const FlatFileRowParseResult &result)
+{
+    switch (result.status) {   
+    case FlatFileRowParseResult::INCOMPLETE_COLUMN:
+        reason = FennelResource::instance().incompleteColumn();
+        break;
+    case FlatFileRowParseResult::ROW_TOO_LARGE:
+        reason = FennelResource::instance().rowTextTooLong();
+        break;
+    case FlatFileRowParseResult::NO_COLUMN_DELIM:
+        reason = FennelResource::instance().noColumnDelimiter();
+        break;
+    case FlatFileRowParseResult::TOO_FEW_COLUMNS:
+        reason = FennelResource::instance().tooFewColumns();
+        break;
+    case FlatFileRowParseResult::TOO_MANY_COLUMNS:
+        reason = FennelResource::instance().tooManyColumns();
+        break;
+    default:
+        permAssert(false);
+    }
+    logError(reason, result);
+}
+
+void FlatFileExecStreamImpl::logError(
+    const std::string reason,
+    const FlatFileRowParseResult &result)
+{
+    this->reason = reason;
+
+    // initialize logging objects
+    if (errorDesc.size() == 0) {
+        // TODO: get project specific type factory
+        StandardTypeDescriptorFactory typeFactory;
+        StoredTypeDescriptor const &typeDesc =
+            typeFactory.newDataType(STANDARD_TYPE_VARCHAR);
+        bool nullable = true;
+
+        errorDesc.push_back(
+            TupleAttributeDescriptor(
+                typeDesc,
+                nullable,
+                MAX_ROW_ERROR_TEXT_WIDTH));
+
+        errorTuple.compute(errorDesc);
+    }
+
+    uint length = result.next-result.current;
+    length = std::min(length, MAX_ROW_ERROR_TEXT_WIDTH);
+    errorTuple[0].pData = (PConstBuffer) result.current;
+    errorTuple[0].cbData = length;
+
+    postError(ROW_ERROR, reason, errorDesc, errorTuple, -1);
+}
+
+void FlatFileExecStreamImpl::checkRowDelimiter()
+{
+    if (pBuffer->isDone() && lastResult.nRowDelimsRead == 0) {
+        throw FennelExcn(
+            FennelResource::instance().noRowDelimiter(dataFilePath));
+    }
 }
 
 void FlatFileExecStreamImpl::closeImpl()
@@ -526,10 +537,6 @@ void FlatFileExecStreamImpl::closeImpl()
 void FlatFileExecStreamImpl::releaseResources()
 {
     pBuffer->close();
-    if (pErrorFile) {
-        pErrorFile->flush();
-        pErrorFile.reset();
-    }
 }
 
 FENNEL_END_CPPFILE("$Id$");

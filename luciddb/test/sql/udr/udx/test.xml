@@ -36,6 +36,10 @@
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/timeDimension.sql"/>
       </test>
 
+      <test name="fiscalTimeDimension">
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/fiscalTimeDimension.sql"/>
+      </test>
+
       <test name="viewTest">
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/viewTest.sql"/>
       </test>
@@ -51,17 +55,23 @@
 
       <test name="flatten">
         <!-- LDB-125: update ref file after bug fix -->
-        <test-metadata>
-          <knownFailure>true</knownFailure>
-        </test-metadata>
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/flattenTest.sql"/>
       </test>
 
       <test name="generateCrc">
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/generateCrc.sql"/>
+      </test>
+
+      <test name="deriveEffectiveToTimestampTests">
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/deriveEffectiveToTimestampTests.sql"/>
+      </test>
+
+      <test name="collapseRows">
+        <!-- UNRESOLVED ISSUE: FRG-209 -->
         <test-metadata>
           <knownFailure>true</knownFailure>
         </test-metadata>
-        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/generateCrc.sql"/>
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udx/collapseRows.sql"/>
       </test>
 
       <cleanup-hook>

@@ -67,4 +67,47 @@ Error: From line 1, column 23 to line 1, column 26: ORDER BY is only allowed on 
 | 10      | Sales      |
 +---------+------------+
 > 
+> -- ORDER BY DESC
+> select name from sales.depts order by name desc;
++------------+
+|    NAME    |
++------------+
+| Sales      |
+| Marketing  |
+| Accounts   |
++------------+
+> 
+> -- ORDER BY DESC, ASC
+> select deptno, name from sales.emps order by deptno desc, name asc;
++---------+--------+
+| DEPTNO  |  NAME  |
++---------+--------+
+| 40      | John   |
+| 20      | Eric   |
+| 20      | Wilma  |
+| 10      | Fred   |
++---------+--------+
+> 
+> -- ORDER BY DESC, DESC
+> select deptno, name from sales.emps order by deptno desc, name desc;
++---------+--------+
+| DEPTNO  |  NAME  |
++---------+--------+
+| 40      | John   |
+| 20      | Wilma  |
+| 20      | Eric   |
+| 10      | Fred   |
++---------+--------+
+> 
+> -- ORDER BY ASC, DESC
+> select deptno, name from sales.emps order by deptno asc, name desc;
++---------+--------+
+| DEPTNO  |  NAME  |
++---------+--------+
+| 10      | Fred   |
+| 20      | Wilma  |
+| 20      | Eric   |
+| 40      | John   |
++---------+--------+
+> 
 > !quit

@@ -25,11 +25,6 @@
 
 FENNEL_BEGIN_CPPFILE("$Id$");
 
-LbmBitOpExecStream::LbmBitOpExecStream()
-{
-    dynParamsCreated = false;
-}
-
 void LbmBitOpExecStream::prepare(LbmBitOpExecStreamParams const &params)
 {
     ConfluenceExecStream::prepare(params);
@@ -60,9 +55,22 @@ void LbmBitOpExecStream::prepare(LbmBitOpExecStreamParams const &params)
 void LbmBitOpExecStream::open(bool restart)
 {
     ConfluenceExecStream::open(restart);
-    if (!restart) {
-        uint nKeys = pOutAccessor->getTupleDesc().size() - 3;
 
+    uint nKeys = pOutAccessor->getTupleDesc().size() - 3;
+
+    if (!restart) {
+        // create dynamic parameters with the same type as the first bitmap
+        // field, a RID, if this is the first time open is called
+        pDynamicParamManager->createParam(
+            rowLimitParamId, pOutAccessor->getTupleDesc()[nKeys]);
+        pDynamicParamManager->createParam(
+            startRidParamId, pOutAccessor->getTupleDesc()[nKeys]);
+    }
+
+    // need to allocate buffers if this is the very first open, or if a
+    // previous close freed up the buffers; note that we don't check "restart"
+    // in case the stream was closed early, and then reopened in restart mode
+    if (!outputBuf) {
         // allocate output buffer; the output buffer size is based on the size
         // required for building a LbmEntry
         uint bitmapColSize = pOutAccessor->getTupleDesc()[nKeys+1].cbStorage;
@@ -74,23 +82,17 @@ void LbmBitOpExecStream::open(bool restart)
         segmentWriter.init(
             outputBuf.get(), outputBufSize,
             inAccessors[1]->getTupleDesc(), true);
-        bitmapBufSize = LbmEntry::getMaxBitmapSize(bitmapColSize);
 
         // allocate a temporary buffer for the bit operation; the temporary
         // buffer should not be larger than what a LbmEntry supports
+        bitmapBufSize = LbmEntry::getMaxBitmapSize(bitmapColSize);
         byteSegBuf.reset(new FixedBuffer[bitmapBufSize]); 
         pByteSegBuf = byteSegBuf.get();
 
-        // create dynamic parameters with the same type as the first bitmap
-        // field, a RID
-        pDynamicParamManager->createParam(
-            rowLimitParamId, pOutAccessor->getTupleDesc()[nKeys]);
-        pDynamicParamManager->createParam(
-            startRidParamId, pOutAccessor->getTupleDesc()[nKeys]);
-        dynParamsCreated = true;
     } else {
         segmentWriter.reset();
     }
+
     startRid = LcsRid(0);
     rowLimit = 1;
     producePending = false;
@@ -193,10 +195,6 @@ bool LbmBitOpExecStream::produceTuple(TupleData bitmapTuple)
 void LbmBitOpExecStream::closeImpl()
 {
     ConfluenceExecStream::closeImpl();
-    if (dynParamsCreated) {
-        pDynamicParamManager->deleteParam(rowLimitParamId);
-        pDynamicParamManager->deleteParam(startRidParamId);
-    }
     outputBuf.reset();
     byteSegBuf.reset();
 }

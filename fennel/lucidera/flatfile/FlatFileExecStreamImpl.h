@@ -52,9 +52,16 @@ const int FLAT_FILE_MAX_NON_CHAR_VALUE_LEN = 255;
  */
 class FlatFileExecStreamImpl : public FlatFileExecStream
 {
+    // max length of text for a row when signalling an error
+    static const uint MAX_ROW_ERROR_TEXT_WIDTH;
+
     // parameters
+    std::string dataFilePath;
     bool header;
-    bool logging;
+    bool lenient;
+    bool trim;
+    bool mapped;
+    std::vector<std::string> columnNames;
 
     FlatFileRowDescriptor rowDesc;
     SharedFlatFileBuffer pBuffer;
@@ -76,12 +83,11 @@ class FlatFileExecStreamImpl : public FlatFileExecStream
     SegPageLock bufferLock;
     SegmentAccessor scratchAccessor;
 
-    // error logging
-    std::string dataFilePath, errorFilePath;
-    SharedRandomAccessDevice pErrorFile;
-    FileSize filePosition;
+    // error handling
     uint nRowsOutput, nRowErrors;
     std::string reason;
+    TupleDescriptor errorDesc;
+    TupleData errorTuple;
 
     /**
      * The Calculator object which does the real work.
@@ -95,6 +101,13 @@ class FlatFileExecStreamImpl : public FlatFileExecStream
      * Releases resources associated with this stream.
      */
     void releaseResources();
+
+    /**
+     * Finds an output column by its name and returns the column's index.
+     * Performs a case insensitive comparison and uses the first matching
+     * column. If no column could not be found, this function returns -1.
+     */
+    int findField(const std::string &name);
 
     /**
      * Translates a TupleDescriptor into a FlatFileRowDescriptor. The major
@@ -122,7 +135,7 @@ class FlatFileExecStreamImpl : public FlatFileExecStream
      * @param tuple tuple data
      */
     void handleTuple(
-        const FlatFileRowParseResult &result,
+        FlatFileRowParseResult &result,
         TupleData &tuple);
 
     /**
@@ -143,13 +156,6 @@ class FlatFileExecStreamImpl : public FlatFileExecStream
     void logError(
         const std::string reason,
         const FlatFileRowParseResult &result);
-
-    /**
-     * Attempt to detect and report major errors encountered while parsing
-     * file. Throws an exception if no rows were returned, but errors were
-     * found.
-     */
-    void detectMajorErrors();
 
     /**
      * Throws an error if a row delimiter was not found.

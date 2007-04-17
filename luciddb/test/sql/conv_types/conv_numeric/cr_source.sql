@@ -44,7 +44,6 @@ values('tinyint','source',127,32767,2147483647,2147483647,2147483647,2147483647,
 select * from datatype_source where target_type = 'tinyint' order by 1
 ;
 
-
 insert into datatype_source
 values('smallint','target',-32768,-32768,-32768,-32768,-32768,-32768,-32768,-32768,-32768)
 ;

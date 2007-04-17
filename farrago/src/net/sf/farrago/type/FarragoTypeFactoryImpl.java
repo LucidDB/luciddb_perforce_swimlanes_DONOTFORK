@@ -307,6 +307,18 @@ public class FarragoTypeFactoryImpl
         final ResultSetMetaData metaData,
         final boolean substitute)
     {
+        return createResultSetType(
+            metaData,
+            substitute,
+            null);
+    }
+
+    // implement FarragoTypeFactory
+    public RelDataType createResultSetType(
+        final ResultSetMetaData metaData,
+        final boolean substitute,
+        final Properties typeMapping)
+    {
         return createStructType(new RelDataTypeFactory.FieldInfo() {
                     public int getFieldCount()
                     {
@@ -332,6 +344,8 @@ public class FarragoTypeFactoryImpl
                         int iOneBased = index + 1;
                         try {
                             int typeOrdinal = metaData.getColumnType(iOneBased);
+                            String dbSpecTypeName =
+                                metaData.getColumnTypeName(iOneBased);
                             int precision = metaData.getPrecision(iOneBased);
                             int scale = metaData.getScale(iOneBased);
                             boolean isNullable =
@@ -343,10 +357,12 @@ public class FarragoTypeFactoryImpl
                                 RelDataType type =
                                     createJdbcType(
                                         typeOrdinal,
+                                        dbSpecTypeName,
                                         precision,
                                         scale,
                                         isNullable,
-                                        substitute);
+                                        substitute,
+                                        typeMapping);
                                 return (RelDataType) type;
                             } catch (Throwable ex) {
                                 throw newUnsupportedJdbcType(
@@ -370,9 +386,23 @@ public class FarragoTypeFactoryImpl
         ResultSet getColumnsResultSet,
         boolean substitute)
     {
+        return createJdbcColumnType(
+            getColumnsResultSet,
+            substitute,
+            null);
+    }
+
+    // implement FarragoTypeFactory
+    public RelDataType createJdbcColumnType(
+        ResultSet getColumnsResultSet,
+        boolean substitute,
+        Properties typeMapping)
+    {
         try {
             int typeOrdinal = getColumnsResultSet.getInt(5);
+            String dbSpecTypeName = getColumnsResultSet.getString(6);
             int precision = getColumnsResultSet.getInt(7);
+
             int scale = getColumnsResultSet.getInt(9);
             boolean isNullable =
                 getColumnsResultSet.getInt(11)
@@ -381,10 +411,12 @@ public class FarragoTypeFactoryImpl
                 RelDataType type =
                     createJdbcType(
                         typeOrdinal,
+                        dbSpecTypeName ,
                         precision,
                         scale,
                         isNullable,
-                        substitute);
+                        substitute,
+                        typeMapping);
                 return (RelDataType) type;
             } catch (Throwable ex) {
                 throw newUnsupportedJdbcType(
@@ -403,10 +435,12 @@ public class FarragoTypeFactoryImpl
 
     private RelDataType createJdbcType(
         int typeOrdinal,
+        String dbSpecTypeName ,
         int precision,
         int scale,
         boolean isNullable,
-        boolean substitute)
+        boolean substitute,
+        Properties typeMapping)
         throws Throwable
     {
         RelDataType type;
@@ -417,7 +451,13 @@ public class FarragoTypeFactoryImpl
         // with type construction.  Also, supply more information in cases where
         // we currently just throw a plain UnsupportedOperationException.
         try {
-            SqlTypeName typeName = SqlTypeName.getNameForJdbcType(typeOrdinal);
+            int[] sqlTypeInfo = getMappedDataType(
+                typeOrdinal, precision, scale, dbSpecTypeName, typeMapping);
+            SqlTypeName typeName =
+                SqlTypeName.getNameForJdbcType(sqlTypeInfo[0]);
+            precision = sqlTypeInfo[1];
+            scale = sqlTypeInfo[2];
+
             if (typeName == null) {
                 if (!substitute) {
                     throw new UnsupportedOperationException();
@@ -448,44 +488,47 @@ public class FarragoTypeFactoryImpl
                 int maxPrecision = SqlTypeName.Decimal.MAX_NUMERIC_PRECISION;
                 if (precision == 0) {
                     // Deal with bogus precision 0, e.g. from Oracle
-                    precision = maxPrecision;
-                }
-                if ((precision > maxPrecision) || (scale > precision)) {
-                    if (!substitute) {
-                        throw new UnsupportedOperationException();
-                    }
-                    precision = maxPrecision;
+                    // Change such a Decmial type to Double
+                    type = createSqlType(SqlTypeName.Double);
+                    typeName = SqlTypeName.Double;
+                } else {
+                    if ((precision > maxPrecision) || (scale > precision)) {
+                        if (!substitute) {
+                            throw new UnsupportedOperationException();
+                        }
+                        precision = maxPrecision;
 
-                    // In the case where we lost precision, we cap the scale at
-                    // 6.  This is an arbitrary decision just like the scale of
-                    // division, and we expect to have to revisit it; perhaps we
-                    // could allow it to be overridden via a column-level
-                    // SQL/MED storage option.
-                    int cappedScale = 6;
-                    if (scale > cappedScale) {
-                        scale = cappedScale;
+                        // In the case where we lost precision, we cap the scale at
+                        // 6.  This is an arbitrary decision just like the scale of
+                        // division, and we expect to have to revisit it; perhaps we
+                        // could allow it to be overridden via a column-level
+                        // SQL/MED storage option.
+                        int cappedScale = 6;
+                        if (scale > cappedScale) {
+                            scale = cappedScale;
+                        }
                     }
-                }
-                if (scale < 0) {
-                    if (!substitute) {
-                        throw new UnsupportedOperationException();
+                    if (scale < 0) {
+                        if (!substitute) {
+                            throw new UnsupportedOperationException();
+                        }
+                        scale = 0;
                     }
-                    scale = 0;
-                }
-                type = createSqlType(
+                    type = createSqlType(
                         typeName,
                         precision,
                         scale);
 
-                // When external types support greater precision than native 
-                // types we map them to nullable types. External data that 
-                // would otherwise overflow can then be replaced with null. 
-                // Note that we do not fully support our stated max precision.
-                if (precision == maxPrecision && !isNullable) {
-                    if (!substitute) {
-                        throw new UnsupportedOperationException();
+                    // When external types support greater precision than native
+                    // types we map them to nullable types. External data that
+                    // would otherwise overflow can then be replaced with null.
+                    // Note that we do not fully support our stated max precision.
+                    if (precision == maxPrecision && !isNullable) {
+                        if (!substitute) {
+                            throw new UnsupportedOperationException();
+                        }
+                        isNullable = true;
                     }
-                    isNullable = true;
                 }
             } else if (typeName.allowsScale()) {
                 // This is probably never used because Decimal is the
@@ -772,12 +815,39 @@ public class FarragoTypeFactoryImpl
         OJClass declarer,
         RelDataType type)
     {
+        SqlIntervalQualifier qualifier = type.getIntervalQualifier();
+        TypeName timeUnitType =
+            OJUtil.typeNameForClass(SqlIntervalQualifier.TimeUnit.class);
+
+        MemberDeclarationList memberDecls = new MemberDeclarationList();
+        memberDecls.add(
+            generateGetter(
+                timeUnitType,
+                EncodedSqlInterval.GET_START_UNIT_METHOD_NAME,
+                lookupTimeUnit(qualifier.getStartUnit())));
+
         return
             newHolderOJClass(
                 superclass,
-                new MemberDeclarationList(),
+                memberDecls,
                 declarer,
                 type);
+    }
+
+    /**
+     * Generates an expression for a TimeUnit
+     */
+    private Expression lookupTimeUnit(SqlIntervalQualifier.TimeUnit timeUnit)
+    {
+        TypeName timeUnitType =
+            OJUtil.typeNameForClass(SqlIntervalQualifier.TimeUnit.class);
+
+        return new MethodCall(
+            timeUnitType,
+            SqlIntervalQualifier.TimeUnit.GET_VALUE_METHOD_NAME,
+            new ExpressionList(
+                Literal.makeLiteral(
+                    timeUnit.getOrdinal())));
     }
 
     private OJClass newStringOJClass(
@@ -849,18 +919,47 @@ public class FarragoTypeFactoryImpl
         return ojClass;
     }
 
+    /**
+     * Generates a protected getter method
+     *
+     * @param returnType type of value returned by the getter method
+     * @param methodName the name of the getter method
+     * @param value the value to be returned by the getter method
+     *
+     * @return getter method declaration
+     */
+    private MethodDeclaration generateGetter(
+        TypeName returnType,
+        String methodName,
+        Expression value)
+    {
+        return new MethodDeclaration(
+            new ModifierList(ModifierList.PROTECTED),
+            returnType,
+            methodName,
+            new ParameterList(),
+            new TypeName[0],
+            new StatementList(
+                new ReturnStatement(value)));
+    }
+
     // implement FarragoTypeFactory
     public Expression getValueAccessExpression(
         RelDataType type,
         Expression expr)
     {
-        if (SqlTypeUtil.isDatetime(type)
+        if (SqlTypeUtil.isDatetime(type)) {
+            return new FieldAccess(
+                new FieldAccess(expr, NullablePrimitive.VALUE_FIELD_NAME),
+                SqlDateTimeWithoutTZ.INTERNAL_TIME_FIELD_NAME);
+        } else if (
             // REVIEW: angel 2006-08-27 added this for interval
             // so generated java code okay for most expression
             // but shouldn't be checking expr,
-            // probably need to rules to reinterpret interval 
-            || (SqlTypeUtil.isInterval(type) &&
-                (expr instanceof Variable || expr instanceof FieldAccess))
+            // probably need to rules to reinterpret interval
+            (SqlTypeUtil.isInterval(type) &&
+                (expr instanceof Variable || expr instanceof FieldAccess
+                    || expr instanceof MethodCall))
             || SqlTypeUtil.isDecimal(type)
             || ((getClassForPrimitive(type) != null) && type.isNullable())) {
             return new FieldAccess(expr, NullablePrimitive.VALUE_FIELD_NAME);
@@ -936,6 +1035,8 @@ public class FarragoTypeFactoryImpl
             return java.sql.Timestamp.class;
         case SqlTypeName.Cursor_ordinal:
             return java.sql.ResultSet.class;
+        case SqlTypeName.ColumnList_ordinal:
+            return List.class;
         default:
             return getClassForPrimitive(type);
         }
@@ -1000,6 +1101,108 @@ public class FarragoTypeFactoryImpl
         Charset charset = Charset.forName(charsetName);
         return charset;
     }
+
+    private int[] getMappedDataType(
+        int ordinal,
+        int precision,
+        int scale,
+        String dbSpecTypeName,
+        Properties typeMapping)
+    {
+
+        String leftParen = "(";
+        String rightParen = ")";
+        String comma = ",";
+
+        SqlTypeName originalType = SqlTypeName.getNameForJdbcType(ordinal);
+        String originalName = dbSpecTypeName.toUpperCase();
+        if (originalType != null) {
+            originalName = originalType.toString().toUpperCase();
+        }
+
+        // look for DATATYPE(P,S) in typeMapping
+        String newName = typeMapping.getProperty(
+            originalName + leftParen + precision + comma + scale + rightParen);
+
+        // look for DATATYPE(P) in typeMapping
+        if (newName == null) {
+            newName = typeMapping.getProperty(
+                originalName + leftParen + precision + rightParen);
+        }
+        // look for DATATYPE in typeMapping
+        if (newName == null) {
+            newName = typeMapping.getProperty(originalName, originalName);
+        }
+
+        SqlTypeName newType = SqlTypeName.get(extractDataTypeName(newName));
+        int newPrecision = extractPrecision(newName, precision);
+        int newScale = extractScale(newName, scale);
+
+        if (newType != null) {
+            return new int[] { newType.getJdbcOrdinal(), newPrecision, newScale};
+        } else {
+            return new int[] { ordinal, precision, scale};
+        }
+    }
+
+    private String extractDataTypeName(String mapping)
+    {
+        String leftParen = "(";
+
+        if (mapping.indexOf(leftParen) != -1) {
+            mapping = mapping.substring(0, mapping.indexOf(leftParen));
+        }
+
+        SqlTypeName[] allSqlTypeNames = SqlTypeName.allTypes;
+        for (int i = 0; i < allSqlTypeNames.length; i++) {
+            if (allSqlTypeNames[i].getName().equalsIgnoreCase(mapping)) {
+                return allSqlTypeNames[i].getName();
+            }
+        }
+        return mapping;
+    }
+
+    private int extractPrecision(String mapping, int precision)
+    {
+        String leftParen = "\\(";
+        String comma = ",";
+
+        String[] datamap = mapping.split(leftParen);
+        if (datamap.length != 2) {
+            return precision;
+        }
+
+        String precAndScale = datamap[1];
+        String precisionStr = precAndScale.substring(0, precAndScale.length()-1);
+
+        int idxOfComma = precisionStr.indexOf(comma);
+        if (idxOfComma != -1) {
+            precisionStr = precisionStr.substring(0, idxOfComma);
+        }
+        return Integer.parseInt(precisionStr);
+    }
+
+    private int extractScale(String mapping, int scale)
+    {
+        String leftParen = "\\(";
+        String comma = ",";
+
+        String[] datamap = mapping.split(leftParen);
+        if (datamap.length != 2) {
+            return scale;
+        }
+
+        String precAndScale = datamap[1];
+        int idxOfComma = precAndScale.indexOf(comma);
+
+        if (idxOfComma == -1) {
+            return scale;
+        }
+        String scaleStr = precAndScale.substring(idxOfComma+1, precAndScale.length()-1);
+        return Integer.parseInt(scaleStr);
+    }
+
+
 }
 
 // End FarragoTypeFactoryImpl.java

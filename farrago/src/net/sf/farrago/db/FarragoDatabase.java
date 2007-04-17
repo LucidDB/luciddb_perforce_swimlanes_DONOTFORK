@@ -34,6 +34,7 @@ import javax.jmi.reflect.*;
 
 import net.sf.farrago.catalog.*;
 import net.sf.farrago.ddl.*;
+import net.sf.farrago.defimpl.*;
 import net.sf.farrago.fem.config.*;
 import net.sf.farrago.fem.fennel.*;
 import net.sf.farrago.fem.sql2003.*;
@@ -91,14 +92,10 @@ public class FarragoDatabase
     private FarragoSessionTxnMgr txnMgr;
 
     /**
-     * Cache of all sorts of stuff.
+     * Cache of all sorts of stuff; see <a
+     * href="http://wiki.eigenbase.org/FarragoCodeCache">the design docs</a>.
      */
     private FarragoObjectCache codeCache;
-
-    /**
-     * Cache of FarragoMedDataWrappers.
-     */
-    private FarragoObjectCache dataWrapperCache;
 
     /**
      * File containing trace configuration.
@@ -183,24 +180,27 @@ public class FarragoDatabase
                 + System.getProperty("java.library.path"));
 
             if (systemRepos.isFennelEnabled()) {
-                systemRepos.beginReposTxn(true);
+                FarragoReposTxnContext txn = systemRepos.newTxnContext();
                 try {
+                    txn.beginWriteTxn();
                     loadFennel(
                         startOfWorldAllocation,
                         sessionFactory.newFennelCmdExecutor(),
                         init);
+                    txn.commit();
                 } finally {
-                    systemRepos.endReposTxn(false);
+                    txn.rollback();
                 }
             } else {
                 tracer.config("Fennel support disabled");
             }
 
             long codeCacheMaxBytes = getCodeCacheMaxBytes(currentConfig);
-            codeCache = new FarragoObjectCache(this, codeCacheMaxBytes);
-
-            // TODO:  parameter for cache size limit
-            dataWrapperCache = new FarragoObjectCache(this, Long.MAX_VALUE);
+            codeCache =
+                new FarragoObjectCache(
+                    this,
+                    codeCacheMaxBytes,
+                    new FarragoLruVictimPolicy());
 
             ojRexImplementorTable =
                 new FarragoOJRexImplementorTable(
@@ -269,7 +269,8 @@ public class FarragoDatabase
      */
     public FarragoObjectCache getDataWrapperCache()
     {
-        return dataWrapperCache;
+        // data wrapper caching is actually unified with the code cache
+        return codeCache;
     }
 
     /**
@@ -484,7 +485,6 @@ public class FarragoDatabase
 
         fennelDbHandle =
             new FennelDbHandle(systemRepos,
-                systemRepos,
                 this,
                 cmdExecutor,
                 cmd);
@@ -565,7 +565,7 @@ public class FarragoDatabase
     }
 
     /**
-     * look up executing statement info by statement id.
+     * Looks up executing statement info by statement id.
      *
      * @param id
      *
@@ -584,11 +584,14 @@ public class FarragoDatabase
     }
 
     /**
-     * Kill a farrago session.
+     * Kills a session.
      *
      * @param id session identifier
+     *
+     * @param cancelOnly if true, just cancel current execution; if false,
+     * destroy session
      */
-    public void killSession(long id)
+    public void killSession(long id, boolean cancelOnly)
         throws Throwable
     {
         tracer.info("killSession " + id);
@@ -601,10 +604,14 @@ public class FarragoDatabase
             tracer.info("killSession " + id + ": already closed");
             return;
         }
-        target.kill();
+        if (cancelOnly) {
+            target.cancel();
+        } else {
+            target.kill();
+        }
     }
 
-    private void kill(FarragoSessionExecutingStmtInfo info)
+    private void kill(FarragoSessionExecutingStmtInfo info, boolean cancelOnly)
         throws Throwable
     {
         FarragoSessionStmtContext stmt = info.getStmtContext();
@@ -620,16 +627,22 @@ public class FarragoDatabase
                 + "), "
                 + stmt.getSql());
         }
-        stmt.cancel();
-        stmt.unprepare();
+        if (cancelOnly) {
+            stmt.cancel();
+        } else {
+            stmt.closeAllocation();
+        }
     }
 
     /**
      * Kill an executing statement: cancel it and deallocate it.
      *
      * @param id statement id
+     *
+     * @param cancelOnly if true, just cancel current execution; if false,
+     * destroy statement
      */
-    public void killExecutingStmt(long id)
+    public void killExecutingStmt(long id, boolean cancelOnly)
         throws Throwable
     {
         tracer.info("killExecutingStmt " + id);
@@ -638,7 +651,7 @@ public class FarragoDatabase
             tracer.info("killExecutingStmt " + id + ": statement not found");
             throw new Throwable("executing statement not found: " + id); // i18n
         }
-        kill(info);
+        kill(info, cancelOnly);
     }
 
     /**
@@ -647,10 +660,13 @@ public class FarragoDatabase
      *
      * @param match pattern to match. Null string matches nothing, to be safe.
      * @param nomatch pattern not to match
+     * @param cancelOnly if true, just cancel current execution; if false,
+     * destroy statement
      *
      * @return count of killed statements.
      */
-    public int killExecutingStmtMatching(String match, String nomatch)
+    public int killExecutingStmtMatching(
+        String match, String nomatch, boolean cancelOnly)
         throws Throwable
     {
         int ct = 0;
@@ -668,7 +684,7 @@ public class FarragoDatabase
                         continue;
                     }
                     if (info.getSql().contains(match)) {
-                        kill(info);
+                        kill(info, cancelOnly);
                         ct++;
                     }
                 }
@@ -749,8 +765,12 @@ public class FarragoDatabase
         // EXPLAIN PLAN?
 
         // It would be silly to cache EXPLAIN PLAN results, so deal with them
-        // directly.
-        if (sqlNode.isA(SqlKind.Explain)) {
+        // directly. Also check for whether statement caching is turned off 
+        // for the session before continuing.
+        boolean cacheStatements =
+            stmt.getSession().getSessionVariables().getBoolean(
+                FarragoDefaultSessionPersonality.CACHE_STATEMENTS);
+        if (sqlNode.isA(SqlKind.Explain) || cacheStatements == false) {
             FarragoSessionExecutableStmt executableStmt =
                 stmt.prepare(sqlNode, sqlNode);
             owner.addAllocation(executableStmt);
@@ -821,8 +841,8 @@ public class FarragoDatabase
 
                     assert (key.equals(sql));
                     FarragoSessionExecutableStmt executableStmt =
-                        stmt.prepare(validatedSqlNode, sqlNode);
-                    long memUsage =
+                        stmt.prepare(validatedSqlNode, sqlNode);               
+                    long memUsage = 
                         FarragoUtil.getStringMemoryUsage(sql)
                         + executableStmt.getMemoryUsage();
                     entry.initialize(executableStmt, memUsage);
@@ -870,11 +890,21 @@ public class FarragoDatabase
         for (String mofid : stmt.getReferencedObjectIds()) {
             RefBaseObject obj = repos.getMdrRepos().getByMofId(mofid);
             if (obj == null) {
-                // TODO jvs 17-July-2004:  Once we support ALTER TABLE, this
-                // won't be good enough.  In addition to checking that the
-                // object still exists, we'll need to verify that its version
-                // number is the same as it was at the time stmt was prepared.
+                // the object was deleted
                 return true;
+            }
+            if (obj instanceof FemAnnotatedElement) {
+                String cachedModTime = stmt.getReferencedObjectModTime(mofid);
+                if (cachedModTime == null) {
+                    continue;
+                }
+                FemAnnotatedElement annotated = (FemAnnotatedElement) obj;
+                String lastModTime = annotated.getModificationTimestamp();
+                if (!cachedModTime.equals(lastModTime))
+                {
+                    // the object was modified
+                    return true;
+                }
             }
         }
         return false;
@@ -938,18 +968,13 @@ public class FarragoDatabase
             return;
         }
 
-        systemRepos.beginTransientTxn();
-        try {
-            FemCmdSetParam cmd = systemRepos.newFemCmdSetParam();
-            cmd.setDbHandle(fennelDbHandle.getFemDbHandle(systemRepos));
-            FemDatabaseParam param = systemRepos.newFemDatabaseParam();
-            param.setName(paramName);
-            param.setValue(paramValue.toString());
-            cmd.setParam(param);
-            fennelDbHandle.executeCmd(cmd);
-        } finally {
-            systemRepos.endTransientTxn();
-        }
+        FemCmdSetParam cmd = systemRepos.newFemCmdSetParam();
+        cmd.setDbHandle(fennelDbHandle.getFemDbHandle(systemRepos));
+        FemDatabaseParam param = systemRepos.newFemDatabaseParam();
+        param.setName(paramName);
+        param.setValue(paramValue.toString());
+        cmd.setParam(param);
+        fennelDbHandle.executeCmd(cmd);
     }
 
     public void requestCheckpoint(
@@ -960,16 +985,11 @@ public class FarragoDatabase
             return;
         }
 
-        systemRepos.beginTransientTxn();
-        try {
-            FemCmdCheckpoint cmd = systemRepos.newFemCmdCheckpoint();
-            cmd.setDbHandle(fennelDbHandle.getFemDbHandle(systemRepos));
-            cmd.setFuzzy(fuzzy);
-            cmd.setAsync(async);
-            fennelDbHandle.executeCmd(cmd);
-        } finally {
-            systemRepos.endTransientTxn();
-        }
+        FemCmdCheckpoint cmd = systemRepos.newFemCmdCheckpoint();
+        cmd.setDbHandle(fennelDbHandle.getFemDbHandle(systemRepos));
+        cmd.setFuzzy(fuzzy);
+        cmd.setAsync(async);
+        fennelDbHandle.executeCmd(cmd);
     }
 
     /**

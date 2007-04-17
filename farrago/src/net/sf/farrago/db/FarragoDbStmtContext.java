@@ -24,6 +24,7 @@ package net.sf.farrago.db;
 
 import java.sql.*;
 
+import java.util.*;
 import java.util.logging.*;
 
 import net.sf.farrago.resource.*;
@@ -31,6 +32,7 @@ import net.sf.farrago.session.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.rel.*;
+import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.runtime.*;
 import org.eigenbase.sql.*;
@@ -42,6 +44,11 @@ import org.eigenbase.util.*;
  * net.sf.farrago.session.FarragoSessionStmtContext} interface in terms of a
  * {@link FarragoDbSession}.
  *
+ * <p>Most non-trivial public methods on this class must be synchronized, since
+ * closeAllocation may be called from a thread shutting down the database.  The
+ * exception is cancel, which must NOT be synchronized, since it needs to
+ * return immediately.
+ *
  * @author John V. Sichi
  * @version $Id$
  */
@@ -52,11 +59,12 @@ public class FarragoDbStmtContext
 
     //~ Instance fields --------------------------------------------------------
 
-    private int updateCount;
+    private long updateCount;
     private ResultSet resultSet;
     private FarragoSessionExecutableStmt executableStmt;
     private FarragoCompoundAllocation allocations;
     private FarragoSessionRuntimeContext runningContext;
+    private final FarragoWarningQueue warningQueue;
 
     /**
      * query timeout in seconds, default to 0.
@@ -78,6 +86,7 @@ public class FarragoDbStmtContext
         super(session, paramDefFactory, ddlLockManager);
 
         updateCount = -1;
+        warningQueue = new FarragoWarningQueue();
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -95,10 +104,11 @@ public class FarragoDbStmtContext
     }
 
     // implement FarragoSessionStmtContext
-    public void prepare(
+    public synchronized void prepare(
         String sql,
         boolean isExecDirect)
     {
+        warningQueue.clearWarnings();
         unprepare();
         allocations = new FarragoCompoundAllocation();
         this.sql = sql;
@@ -125,12 +135,13 @@ public class FarragoDbStmtContext
     }
 
     // implement FarragoSessionStmtContext
-    public void prepare(
+    public synchronized void prepare(
         RelNode plan,
         SqlKind kind,
         boolean logical,
         FarragoSessionPreparingStmt prep)
     {
+        warningQueue.clearWarnings();
         unprepare();
         allocations = new FarragoCompoundAllocation();
         this.sql = ""; // not available
@@ -148,14 +159,14 @@ public class FarragoDbStmtContext
     }
 
     // implement FarragoSessionStmtContext
-    public RelDataType getPreparedRowType()
+    public synchronized RelDataType getPreparedRowType()
     {
         assert (isPrepared());
         return executableStmt.getRowType();
     }
 
     // implement FarragoSessionStmtContext
-    public RelDataType getPreparedParamType()
+    public synchronized RelDataType getPreparedParamType()
     {
         assert (isPrepared());
         return executableStmt.getDynamicParamRowType();
@@ -174,15 +185,20 @@ public class FarragoDbStmtContext
     }
 
     // implement FarragoSessionStmtContext
-    public void execute()
+    public synchronized void execute()
     {
         assert (isPrepared());
+        warningQueue.clearWarnings();
         closeResultSet();
         traceExecute();
         boolean isDml = executableStmt.isDml();
         boolean success = false;
 
         if (session.isAutoCommit()) {
+            // REVIEW jvs 26-Nov-2006:  What about CALL?  Maybe
+            // we can start it as read-only (regardless of
+            // whether the statements inside are DML, since they
+            // will do their own autocommits).
             startAutocommitTxn(!isDml);
         }
 
@@ -191,8 +207,15 @@ public class FarragoDbStmtContext
             checkDynamicParamsSet();
             FarragoSessionRuntimeParams params =
                 session.newRuntimeContextParams();
-            if (!isDml) {
+            if (executableStmt.getTableModOp() == null) {
+                // only use txnCodeCache for real DML, not CALL
                 params.txnCodeCache = null;
+            }
+            if (isDml) {
+                // if we're going to be executing the entire
+                // statement here, then warnings get returned via
+                // this Statement (not ResultSet)
+                params.warningQueue = warningQueue;
             }
             params.isDml = isDml;
             params.resultSetTypeMap = executableStmt.getResultSetTypeMap();
@@ -237,15 +260,12 @@ public class FarragoDbStmtContext
         }
         if (isDml) {
             success = false;
-            try {
-                boolean found = resultSet.next();
-                assert (found);
-                updateCount = resultSet.getInt(1);
-                boolean superfluousRowCounts = resultSet.next();
-                assert (!superfluousRowCounts);
-                if (tracer.isLoggable(Level.FINE)) {
-                    tracer.fine("Update count = " + updateCount);
-                }
+            List<Long> rowCounts = new ArrayList<Long>();
+            try {               
+                session.getPersonality().getRowCounts(
+                    resultSet,
+                    rowCounts,
+                    executableStmt.getTableModOp());                
                 success = true;
             } catch (SQLException ex) {
                 throw FarragoResource.instance().DmlFailure.ex(ex);
@@ -263,6 +283,10 @@ public class FarragoDbStmtContext
                     clearExecutingStmtInfo();
                 }
             }
+            updateCount = updateRowCounts(rowCounts);
+            if (tracer.isLoggable(Level.FINE)) {
+                tracer.fine("Update count = " + updateCount);
+            }         
         }
 
         // NOTE:  for result sets, autocommit is taken care of by
@@ -279,9 +303,9 @@ public class FarragoDbStmtContext
     }
 
     // implement FarragoSessionStmtContext
-    public int getUpdateCount()
+    public synchronized long getUpdateCount()
     {
-        int count = updateCount;
+        long count = updateCount;
         updateCount = -1;
         return count;
     }
@@ -289,18 +313,30 @@ public class FarragoDbStmtContext
     // implement FarragoSessionStmtContext
     public void cancel()
     {
+        // request cancel, but don't wait for it to take effect
+        cancel(false);
+    }
+
+    private void cancel(boolean wait)
+    {
         tracer.info("cancel");
         FarragoSessionRuntimeContext contextToCancel = runningContext;
-        if (contextToCancel != null) {
-            contextToCancel.cancel();
+        if (contextToCancel == null) {
+            return;
         }
-        // NOTE jvs 10-Apr-2006:  Don't call clearExecutingStmtInfo here,
-        // because the cancel doesn't take effect immediately.  We
-        // could set a flag to indicate that cancel is pending.
+        contextToCancel.cancel();
+        if (wait) {
+            // if the cursor was executing when the cancel request was
+            // received, this will wait for it to finish and return;
+            // after that, it's safe to proceed with cleanup, since
+            // any further fetch requests will see the cancel flag
+            // already set and fail immediately
+            contextToCancel.waitForCursor();
+        }
     }
 
     // implement FarragoSessionStmtContext
-    public void closeResultSet()
+    public synchronized void closeResultSet()
     {
         if (resultSet == null) {
             return;
@@ -311,13 +347,22 @@ public class FarragoDbStmtContext
             throw Util.newInternal(ex);
         }
         resultSet = null;
+        FarragoSessionRuntimeContext contextToClose = runningContext;
+        if (contextToClose != null) {
+            contextToClose.closeAllocation();
+        }
         runningContext = null;
         clearExecutingStmtInfo();
     }
 
     // implement FarragoSessionStmtContext
-    public void unprepare()
+    public synchronized void unprepare()
     {
+        // request cancel, and wait until it takes effect before
+        // proceeding with cleanup, otherwise we may yank stuff
+        // out from under executing threads in a bad way
+        cancel(true);
+        
         closeResultSet();
         if (allocations != null) {
             allocations.closeAllocation();
@@ -326,6 +371,54 @@ public class FarragoDbStmtContext
         executableStmt = null;
 
         super.unprepare();
+    }
+    
+    // implement FarragoSessionStmtContext
+    public FarragoWarningQueue getWarningQueue()
+    {
+        return warningQueue;
+    }
+
+    /**
+     * Update catalog row counts
+     * 
+     * @param rowCounts row counts returned by the DML operation
+     * 
+     * @return rowcount affected by the DML operation
+     */
+    private long updateRowCounts(List<Long> rowCounts)
+    {
+        TableModificationRel.Operation tableModOp =
+            executableStmt.getTableModOp();
+        // marked as DML, but doesn't actually modify a table; e.g., a
+        // procedure call
+        if (tableModOp == null) {
+            return 0;
+        }
+        List<String> targetTable = getDmlTarget();
+        // if there's no target table (e.g., for a create index), then this
+        // isn't really a DML statement
+        if (targetTable == null) {
+            return 0;
+        }
+
+        return session.getPersonality().updateRowCounts(
+            session,
+            targetTable,
+            rowCounts,
+            executableStmt.getTableModOp());
+    }
+    
+    private List<String> getDmlTarget()
+    {
+        TableAccessMap tableAccessMap = executableStmt.getTableAccessMap();
+        Set<List<String>> tablesAccessed = tableAccessMap.getTablesAccessed();
+        for (List<String> table : tablesAccessed) {
+            if (tableAccessMap.isTableAccessedForWrite(table)) {
+                return table;
+            }
+        }
+        return null;
     }
 }
 

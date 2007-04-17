@@ -67,7 +67,9 @@ public class LoptMetadataProvider
 
     private FarragoRepos repos;
 
-    private LcsColumnMetadata columnMd;
+    private final LcsColumnMetadata columnMd;
+    
+    private final SimpleColumnOrigins columnOrigins;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -75,6 +77,7 @@ public class LoptMetadataProvider
     {
         this.repos = repos;
         columnMd = new LcsColumnMetadata();
+        columnOrigins = new SimpleColumnOrigins();
 
         mapParameterTypes(
             "getCostWithFilters",
@@ -91,6 +94,14 @@ public class LoptMetadataProvider
 
         mapParameterTypes(
             "getPopulationSize",
+            Collections.singletonList((Class) BitSet.class));
+        
+        mapParameterTypes(
+            "getSimpleColumnOrigins",
+            Collections.singletonList((Class) Integer.TYPE));
+        
+        mapParameterTypes(
+            "areColumnsUnique",
             Collections.singletonList((Class) BitSet.class));
     }
 
@@ -153,22 +164,22 @@ public class LoptMetadataProvider
         // NOTE jvs 19-Apr-2006: This holy formula is preserved straight from
         // Broadbase.  It is the geometric average of the number of rows in the
         // table and the number of rows which will be produced by the row scan
-        // ExecStream.  Consider a million-row table.  If we're going to produce
-        // all the rows, then the cost is one million, on the assumption that
-        // the optimizer won't bother with the extra cost of index lookup.  If
-        // we're only going to produce one row, then the cost is one thousand
-        // (not one), the idea being that we'll have to do some work (e.g.
-        // bitmap intersection) to identify that row.  This would be a bad
-        // assumption for OLTP index lookup, but it's reasonable for analytic
-        // queries.  If we're going to produce 10% of the rows, the cost works
-        // out to about a third of a million.  Sargable filters are of interest
-        // regardless of whether they are evaluated via an unclustered index on
-        // the assumption that we can handle the residuals during clustered
-        // index scan (not true yet but should be soon).  For our purposes here,
-        // semijoin selectivity is rolled into sargableSelectivity since it lets
-        // us skip rows.  Non-sargable filters are NOT taken into account here
-        // because they have to be handled via a calculator on top, so they
-        // don't reduce the cost of the row scan itself in any way.
+        // ExecStream.  Consider a million-row table.  If we're going to
+        // produce all the rows, then the cost is one million, on the
+        // assumption that the optimizer won't bother with the extra cost of
+        // index lookup.  If we're only going to produce one row, then the cost
+        // is one thousand (not one), the idea being that we'll have to do some
+        // work (e.g.  bitmap intersection) to identify that row.  This would
+        // be a bad assumption for OLTP index lookup, but it's reasonable for
+        // analytic queries.  If we're going to produce 10% of the rows, the
+        // cost works out to about a third of a million.  Sargable filters are
+        // of interest regardless of whether they are evaluated via an
+        // unclustered index because we can handle the residuals during
+        // clustered index scan.  For our purposes here, semijoin selectivity
+        // is rolled into sargableSelectivity since it lets us skip rows.
+        // Non-sargable filters are NOT taken into account here because they
+        // have to be handled via a calculator on top, so they don't reduce the
+        // cost of the row scan itself in any way.
         return Math.sqrt(nRowsInTable * sargableRowCount);
     }
 
@@ -294,8 +305,9 @@ public class LoptMetadataProvider
         // computed by a formula that favors asymmetry between input sizes,
         // since hash join does better in that case (only the build side needs
         // to fit in memory).  This is bogus in cases where we can't even use
-        // hash join.  Anyway, the factor works out to 10 in the case of the
-        // two inputs being of equal size, and decreases exponentially down to
+        // hash join so we special case cartesian product joins.  Anyway, the
+        // factor works out to 10 in the case of a cartesian product join or if
+        // the two inputs are of equal size.  It decreases exponentially down to
         // to an asymptote of 1 representing one side being infinitely larger
         // than the other.  If one input is twice as big as the other,
         // the factor is 10^(1/2) = ~3.16.
@@ -312,7 +324,17 @@ public class LoptMetadataProvider
         double maxInputRowCount = Math.max(leftRowCount, rightRowCount);
         if (maxInputRowCount > 0) {
             double joinRowCount = RelMetadataQuery.getRowCount(rel);
-            joinRowCount *= Math.pow(10.0, minInputRowCount / maxInputRowCount);
+
+            // REVIEW jvs 2-Jan-2006:  What about the case of a
+            // a real join which can't be implemented via hash join?
+            // Instead of testing for isAlwaysTrue(), we could
+            // try to analyze the join condition to predict whether
+            // we'll be able to implement it via hash join.
+            
+            double factor =
+                (rel.getCondition().isAlwaysTrue())
+                    ? 1.0 : (minInputRowCount / maxInputRowCount);
+            joinRowCount *= Math.pow(10.0, factor);
             result += joinRowCount;
         }
 
@@ -367,8 +389,6 @@ public class LoptMetadataProvider
             return
                 RelMdUtil.getJoinDistinctRowCount(
                     rel,
-                    rel.getLeft(),
-                    rel.getRight(),
                     joinType.getLogicalJoinType(),
                     groupKey,
                     predicate);
@@ -394,8 +414,6 @@ public class LoptMetadataProvider
         Double rowCount = RelMetadataQuery.getRowCount(rel);
         if (rowCount == null) {
             return null;
-        } else if (rowCount < 1.0) {
-            rowCount = 1.0;
         }
         return
             NumberUtil.divide(
@@ -479,13 +497,10 @@ public class LoptMetadataProvider
             RelMdUtil.guessSelectivity(
                 rexAnalyzer.getPostFilterRexNode(),
                 excludeCalc);
-
+        
         // selectivity must return at least one row
         Double rowCount = RelMetadataQuery.getRowCount(rel);
         if (rowCount != null) {
-            if (rowCount < 1.0) {
-                rowCount = 1.0;
-            }
             selectivity = Math.max(selectivity, 1.0 / rowCount);
         }
 
@@ -514,7 +529,8 @@ public class LoptMetadataProvider
         
         if (joinType == LhxJoinRelType.LEFTSEMI) {
             numRows = RelMetadataQuery.getRowCount(left);
-        } else if (joinType == LhxJoinRelType.RIGHTANTI) {
+        } else if (joinType == LhxJoinRelType.RIGHTANTI ||
+            joinType == LhxJoinRelType.RIGHTSEMI) {
             numRows = RelMetadataQuery.getRowCount(right);
         } else {
             // construct a join condition consisting of the hash join keys
@@ -689,11 +705,11 @@ public class LoptMetadataProvider
         BitSet rightJoinCols)
     {
         Boolean leftUnique =
-            RelMdUtil.areColumnsUnique(
+            RelMetadataQuery.areColumnsUnique(
                 left,
                 leftJoinCols);
         Boolean rightUnique =
-            RelMdUtil.areColumnsUnique(
+            RelMetadataQuery.areColumnsUnique(
                 right,
                 rightJoinCols);
 
@@ -738,8 +754,7 @@ public class LoptMetadataProvider
             assert(groupKey.nextSetBit(nFieldsLeft) < 0);
             return RelMetadataQuery.getPopulationSize(rel.getRight(), groupKey);
         } else {
-            return RelMdUtil.getJoinPopulationSize(
-                rel, rel.getLeft(), rel.getRight(), groupKey);
+            return RelMdUtil.getJoinPopulationSize(rel, groupKey);
         }
     }
 
@@ -751,6 +766,62 @@ public class LoptMetadataProvider
     public Set<BitSet> getUniqueKeys(LcsRowScanRel rel)
     {
         return columnMd.getUniqueKeys(rel, repos);
+    }
+    
+    public Boolean areColumnsUnique(LcsRowScanRel rel, BitSet columns)
+    {
+        return columnMd.areColumnsUnique(rel, columns, repos);
+    }
+
+    public Set<RelColumnOrigin> getSimpleColumnOrigins(
+        JoinRelBase rel,
+        int iOutputColumn)
+    {
+        return columnOrigins.getColumnOrigins(rel, iOutputColumn);
+    }
+    
+    public Set<RelColumnOrigin> getSimpleColumnOrigins(
+        ProjectRelBase rel,
+        int iOutputColumn)
+    {
+        return columnOrigins.getColumnOrigins(rel, iOutputColumn);
+    }
+
+    public Set<RelColumnOrigin> getSimpleColumnOrigins(
+        FilterRelBase rel,
+        int iOutputColumn)
+    {
+        return LoptMetadataQuery.getSimpleColumnOrigins(
+            rel.getChild(),
+            iOutputColumn);
+    }
+    
+    // Catch-all rule when none of the others apply.
+    public Set<RelColumnOrigin> getSimpleColumnOrigins(
+        RelNode rel,
+        int iOutputColumn)
+    {
+        // if this RelNode contains inputs and it wasn't already handled by
+        // another method, or it's a non-leaf node, then it's not simple
+        if (rel.getInputs().length > 0 || rel.getTable() == null) {
+            return null;
+        }
+        return columnOrigins.getColumnOrigins(rel, iOutputColumn);
+    }
+    
+    /**
+     * An extension of {@link RelMdColumnOrigins} that invokes
+     * {@link LoptMetadataQuery#getSimpleColumnOrigins} instead of
+     * {@link RelMetadataQuery#getColumnOrigins}.
+     */
+    private class SimpleColumnOrigins extends RelMdColumnOrigins
+    {
+        protected Set<RelColumnOrigin> invokeGetColumnOrigins(
+            RelNode rel,
+            int iOutputColumn)
+        {
+            return LoptMetadataQuery.getSimpleColumnOrigins(rel, iOutputColumn);
+        }
     }
 }
 

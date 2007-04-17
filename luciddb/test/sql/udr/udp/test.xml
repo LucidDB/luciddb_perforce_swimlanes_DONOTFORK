@@ -12,11 +12,16 @@
       </init-hook>
 
       <test name="crSource">
+      <!-- FRG-211 -->
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/cr_source.sql"/>
       </test>
 
       <test name="computeStatisticsForSchema">
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/compute_statistics_for_schema.sql"/>
+      </test>
+
+      <test name="dropSchemaIfExists">
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/drop_schema_if_exists.sql"/>
       </test>
 
       <test name="doForEntireSchema">
@@ -25,6 +30,11 @@
 
       <test name="grantSelectForSchema">
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/grant_select_for_schema.sql"/>
+      </test>
+
+      <test name="exportSchemaToFile">
+        <!-- LDB-148 -->
+        <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/export_schema_to_file.sql"/>
       </test>
 
       <test name="exportLocalSchema" requiresSuccess="crSource">
@@ -51,7 +61,8 @@
         <junit-sql file="${open.dir}/luciddb/test/sql/udr/udp/export_local_incremental.sql"/>
       </test>
 
-      <test name="exportForeignInc" requiresRun="exportLocalInc">
+      <test name="exportForeignInc" requiresSuccess="crSource" 
+        requiresRun="exportLocalInc">
         <!-- TODO: FRG-176 -->
         <test-metadata>
           <knownFailure>true</knownFailure>

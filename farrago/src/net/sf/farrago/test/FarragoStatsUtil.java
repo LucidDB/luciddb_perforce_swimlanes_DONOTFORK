@@ -58,20 +58,105 @@ public class FarragoStatsUtil
     {
         FarragoRepos repos = session.getRepos();
 
-        boolean rollback = false;
+        FarragoReposTxnContext txn = repos.newTxnContext();
         try {
-            repos.beginReposTxn(true);
-            rollback = true;
-
-            CwmCatalog catalog = lookupCatalog(session, repos, catalogName);
-            FemLocalSchema schema = lookupSchema(session, catalog, schemaName);
-            FemAbstractColumnSet columnSet = lookupColumnSet(schema, tableName);
+            txn.beginWriteTxn();
+            
+            FemAbstractColumnSet columnSet =
+                lookupColumnSet(
+                    session,
+                    repos,
+                    catalogName,
+                    schemaName,
+                    tableName);
             FarragoCatalogUtil.updateRowCount(columnSet, rowCount);
 
-            rollback = false;
+            txn.commit();
         } finally {
-            repos.endReposTxn(rollback);
+            txn.rollback();
         }
+    }
+    
+    public static CwmCatalog lookupCatalog(
+        FarragoSession session,
+        FarragoRepos repos,
+        String catalogName)
+        throws SqlValidatorException
+    {
+        if ((catalogName == null) || (catalogName.length() == 0)) {
+            catalogName = session.getSessionVariables().catalogName;
+        }
+        CwmCatalog catalog = repos.getCatalog(catalogName);
+        if (catalog == null) {
+            throw FarragoResource.instance().ValidatorUnknownObject.ex(
+                catalogName);
+        }
+        return catalog;
+    }
+
+    public static FemLocalSchema lookupSchema(
+        FarragoSession session,
+        CwmCatalog catalog,
+        String schemaName)
+        throws SqlValidatorException
+    {
+        if ((schemaName == null) || (schemaName.length() == 0)) {
+            schemaName = session.getSessionVariables().schemaName;
+        }
+        FemLocalSchema schema =
+            FarragoCatalogUtil.getSchemaByName(catalog, schemaName);
+        if (schema == null) {
+            throw FarragoResource.instance().ValidatorUnknownObject.ex(
+                schemaName);
+        }
+        return schema;
+    }
+
+    public static FemAbstractColumnSet lookupColumnSet(
+        FemLocalSchema schema,
+        String tableName)
+        throws SqlValidatorException
+    {
+        FemAbstractColumnSet columnSet = null;
+        if (tableName != null) {
+            columnSet =
+                FarragoCatalogUtil.getModelElementByNameAndType(
+                    schema.getOwnedElement(),
+                    tableName,
+                    FemAbstractColumnSet.class);
+        }
+        if (columnSet == null) {
+            throw FarragoResource.instance().ValidatorUnknownObject.ex(
+                tableName);
+        }
+        return columnSet;
+    }
+    
+    /**
+     * Maps a table, given its name components, to its corresponding
+     * FemAbstractColumnSet
+     * 
+     * @param session currrent session
+     * @param repos repository associated with the session
+     * @param catalogName catalog name for the table
+     * @param schemaName schema name for the table
+     * @param tableName table name
+     * 
+     * @return FemAbstractColumnSet corresponding to the desired table
+     * 
+     * @throws SqlValidatorException
+     */
+    public static FemAbstractColumnSet lookupColumnSet(
+        FarragoSession session,
+        FarragoRepos repos,
+        String catalogName,
+        String schemaName,
+        String tableName)
+        throws SqlValidatorException
+    {
+        CwmCatalog catalog = lookupCatalog(session, repos, catalogName);
+        FemLocalSchema schema = lookupSchema(session, catalog, schemaName);
+        return lookupColumnSet(schema, tableName);
     }
 
     public static void setIndexPageCount(
@@ -84,19 +169,18 @@ public class FarragoStatsUtil
     {
         FarragoRepos repos = session.getRepos();
 
-        boolean rollback = false;
+        FarragoReposTxnContext txn = repos.newTxnContext();
         try {
-            repos.beginReposTxn(true);
-            rollback = true;
+            txn.beginWriteTxn();
 
             CwmCatalog catalog = lookupCatalog(session, repos, catalogName);
             FemLocalSchema schema = lookupSchema(session, catalog, schemaName);
             FemLocalIndex index = lookupIndex(schema, indexName);
             FarragoCatalogUtil.updatePageCount(index, pageCount);
 
-            rollback = false;
+            txn.commit();
         } finally {
-            repos.endReposTxn(rollback);
+            txn.rollback();
         }
     }
 
@@ -118,14 +202,17 @@ public class FarragoStatsUtil
     {
         FarragoRepos repos = session.getRepos();
 
-        boolean rollback = false;
+        FarragoReposTxnContext txn = repos.newTxnContext();
         try {
-            repos.beginReposTxn(true);
-            rollback = true;
+            txn.beginWriteTxn();
 
-            CwmCatalog catalog = lookupCatalog(session, repos, catalogName);
-            FemLocalSchema schema = lookupSchema(session, catalog, schemaName);
-            FemAbstractColumnSet columnSet = lookupColumnSet(schema, tableName);
+            FemAbstractColumnSet columnSet =
+                lookupColumnSet(
+                    session,
+                    repos,
+                    catalogName,
+                    schemaName,
+                    tableName);
             FemAbstractColumn column = lookupColumn(columnSet, columnName);
 
             long rowCount = columnSet.getRowCount();
@@ -146,6 +233,9 @@ public class FarragoStatsUtil
                     rowsPerBar++;
                 }
                 rowsLastBar = sampleRows - ((barCount - 1) * rowsPerBar);
+                if (rowsLastBar < 0) {
+                    rowsLastBar = 0;
+                }
             }
             List<FemColumnHistogramBar> bars =
                 createColumnHistogramBars(
@@ -167,9 +257,9 @@ public class FarragoStatsUtil
                 rowsLastBar,
                 bars);
 
-            rollback = false;
+            txn.commit();
         } finally {
-            repos.endReposTxn(rollback);
+            txn.rollback();
         }
     }
 
@@ -260,61 +350,6 @@ public class FarragoStatsUtil
         }
 
         return valueCounts;
-    }
-
-    private static CwmCatalog lookupCatalog(
-        FarragoSession session,
-        FarragoRepos repos,
-        String catalogName)
-        throws SqlValidatorException
-    {
-        if ((catalogName == null) || (catalogName.length() == 0)) {
-            catalogName = session.getSessionVariables().catalogName;
-        }
-        CwmCatalog catalog = repos.getCatalog(catalogName);
-        if (catalog == null) {
-            throw FarragoResource.instance().ValidatorUnknownObject.ex(
-                catalogName);
-        }
-        return catalog;
-    }
-
-    private static FemLocalSchema lookupSchema(
-        FarragoSession session,
-        CwmCatalog catalog,
-        String schemaName)
-        throws SqlValidatorException
-    {
-        if ((schemaName == null) || (schemaName.length() == 0)) {
-            schemaName = session.getSessionVariables().schemaName;
-        }
-        FemLocalSchema schema =
-            FarragoCatalogUtil.getSchemaByName(catalog, schemaName);
-        if (schema == null) {
-            throw FarragoResource.instance().ValidatorUnknownObject.ex(
-                schemaName);
-        }
-        return schema;
-    }
-
-    private static FemAbstractColumnSet lookupColumnSet(
-        FemLocalSchema schema,
-        String tableName)
-        throws SqlValidatorException
-    {
-        FemAbstractColumnSet columnSet = null;
-        if (tableName != null) {
-            columnSet =
-                FarragoCatalogUtil.getModelElementByNameAndType(
-                    schema.getOwnedElement(),
-                    tableName,
-                    FemAbstractColumnSet.class);
-        }
-        if (columnSet == null) {
-            throw FarragoResource.instance().ValidatorUnknownObject.ex(
-                tableName);
-        }
-        return columnSet;
     }
 
     private static FemLocalIndex lookupIndex(

@@ -95,6 +95,10 @@ relevant standard code.  See IllegalIntervalLiteral for an example.
     <text>''FROM'' near {0}, without operands preceding it is illegal</text>
 </exception>
 
+<exception id="100095" name="IllegalRowExpression">
+    <text>ROW expression encountered in illegal context</text>
+</exception>
+
 <!-- ====================================================================== -->
 <!-- Eigenbase Validator resources 121,000 - 130,000 -->
 <!-- ====================================================================== -->
@@ -482,6 +486,10 @@ relevant standard code.  See IllegalIntervalLiteral for an example.
     <text>Argument to function ''{0}'' must be a valid precision between ''{1}'' and ''{2}''</text>
 </exception>
 
+<exception id="130110" name="InvalidDatetimeFormat">
+    <text>''{0}'' is not a valid datetime format</text>
+</exception>
+
 <exception id="421080" name="ArgumentMustHaveScaleZero">
 <text>Argument to function ''{0}'' must have a scale of 0</text>
 </exception>
@@ -550,6 +558,11 @@ TBD: naming convention for extension features
 <exception name="SQLConformance_MultipleActiveAutocommitStatements">
     <property name="FeatureDefinition">Eigenbase-defined</property>
     <text>Execution of a new autocommit statement while a cursor is still open on same connection is not supported</text>
+</exception>
+
+<exception name="SQLConformance_OrderByDesc">
+    <property name="FeatureDefinition">Eigenbase-defined</property>
+    <text>Descending sort (ORDER BY DESC) not supported</text>
 </exception>
 
 <!-- ====================================================================== -->

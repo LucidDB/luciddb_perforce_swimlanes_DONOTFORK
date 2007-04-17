@@ -112,20 +112,22 @@ int TupleDescriptor::compareTuples(
             if (!datum2.pData) {
                 continue;
             }
-            return -1;
+            return -(i+1);
         } else if (!datum2.pData) {
             if (containsNullKey) {
                 *containsNullKey = true;
             }
-            return 1;
+            return (i+1);
         }
         int c = (*this)[i].pTypeDescriptor->compareValues(
             datum1.pData,
             datum1.cbData,
             datum2.pData,
             datum2.cbData);
-        if (c) {
-            return c;
+        if (c > 0) {
+            return (i+1);
+        } else if (c < 0) {
+            return -(i+1);
         }
     }
     return 0;
@@ -147,17 +149,19 @@ int TupleDescriptor::compareTuplesKey(
             if (!datum2.pData) {
                 continue;
             }
-            return -1;
+            return -(i+1);
         } else if (!datum2.pData) {
-            return 1;
+            return (i+1);
         }
         int c = (*this)[i].pTypeDescriptor->compareValues(
             datum1.pData,
             datum1.cbData,
             datum2.pData,
             datum2.cbData);
-        if (c) {
-            return c;
+        if (c > 0) {
+            return (i+1);
+        } else if (c < 0) {
+            return -(i+1);
         }
     }
     return 0;
@@ -187,7 +191,7 @@ void TupleDescriptor::visit(
 }
 
 // NOTE: read comments on struct StoredNode before modifying the persistence
-// code below.  Also note that we use specific type sizes and network byte
+// code below.  Also note that we use specific type sizes and network byte order
 // since TupleDescriptors may be transmitted as binary over the network/JNI.
 // May want to use XML for that instead and make this code perform better
 // (since it's used by transaction logging).
@@ -253,6 +257,16 @@ void TupleProjection::readPersistent(
         uint32_t iData;
         stream.readValue(iData);
         push_back(ntohl(iData));
+    }
+}
+
+void TupleProjection::projectFrom(
+    TupleProjection const &sourceProjection,
+    TupleProjection const &tupleProjection)
+{
+    clear();
+    for (uint i = 0; i < tupleProjection.size(); ++i) {
+        push_back(sourceProjection[tupleProjection[i]]);
     }
 }
 

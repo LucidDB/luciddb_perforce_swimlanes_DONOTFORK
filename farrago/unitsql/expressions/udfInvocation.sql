@@ -158,6 +158,14 @@ no sql
 not deterministic
 external name 'class net.sf.farrago.test.FarragoTestUDR.generateRandomNumber';
 
+-- alias to avoid common subexpression elimination
+create function generate_random_number2(seed bigint)
+returns bigint
+language java
+no sql
+not deterministic
+external name 'class net.sf.farrago.test.FarragoTestUDR.generateRandomNumber';
+
 -- test UDF which depends on FarragoUdrRuntime, with
 -- ClosableAllocation support
 create function gargle()
@@ -203,6 +211,67 @@ parameter style system defined java
 no sql
 external name 'class net.sf.farrago.test.FarragoTestUDR.digest';
 
+-- UDX which specifies a calendar argument
+create function foreign_time(
+  ts timestamp, tsZoneId varchar(256), foreignZoneId varchar(256))
+returns table(
+  the_timestamp timestamp, the_date date, the_time time)
+language java
+parameter style system defined java
+no sql
+external name 'class net.sf.farrago.test.FarragoTestUDR.foreignTime';
+
+-- UDX that contains a column list parameter
+create function stringifyColumns(
+    c cursor,
+    cl select from c,
+    delimiter varchar(128))
+returns table(v varchar(65535))
+language java
+parameter style system defined java
+no sql
+external name 'class net.sf.farrago.test.FarragoTestUDR.stringifyColumns';
+
+-- UDX that contains 2 column list parameters referencing the same cursor
+create function stringify2ColumnLists(
+    cl select from c,
+    c2 select from c,
+    c cursor,
+    delimiter varchar(128))
+returns table(v varchar(65535))
+language java
+parameter style system defined java
+no sql
+external name 'class net.sf.farrago.test.FarragoTestUDR.stringify2ColumnLists';
+
+-- UDX that contains 2 column list parameters referencing different cursors
+create function combineStringifyColumns(
+    c1 cursor,
+    cl1 select from c1,
+    c2 cursor,
+    cl2 select from c2,
+    delimiter varchar(128))
+returns table(v varchar(65535))
+language java
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.test.FarragoTestUDR.combineStringifyColumns';
+
+-- same as above but arguments are jumbled
+create function combineStringifyColumnsJumbledArgs(
+    cl2 select from c2,
+    c1 cursor,
+    delimiter varchar(128),
+    c2 cursor,
+    cl1 select from c1)
+returns table(v varchar(65535))
+language java
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.test.FarragoTestUDR.combineStringifyColumnsJumbledArgs';
+
 create view ramp_view as select * from table(ramp(3));
 
 create view stringified_view as 
@@ -210,6 +279,42 @@ select *
 from table(stringify(
     cursor(select * from sales.depts where deptno=20 order by 1),
     '|'));
+
+create view stringifiedColumns_view as
+select * 
+from table(stringifyColumns(
+    cursor(select * from sales.emps where deptno=20 order by 1),
+    row(name, empno, gender),
+    '|'));
+
+create view combineStringifiedColumns_view as
+select * 
+from table(combineStringifyColumns(
+    cursor(select * from sales.emps where deptno=20 order by 1),
+    row(name, empno, gender),
+    cursor(select * from sales.depts where deptno= 20 order by 1),
+    row(name),
+    '|'));
+
+-- should fail : empno doesn't exist
+select * 
+from table(stringifyColumns(
+    cursor(select * from sales.depts where deptno=20 order by 1),
+    row(name, empno),
+    '|'));
+
+-- should fail : should reference column by its alias
+select *
+from table(stringifyColumns(
+    cursor(select name as n from sales.depts where deptno=20 order by 1),
+    row(name),
+    '|'));
+
+-- should fail : wrong number of arguments
+select * 
+from table(stringifyColumns(
+    cursor(select * from sales.emps where deptno=20 order by 1),
+    row(name, empno, gender)));
 
 -- should fail:  we don't allow mutual recursion either
 create schema crypto
@@ -339,12 +444,12 @@ select generate_random_number(42) as rng from sales.depts order by 1;
 
 -- runtime context:  verify that the two instances produce
 -- identical sequences independently (no interference)
-select generate_random_number(42) as rng1, generate_random_number(42) as rng2
+select generate_random_number(42) as rng1, generate_random_number2(42) as rng2
 from sales.depts order by 1;
 
 -- runtime context:  verify that the two instances produce
 -- different sequences independently (no interference)
-select generate_random_number(42) as rng1, generate_random_number(43) as rng2
+select generate_random_number(42) as rng1, generate_random_number2(43) as rng2
 from sales.depts order by 1;
 
 -- runtime context:  verify closeAllocation
@@ -382,14 +487,67 @@ from table(stringify(
     cursor(select * from sales.depts order by 1),
     '|'))
 order by 1;
+select upper(v)
+from table(stringifyColumns(
+    cursor(select * from sales.depts order by 1),
+    row(name),
+    '|'))
+order by 1;
+select upper(v)
+from table(stringifyColumns(
+    cursor(select name as n from sales.depts order by 1),
+    row(n),
+    '|'))
+order by 1;
+select upper(v)
+from table(stringify2ColumnLists(
+    row(empno, name),
+    row(deptno, gender),
+    cursor(select * from sales.emps order by 1),
+    '|'))
+order by 1;
+select upper(v)
+from table(combineStringifyColumns(
+    cursor(select empno, name, deptno, gender from sales.emps order by 1),
+    row(empno, name, gender),
+    cursor(select empno, name, deptno, city from sales.emps order by 1),
+    row(empno, name, city),
+    '|'))
+order by 1;
+select upper(v)
+from table(combineStringifyColumnsJumbledArgs(
+    row(empno, name, city),
+    cursor(select empno, name, deptno, gender from sales.emps order by 1),
+    '|',
+    cursor(select empno, name, deptno, city from sales.emps order by 1),
+    row(empno, name, gender)))
+order by 1;
+select *
+from table(stringifyColumns(
+    cursor(select * from sales.depts where deptno=20 order by 1),
+    row(name),
+    '|'))
+union all
+select *
+from table(stringifyColumns(
+    cursor(select * from sales.emps where deptno=20 order by 1),
+    row(name, empno, gender),
+    '|'));
 
 -- udx invocation with input via view
 select * from stringified_view;
+select * from stringifiedColumns_view;
+select * from combineStringifiedColumns_view;
 
 -- udx invocation with input auto-propagated to output
 select * 
 from table(digest(cursor(select * from sales.depts)))
 order by row_digest;
+
+-- commented out until jrockit R27 bug fixed
+-- udx with specified calendar
+-- select *
+-- from table(foreign_time(timestamp'2006-10-09 18:32:26.992', 'PST', 'EST'));
 
 
 set path 'crypto2';

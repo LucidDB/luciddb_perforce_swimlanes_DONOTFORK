@@ -31,9 +31,11 @@ import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.util.*;
 
 import java.io.*;
+import java.util.*;
 
 
 /**
@@ -52,6 +54,11 @@ public class FlatFileFennelRel
 
     // name of the session parameter for log directory
     public static final String LOG_DIR = "logDir";
+
+    // max length of text for a row when signalling an error
+    // NOTE: keep this consistent with the Fennel file
+    //   fennel/lucidera/flatfile/FlatFileExecStreamImpl.cpp
+    public static final int MAX_ROW_ERROR_TEXT_WIDTH = 4000;
 
     //~ Instance fields --------------------------------------------------------
 
@@ -108,8 +115,7 @@ public class FlatFileFennelRel
             repos.newFemFlatFileTupleStreamDef();
         streamDef.setDataFilePath(columnSet.getFilePath());
         if (params.getWithLogging()) {
-            streamDef.setErrorFilePath(
-                adjustLogFilePath(params, columnSet.getLogFilePath()));
+            streamDef.setErrorFilePath(columnSet.getLogFilePath());
         }
         streamDef.setFieldDelimiter(encodeChar(params.getFieldDelimiter()));
         streamDef.setRowDelimiter(encodeChar(params.getLineDelimiter()));
@@ -161,6 +167,29 @@ public class FlatFileFennelRel
         streamDef.setCodePage(0);
         streamDef.setTranslationRecovery(true);
 
+        streamDef.setLenient(params.getLenient());
+        streamDef.setTrim(params.getTrim());
+        streamDef.setMapped(params.getMapped());
+        java.util.List<FemColumnName> columnNames = streamDef.getColumn();
+        for (int i = 0; i < rowType.getFieldCount(); i++) {
+            FemColumnName name = repos.newFemColumnName();
+            name.setName(rowType.getFields()[i].getName());
+            columnNames.add(name);
+        }
+
+        // set the error record type to be a single text column
+        FarragoPreparingStmt stmt = FennelRelUtil.getPreparingStmt(this);
+        RelDataTypeFactory typeFactory = 
+            stmt.getRelOptCluster().getTypeFactory();
+        RelDataType errorText = 
+            typeFactory.createSqlType(
+                SqlTypeName.Varchar, MAX_ROW_ERROR_TEXT_WIDTH);
+        errorText = typeFactory.createTypeWithNullability(errorText, true);
+        RelDataType errorType = typeFactory.createStructType(
+            new RelDataType[] { errorText },
+            new String[] { "ROW_TEXT" });
+        implementor.setErrorRecordType(this, streamDef, errorType);
+
         return streamDef;
     }
 
@@ -188,21 +217,6 @@ public class FlatFileFennelRel
                 getRowType());
         clone.inheritTraitsFrom(this);
         return clone;
-    }
-
-    /**
-     * If the log directory was not specified in the server's parameters, 
-     * then adjust the log file path to use the session's log directory
-     */
-    private String adjustLogFilePath(FlatFileParams params, String basePath)
-    {
-        assert(basePath != null);
-        if (params.getLogDirectory() != null) {
-            return basePath;
-        }
-        String logDir = FennelRelUtil.getPreparingStmt(this).getSession()
-            .getSessionVariables().get(LOG_DIR);
-        return new File(logDir, basePath).toString();
     }
 }
 

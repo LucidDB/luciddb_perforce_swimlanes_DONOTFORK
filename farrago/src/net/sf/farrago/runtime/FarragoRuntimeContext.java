@@ -22,6 +22,7 @@
 */
 package net.sf.farrago.runtime;
 
+import java.nio.*;
 import java.sql.*;
 import java.sql.Date;
 
@@ -31,7 +32,6 @@ import java.util.logging.*;
 import javax.jmi.reflect.*;
 
 import net.sf.farrago.catalog.*;
-import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.fem.fennel.*;
 import net.sf.farrago.fem.med.*;
 import net.sf.farrago.fennel.*;
@@ -40,14 +40,13 @@ import net.sf.farrago.namespace.util.*;
 import net.sf.farrago.resource.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.trace.*;
-import net.sf.farrago.type.*;
 import net.sf.farrago.type.runtime.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.runtime.*;
-import org.eigenbase.sql.*;
+
 import org.eigenbase.util.*;
 import org.eigenbase.trace.*;
 
@@ -63,7 +62,8 @@ public class FarragoRuntimeContext
     extends FarragoCompoundAllocation
     implements FarragoSessionRuntimeContext,
         RelOptConnection,
-        FennelJavaStreamMap
+        FennelJavaStreamMap,
+        FennelJavaErrorTarget
 {
 
     //~ Static fields/initializers ---------------------------------------------
@@ -80,6 +80,9 @@ public class FarragoRuntimeContext
     protected final FarragoObjectCache codeCache;
     private final Map txnCodeCache;
     private final FennelTxnContext fennelTxnContext;
+    private final FarragoWarningQueue warningQueue;
+    private final Object cursorMonitor;
+    private boolean cursorActive;
 
     /**
      * Maps stream id ({@link Integer}) to the corresponding java object ({@link
@@ -102,9 +105,12 @@ public class FarragoRuntimeContext
     private final boolean isDml;
     private long currentTime;
     private boolean isCanceled;
+    protected boolean isClosed;
     private ClassLoader statementClassLoader;
     private Map<String, RelDataType> resultSetTypeMap;
     protected long stmtId;
+
+    private NativeRuntimeContext nativeContext;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -128,6 +134,13 @@ public class FarragoRuntimeContext
         this.resultSetTypeMap = params.resultSetTypeMap;
         this.stmtId = params.stmtId;
 
+        if (params.warningQueue == null) {
+            params.warningQueue = new FarragoWarningQueue();
+        }
+        this.warningQueue = params.warningQueue;
+
+        cursorMonitor = new Object();
+
         dataWrapperCache =
             new FarragoDataWrapperCache(
                 this,
@@ -142,6 +155,12 @@ public class FarragoRuntimeContext
 
     //~ Methods ----------------------------------------------------------------
 
+    // implement FarragoSessionRuntimeContext
+    public FarragoWarningQueue getWarningQueue()
+    {
+        return warningQueue;
+    }
+    
     /**
      * Returns the stream graph.
      */
@@ -157,8 +176,13 @@ public class FarragoRuntimeContext
     }
 
     // override FarragoCompoundAllocation
-    public void closeAllocation()
+    public synchronized void closeAllocation()
     {
+        if (isClosed) {
+            return;
+        }
+        isClosed = true;
+        
         isCanceled = true;
 
         // make sure all streams get closed BEFORE they are deallocated
@@ -168,6 +192,12 @@ public class FarragoRuntimeContext
             session.endTransactionIfAuto(true);
         }
         statementClassLoader = null;
+        
+        // FRG-253:  nullify this, so that once we release its pinned
+        // entry from the cache, we don't try to abort it after someone
+        // else starts to reuse it!
+        streamGraph = null;
+        
         super.closeAllocation();
     }
 
@@ -306,6 +336,7 @@ public class FarragoRuntimeContext
         // NOTE jvs 25-Sept-2004:  per SQL standard, the same time
         // is used for all references within the same statement.
         if (currentTime == 0) {
+            // internally, we use a psuedo local time
             currentTime = System.currentTimeMillis();
         }
         return currentTime;
@@ -438,9 +469,8 @@ public class FarragoRuntimeContext
                     assert (key.equals(xmiFennelPlan));
                     streamGraph = prepareStreamGraph(xmiFennelPlan);
 
-                    // TODO:  proper memory accounting
                     long memUsage =
-                        FarragoUtil.getStringMemoryUsage(xmiFennelPlan);
+                        FarragoUtil.getFennelMemoryUsage(xmiFennelPlan);
                     entry.initialize(streamGraph, memUsage);
                 }
             };
@@ -451,15 +481,7 @@ public class FarragoRuntimeContext
                 (FarragoObjectCache.Entry) txnCodeCache.get(xmiFennelPlan);
         }
         if (cacheEntry == null) {
-            // NOTE jvs 15-July-2004:  to avoid deadlock, grab the catalog
-            // lock BEFORE we pin the cache entry (this matches the
-            // order used by statement preparation)
-            repos.beginTransientTxn();
-            try {
-                cacheEntry = codeCache.pin(xmiFennelPlan, streamFactory, true);
-            } finally {
-                repos.endTransientTxn();
-            }
+            cacheEntry = codeCache.pin(xmiFennelPlan, streamFactory, true);
         }
 
         if (txnCodeCache == null) {
@@ -478,7 +500,7 @@ public class FarragoRuntimeContext
     public void openStreams()
     {
         assert (streamGraph != null);
-        streamGraph.open(fennelTxnContext, this);
+        streamGraph.open(fennelTxnContext, this, this);
     }
 
     // implement FarragoSessionRuntimeContext
@@ -573,15 +595,11 @@ public class FarragoRuntimeContext
                 repos.getCurrentConfig().getFennelConfig().getCachePageSize());
     }
 
-    protected FennelStreamHandle getStreamHandle(String globalStreamName,
+    // implement FarragoSessionRuntimeContext
+    public FennelStreamHandle getStreamHandle(String globalStreamName,
         boolean isInput)
     {
-        repos.beginTransientTxn();
-        try {
-            return streamGraph.findStream(repos, globalStreamName, isInput);
-        } finally {
-            repos.endTransientTxn();
-        }
+        return streamGraph.findStream(repos, globalStreamName, isInput);
     }
 
     protected FennelStreamGraph prepareStreamGraph(String xmiFennelPlan)
@@ -648,10 +666,8 @@ public class FarragoRuntimeContext
         return fennelTxnContext.getFennelDbHandle();
     }
 
-    /**
-     * @return FarragoRepos for use by extension projects
-     */
-    protected FarragoRepos getRepos()
+    // implement FarragoSessionRuntimeContext
+    public FarragoRepos getRepos()
     {
         return repos;
     }
@@ -727,8 +743,9 @@ public class FarragoRuntimeContext
     // implement FarragoSessionRuntimeContext
     public void cancel()
     {
-        if (streamGraph != null) {
-            streamGraph.abort();
+        FennelStreamGraph streamGraphToAbort = streamGraph;
+        if (streamGraphToAbort != null) {
+            streamGraphToAbort.abort();
         }
         isCanceled = true;
     }
@@ -741,6 +758,34 @@ public class FarragoRuntimeContext
         }
     }
 
+    // implement FarragoSessionRuntimeContext
+    public void setCursorState(boolean active)
+    {
+        synchronized (cursorMonitor) {
+            if (active) {
+                checkCancel();
+            }
+            cursorActive = active;
+            if (!cursorActive) {
+                cursorMonitor.notifyAll();
+            }
+        }
+    }
+
+    // implement FarragoSessionRuntimeContext
+    public void waitForCursor()
+    {
+        synchronized (cursorMonitor) {
+            try {
+                while (cursorActive) {
+                    cursorMonitor.wait();
+                }
+            } catch (InterruptedException ex) {
+                throw Util.newInternal(ex);
+            }
+        }
+    }
+    
     // implement FarragoSessionRuntimeContext
     public RuntimeException handleRoutineInvocationException(
         Throwable ex,
@@ -872,22 +917,111 @@ public class FarragoRuntimeContext
      *   more informative values, such as TupleIter.NoDataReason.
      */
     public Object handleRowError(
-        SyntheticObject row, RuntimeException ex, int columnIndex, String tag) 
+        SyntheticObject row, 
+        RuntimeException ex, 
+        int columnIndex, 
+        String tag)
     {
-        EigenbaseException ex2;
-        if (columnIndex == 0) {
-            ex2 = FarragoResource.instance().JavaCalcConditionError.ex(
-                row.toString(),
-                Util.getMessages(ex));
-        } else {
-            ex2 = FarragoResource.instance().JavaCalcError.ex(
-                Integer.toString(columnIndex),
-                row.toString(),
-                Util.getMessages(ex));
-        }
+        return handleRowError(row, ex, columnIndex, tag, false);
+    }
+
+    /**
+     * Handles a runtime exception, but allows warnings as well.
+     * 
+     * @see {@link #handleRowError(SyntheticObject, RuntimeException, 
+     *   int, String)}
+     */
+    public Object handleRowError(
+        SyntheticObject row, 
+        RuntimeException ex, 
+        int columnIndex, 
+        String tag,
+        boolean isWarning) 
+    {
+        return handleRowErrorHelper(
+            row.toString(), ex, columnIndex, tag, isWarning);
+    }
+
+    /**
+     * Handles a runtime exception based on an array of column values 
+     * rather than on a SyntheticObject
+     */
+    public Object handleRowError(
+        String[] columnNames,
+        Object[] columnValues,
+        RuntimeException ex,
+        int columnIndex,
+        String tag,
+        boolean isWarning)
+    {
+        return handleRowErrorHelper(
+            Util.flatArrayToString(columnValues), 
+            ex, columnIndex, tag, isWarning);
+    }
+
+    /**
+     * Helper for various handleRowError methods
+     */
+    private EigenbaseException handleRowErrorHelper(
+        String row,
+        RuntimeException ex,
+        int columnIndex,
+        String tag,
+        boolean isWarning)
+    {
         EigenbaseTrace.getStatementTracer().log(
-            Level.WARNING, "java calc exception", ex2);
+            Level.WARNING, "Row level exception",
+            makeRowError(ex, row, columnIndex, null));
         return null;
+    }
+
+    /**
+     * Makes a row error based on conventions for column index
+     * 
+     * @param ex the runtime exception encountered
+     * @param row string representing the row on which an exception occurred
+     * @param index index of the column being processed at the time 
+     *   the exception was encountered, or 0 for an error processing a 
+     *   conditional expression, or -1 for a non-specific error
+     * @param field optional column name, used in constructing the error 
+     *   message when columnIndex > 0
+     * 
+     * @return a non-nested exception summarizing the row error
+     */
+    protected EigenbaseException makeRowError(
+        RuntimeException ex,
+        String row,
+        int index,
+        String field)
+    {
+        FarragoResource resource = FarragoResource.instance();
+        String msgs = Util.getMessages(ex);
+
+        if (index < 0) {
+            return resource.JavaRowError.ex(row, msgs);
+        } else if (index == 0) {
+            return resource.JavaCalcConditionError.ex(row, msgs);
+        } else {
+            String fieldName = (field != null) 
+                ? field : Integer.toString(index);
+            return resource.JavaCalcError.ex(
+                fieldName, row, msgs);
+        }
+    }
+
+    // implement FennelJavaErrorTarget
+    public Object handleRowError(
+        String source,
+        boolean isWarning,
+        String msg,
+        ByteBuffer byteBuffer,
+        int index)
+    {
+        if (nativeContext == null) {
+            nativeContext = new NativeRuntimeContext(this);
+        }
+        return nativeContext.handleRowError(source, isWarning, msg, 
+            byteBuffer, index);
     }
 
     //~ Inner Classes ----------------------------------------------------------

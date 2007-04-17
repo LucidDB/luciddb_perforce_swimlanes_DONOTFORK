@@ -25,6 +25,7 @@
 #include "fennel/tuple/TupleData.h"
 #include "fennel/tuple/TupleDataWithBuffer.h"
 #include "fennel/tuple/TupleDescriptor.h"
+#include "fennel/tuple/UnalignedAttributeAccessor.h"
 #include "fennel/lucidera/colstore/LcsClusterNodeWriter.h"
 
 
@@ -350,6 +351,8 @@ private:
      */
     TupleDescriptor          colTupleDesc;
   
+    UnalignedAttributeAccessor attrAccessor;
+
 public:
 
     /**
@@ -362,12 +365,15 @@ public:
      * @param [in] colTupleDescInit reference to column tuple descriptor
      *
      * @param [in] columnIdInit which column in the cluster is being compared
+     *
+     * @param [in] attrAccessorInit attribute accessor of the column
      */
     explicit LcsCompareColKeyUsingOffsetIndex(
         SharedLcsClusterNodeWriter clusterBlockWriterInit,
         LcsHashTable *hashTableInit,
         TupleDescriptor const &colTupleDescInit,
-        uint columnIdInit);
+        uint columnIdInit,
+        UnalignedAttributeAccessor const &attrAccessorInit);
 
     ~LcsCompareColKeyUsingOffsetIndex() {}
 
@@ -465,6 +471,11 @@ private:
      * The column currently begin compressed.
      */
     TupleDataWithBuffer   colTuple;
+
+    /**
+     * Attribute accessor of the column
+     */
+    UnalignedAttributeAccessor attrAccessor;
 
     /**
      * The column being compared against.
@@ -569,9 +580,9 @@ public:
      *
      * @param [in] colTupleDatum column tuple to insert
      *
-     * @param[out] valOrd hash value node ordinal
+     * @param [out] valOrd hash value node ordinal
      *
-     * @param[out] undoInsert true if this insert should be undone
+     * @param [out] undoInsert true if this insert should be undone
      */
     void insert(
         TupleDatum &colTupleDatum,

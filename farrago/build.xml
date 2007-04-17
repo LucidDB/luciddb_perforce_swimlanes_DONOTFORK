@@ -214,6 +214,7 @@ require version '${required.ant.version}'."/>
   <path id="test.classpath">
     <pathelement path="${farrago.sqlline.classpath}"/>
     <pathelement path="${ant.classpath}"/>
+    <pathelement path="${test.emma.classpath}" />
   </path>
   <property name="test.classpath" refid="test.classpath"/>
 
@@ -392,13 +393,6 @@ require version '${required.ant.version}'."/>
       <fileset dir="${farrago.parser.ddl.dir}/impl" includes="*.java,*.jj"/>
       <fileset dir="${farrago.parser.sql.dir}/impl" includes="*.java,*.jj"/>
       <fileset dir="${lurql.parser.dir}" includes="*.java"/>
-      <fileset dir="${unitsql.dir}/med/flatfiles">
-        <include name="example2.bcp"/>
-        <include name="example.ctl"/>
-        <include name="noheader.bcp"/>
-        <include name="nulldata.bcp"/>
-        <include name="withnulls.bcp"/>
-      </fileset>
     </delete>
   </target>
 
@@ -412,8 +406,20 @@ require version '${required.ant.version}'."/>
       <fileset dir="${testlog.dir}" includes="*.err"/>
       <fileset dir="${testlog.dir}" includes="*.history"/>
       <fileset dir="${unitsql.dir}" includes="**/*.log"/>
+      <fileset dir="${unitsql.dir}/syslib/depts_files">
+        <include name="*"/>
+      </fileset>
       <fileset dir="${unitlurql.dir}" includes="**/*.log"/>
       <fileset dir="${regressionsql.dir}" includes="**/*.log"/>
+      <fileset dir="${unitsql.dir}/med/flatfiles">
+        <include name="example2.bcp"/>
+        <include name="example.ctl"/>
+        <include name="noheader.bcp"/>
+        <include name="nulldata.bcp"/>
+        <include name="withnulls.bcp"/>
+        <include name="headerswithwhitespacenobcp.bcp"/>
+        <include name="buggy.bcp"/>
+      </fileset>
     </delete>
     <delete quiet="true" file="${FarragoTrace.log}"/>
   </target>
@@ -547,6 +553,7 @@ require version '${required.ant.version}'."/>
       <replacefilter token="@fennel.disabled@" value="${fennel.disabled}"/>
       <replacefilter token="@resourceDir@" value="$${FARRAGO_HOME}/catalog/fennel"/>
       <replacefilter token="@jniHandleTraceFile@" value="${trace.fennel.handles}"/>
+      <replacefilter token="@calcVirtualMachine@" value="CALCVM_AUTO"/>
     </replace>
     <farrago.mdrFork target="forked_importConfig"/>
   </target>
@@ -623,8 +630,7 @@ require version '${required.ant.version}'."/>
   <!-- delete the catalog and everything generated for it -->
   <target name="cleanCatalog" depends="clean,cleanCatalogData">
     <delete file="${FarragoExtMetamodel.xmi}"/>
-    <delete file="${FarragoExtMetamodelUML.xmi}"/>
-    <delete file="${FarragoExtMetamodelUMLSansDiagrams.xmi}"/>
+    <delete file="${FarragoExtMetamodelSansDiagrams.xmi}"/>
     <delete file="${FarragoExtMetamodelTransformed.xmi}"/>
     <delete file="${FarragoMetamodel.xmi}"/>
     <delete file="${FarragoMetamodelUnresolved.xmi}"/>
@@ -888,13 +894,22 @@ require version '${required.ant.version}'."/>
     </farrago.runTests>
   </target>
 
-  <target name="test">
+  <!-- ************** test ****************** 
+  Split 'test' to 'test-only' and 'test-only-setup' so Emma can plugin a instr.
+  -->
+
+  <target name="test" depends="test-only-setup,test-only">
+  </target>
+
+  <target name="test-only-setup">
     <antcall target="checkTrace"/>
     <antcall target="cleanExamples"/>
     <antcall target="createCatalog"/>
     <antcall target="buildExamples"/>
     <antcall target="buildJdbcPlugin"/>
-    <antcall target="retroweaveIfRequested"/>
+  </target>
+
+  <target name="test-only">
     <antcall target="testRngPlugin"/>
     <antcall target="exportCatalog"/>
     <antcall target="junit"/>
@@ -1338,22 +1353,6 @@ please disable it and try again.
       inheritAll="false"/>
   </target>
 
-  <!-- Experimental stuff for JDK 1.5 -->
-  <!-- in customBuild.properties, set farrago.javasrc.version=1.5 -->
-  <!-- to test retroweaver, set farrago.jre.dir=/path/to/jre1.4 -->
-
-  <target name="retroweaveIfRequested" if="farrago.need.retroweave">
-    <antcall target="retroweave"/>
-  </target>
-
-  <target name="retroweave">
-    <retroweaver srcdir="${farrago.classes.dir}" />
-    <retroweaver srcdir="${farrago.catalog.src.dir}" />
-    <retroweaver srcdir="${plugin.classes.dir}" />
-    <!-- rebuild retrowoven plugin jar -->
-    <antcall target="buildJdbcPluginJar"/>
-  </target>
-
   <!-- Below is all experimental stuff for the user repository -->
 
   <property name="JdbcStorage.prefix"
@@ -1515,7 +1514,6 @@ please disable it and try again.
     <antcall target="cleanExamples"/>
     <antcall target="createCatalog"/>
     <antcall target="buildExamples"/>
-    <antcall target="retroweaveIfRequested"/>
     <!-- since some classes get built in here, instrument at the last minute-->
     <antcall target="emmaInstr"/>
     <antcall target="testRngPlugin"/>

@@ -65,7 +65,7 @@ protected:
         SharedMockProducerExecStreamGenerator pGeneratorInit,
         std::string testName = "LcsClusterAppendExecStreamTest");
     
-    void verifyClusterPages(std::string testName);
+    void verifyClusterPages(std::string testName, uint nCols);
     
     void testScanSingleCol(
         uint nrows,
@@ -131,7 +131,9 @@ public:
     void testMultiColStairOldRoot();
 };
 
-void LcsClusterAppendExecStreamTest::verifyClusterPages(std::string testName)
+void LcsClusterAppendExecStreamTest::verifyClusterPages(
+    std::string testName,
+    uint nCols)
 {
     bool found;
     PConstLcsClusterNode pBlock;
@@ -141,8 +143,16 @@ void LcsClusterAppendExecStreamTest::verifyClusterPages(std::string testName)
     uint blockSize =
         btreeDescriptor.segmentAccessor.pSegment->getUsablePageSize();
     LcsClusterVerifier clusterVerifier(btreeDescriptor);
-    LcsClusterDump clusterDump(btreeDescriptor, TRACE_INFO, shared_from_this(),
-                               testName);
+    TupleDescriptor colTupleDesc;
+    for (uint i = 0; i < nCols; i++) {
+        colTupleDesc.push_back(attrDesc_int64);
+    }
+    LcsClusterDump clusterDump(
+        btreeDescriptor,
+        colTupleDesc,
+        TRACE_INFO,
+        shared_from_this(),
+        testName);
 
     // read every cluster page
 
@@ -254,7 +264,7 @@ void LcsClusterAppendExecStreamTest::testLoadSingleCol(
 
     // read records from btree to obtain cluster page ids
     // and dump out contents of cluster pages
-    verifyClusterPages(testName);
+    verifyClusterPages(testName, 1);
 }
 
 void LcsClusterAppendExecStreamTest::testLoadMultiCol(
@@ -300,6 +310,10 @@ void LcsClusterAppendExecStreamTest::testLoadMultiCol(
     }
     lcsAppendParams.pRootMap = 0;
     
+    // Set up BTreeExecStreamParams using default values from BTreeDescriptor.
+    lcsAppendParams.segmentId = btreeDescriptor.segmentId;
+    lcsAppendParams.pageOwnerId = btreeDescriptor.pageOwnerId;
+    
     // setup temporary btree descriptor to get an empty page to start the btree
 
     btreeDescriptor.segmentAccessor.pSegment = lcsAppendParams.pSegment;
@@ -307,8 +321,6 @@ void LcsClusterAppendExecStreamTest::testLoadMultiCol(
     btreeDescriptor.tupleDescriptor = lcsAppendParams.tupleDesc;
     btreeDescriptor.keyProjection = lcsAppendParams.keyProj;
     btreeDescriptor.rootPageId = newRoot ? NULL_PAGE_ID : savedRootPageId;
-    btreeDescriptor.segmentId = lcsAppendParams.segmentId;
-    btreeDescriptor.pageOwnerId = lcsAppendParams.pageOwnerId;
     
     BTreeBuilder builder(btreeDescriptor, pRandomSegment);
 
@@ -338,7 +350,7 @@ void LcsClusterAppendExecStreamTest::testLoadMultiCol(
 
     // read records from btree to obtain cluster page ids
     // and dump out contents of cluster pages
-    verifyClusterPages(testName);
+    verifyClusterPages(testName, nCols);
 }
 
 void LcsClusterAppendExecStreamTest::testScanSingleCol(

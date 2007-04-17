@@ -67,6 +67,8 @@ public class HepPlanner
 
     private int nTransformationsLastGC;
 
+    private boolean noDAG;
+    
     /**
      * Query graph, with edges directed from parent to child. This is a
      * single-rooted DAG, possibly with additional roots corresponding to
@@ -77,22 +79,34 @@ public class HepPlanner
     //~ Constructors -----------------------------------------------------------
 
     /**
-     * Creates a new HepPlanner.
+     * Creates a new HepPlanner that allows DAG.
      *
      * @param program program controlling rule application
      */
     public HepPlanner(HepProgram program)
     {
-        this.mainProgram = program;
-
-        mapDigestToVertex = new HashMap<String, HepRelVertex>();
-        graph = new DefaultDirectedGraph<HepRelVertex, Edge<HepRelVertex>>();
-
-        // NOTE jvs 24-Apr-2006:  We use LinkedHashSet here and below
-        // in order to provide deterministic behavior.
-        allRules = new LinkedHashSet<RelOptRule>();
+    	this(program, false);
     }
 
+    /**
+     * Creates a new HepPlanner with the option to keep the
+     * graph a tree(noDAG=true) or allow DAG(noDAG=false).
+     *
+     * @param program program controlling rule application
+     */
+    public HepPlanner(HepProgram program, boolean noDAG)
+    {
+    	this.mainProgram = program;
+    	
+    	mapDigestToVertex = new HashMap<String, HepRelVertex>();
+    	graph = new DefaultDirectedGraph<HepRelVertex, Edge<HepRelVertex>>();
+    	
+    	// NOTE jvs 24-Apr-2006:  We use LinkedHashSet here and below
+    	// in order to provide deterministic behavior.
+    	allRules = new LinkedHashSet<RelOptRule>();
+    	this.noDAG = noDAG;
+    }
+    
     //~ Methods ----------------------------------------------------------------
 
     // implement RelOptPlanner
@@ -365,6 +379,16 @@ public class HepPlanner
 
     private Iterator<HepRelVertex> getGraphIterator(HepRelVertex start)
     {
+        // Make sure there's no garbage, because topological sort
+        // doesn't start from a specific root, and rules can't
+        // deal with firing on garbage.
+        
+        // FIXME jvs 25-Sept-2006:  I had to move this earlier because
+        // of FRG-215, which is still under investigation.  Once we
+        // figure that one out, move down to location below for
+        // better optimizer performance.
+        collectGarbage();
+        
         if (currentProgram.matchOrder == HepMatchOrder.ARBITRARY) {
             return
                 new DepthFirstIterator<HepRelVertex,
@@ -375,10 +399,10 @@ public class HepPlanner
 
         assert (start == root);
 
-        // Make sure there's no garbage, because topological sort
-        // doesn't start from a specific root, and rules can't
-        // deal with firing on garbage.
+        // see above
+        /*
         collectGarbage();
+        */
 
         // TODO jvs 4-Apr-2006:  streamline JGraphT generics
 
@@ -556,6 +580,14 @@ public class HepPlanner
         for (HepRelVertex parent : allParents) {
             if (parentTraits != null) {
                 RelNode parentRel = parent.getCurrentRel();
+                if (parentRel instanceof ConverterRel) {
+                    // We don't support automatically chaining conversions.
+                    // Treating a converter as a candidate parent here
+                    // can cause the "iParentMatch" check below to
+                    // throw away a new converter needed in
+                    // the multi-parent DAG case.
+                    continue;
+                }
                 if (!parentRel.getTraits().matches(parentTraits)) {
                     // This parent does not want the converted result.
                     continue;
@@ -632,14 +664,17 @@ public class HepPlanner
             rel.replaceInput(i, childVertex);
         }
 
-        // Now, check if an equivalent vertex already exists in graph.
-        String digest = rel.recomputeDigest();
-        HepRelVertex equivVertex = mapDigestToVertex.get(digest);
-        if (equivVertex != null) {
-            // Use existing vertex.
-            return equivVertex;
+        // try to find equivalent rel only if DAG is allowed
+        if (!noDAG) {
+            // Now, check if an equivalent vertex already exists in graph.
+            String digest = rel.recomputeDigest();
+            HepRelVertex equivVertex = mapDigestToVertex.get(digest);
+            if (equivVertex != null) {
+                // Use existing vertex.
+                return equivVertex;
+            }
         }
-
+        
         // No equivalence:  create a new vertex to represent this rel.
         HepRelVertex newVertex = new HepRelVertex(rel);
         graph.addVertex(newVertex);

@@ -84,6 +84,13 @@ Error: From line 1, column 17 to line 1, column 22: Column 'BAR2' not found in t
 > create or replace view loop1 as select * from loop2;
 Error: Object definition contains recursive cycle (state=,code=0)
 > 
+> -- but a diamond should be OK
+> create view diamond0 as select * from foo;
+> create view diamond1 as select * from diamond0;
+> create view diamond2 as select * from diamond0;
+> create view diamond3 as select * from diamond1,diamond2;
+> create or replace view diamond0 as select * from foo;
+> 
 > --
 > -- Index (disallowed)
 > --
@@ -164,7 +171,7 @@ Error: Cannot replace index "IDX" because it does not support replacement (state
 +--------+--------+---------+---------+----------------+--------+------+-------------+----------+----------+
 > 
 > --
-> -- Server
+> -- Foreign Server
 > --
 > create foreign data wrapper foo_wrapper
 >  library 'class net.sf.farrago.namespace.mock.MedMockForeignDataWrapper'
@@ -208,7 +215,7 @@ Error: Cannot replace index "IDX" because it does not support replacement (state
 +-----+
 >                                                                                 
 > --
-> -- Wrapper
+> -- Foreign Wrapper
 > --
 > create or replace foreign data wrapper foo_wrapper
 >   library 'class net.sf.farrago.namespace.mock.MedMockForeignDataWrapper'
@@ -230,7 +237,26 @@ Error: Cannot replace index "IDX" because it does not support replacement (state
 | 0   |
 | 0   |
 +-----+
->                                                                                 
+> 
+> --
+> -- Local Server
+> --
+> 
+> create server extra_ftrs_data_server
+> local data wrapper sys_ftrs;
+> 
+> create table extra_foo (bar integer primary key)
+> server extra_ftrs_data_server;
+> 
+> create or replace server extra_ftrs_data_server
+> local data wrapper sys_ftrs;
+> 
+> select * from extra_foo;
++------+
+| BAR  |
++------+
++------+
+> 
 > --
 > -- Bugs!
 > --

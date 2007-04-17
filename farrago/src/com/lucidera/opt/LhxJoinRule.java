@@ -73,12 +73,14 @@ public class LhxJoinRule
 
         List<RexNode> leftJoinKeys = new ArrayList<RexNode>();
         List<RexNode> rightJoinKeys = new ArrayList<RexNode>();
+        List<Integer> filterNulls = new ArrayList<Integer>();
 
         nonEquiCondition =
             RelOptUtil.splitJoinCondition(
                 joinRel,
                 leftJoinKeys,
-                rightJoinKeys);
+                rightJoinKeys,
+                filterNulls);
 
         if ((nonEquiCondition != null)
             && (joinRel.getJoinType() != JoinRelType.INNER)) {
@@ -112,12 +114,6 @@ public class LhxJoinRule
         // the new leftRel and new rightRel, afte projection is added.
         leftRel = inputRels[0];
         rightRel = inputRels[1];
-
-        List<String> newJoinOutputNames = new ArrayList<String>();
-        newJoinOutputNames.addAll(
-            RelOptUtil.getFieldNameList(leftRel.getRowType()));
-        newJoinOutputNames.addAll(
-            RelOptUtil.getFieldNameList(rightRel.getRowType()));
 
         RelNode fennelLeft =
             mergeTraitsAndConvert(
@@ -167,6 +163,8 @@ public class LhxJoinRule
 
         boolean isSetop = false;
 
+        // pass in null for the fieldNameList so proper names can be derived
+        // when the left and right hand side have overlapping names
         RelNode rel =
             new LhxJoinRel(
                 joinRel.getCluster(),
@@ -176,7 +174,8 @@ public class LhxJoinRule
                 isSetop,
                 leftKeys,
                 rightKeys,
-                newJoinOutputNames,
+                filterNulls,
+                null,
                 numBuildRows.longValue(),
                 cndBuildKey.longValue());
 

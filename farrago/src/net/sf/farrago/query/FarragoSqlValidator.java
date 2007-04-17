@@ -22,8 +22,14 @@
 */
 package net.sf.farrago.query;
 
-import net.sf.farrago.fem.security.*;
+import java.math.*;
+import java.util.*;
 
+import net.sf.farrago.cwm.behavioral.*;
+import net.sf.farrago.fem.security.*;
+import net.sf.farrago.fem.sql2003.*;
+
+import org.eigenbase.reltype.*;
 import org.eigenbase.resgen.*;
 import org.eigenbase.resource.*;
 import org.eigenbase.sql.*;
@@ -74,7 +80,7 @@ public class FarragoSqlValidator
      * Constructor that relies on the preparingStmt object to provide various
      * other objects during initialization.  
      */
-    FarragoSqlValidator(
+    public FarragoSqlValidator(
         FarragoPreparingStmt preparingStmt,
         Compatible compatible)
     {
@@ -124,7 +130,7 @@ public class FarragoSqlValidator
         }
     }
 
-    private FarragoPreparingStmt getPreparingStmt()
+    protected FarragoPreparingStmt getPreparingStmt()
     {
         return preparingStmt;
     }
@@ -178,6 +184,53 @@ public class FarragoSqlValidator
         getPreparingStmt().getStmtValidator().validateFeature(
             feature,
             context);
+    }
+    
+    // override SqlValidatorImpl
+    public void validateColumnListParams(
+        SqlFunction function,
+        RelDataType [] argTypes,
+        SqlNode [] operands)
+    {
+        // get the UDR that the function corresponds to
+        FarragoUserDefinedRoutine routine =
+            (FarragoUserDefinedRoutine) function;
+        FemRoutine femRoutine = routine.getFemRoutine();
+        List<CwmParameter> params = femRoutine.getParameter();
+        Map<Integer, SqlSelect> cursorMap = cursorMapStack.peek();
+        
+        // locate arguments that are COLUMN_LIST types; locate the select
+        // scope corresponding to the source cursor and revalidate the
+        // function operand using that scope
+        for (int i = 0; i < argTypes.length; i++) {
+            if (argTypes[i].getSqlTypeName() == SqlTypeName.ColumnList) {
+                FemColumnListRoutineParameter clParam =
+                    (FemColumnListRoutineParameter) params.get(i);
+                String sourceCursor = clParam.getSourceCursorName();
+                int cursorPosition = -1;
+                for (FemRoutineParameter p :
+                    Util.cast(params, FemRoutineParameter.class))
+                {
+                    if (p.getType().getName().equals("CURSOR")) {
+                        cursorPosition++;
+                        if (p.getName().equals(sourceCursor)) {
+                            SqlSelect sourceSelect =
+                                cursorMap.get(cursorPosition);
+                            SqlValidatorScope cursorScope =
+                                getCursorScope(sourceSelect);
+                            // save the original node type so we can reset it
+                            // after we've validated the column references
+                            RelDataType origNodeType =
+                                getValidatedNodeType(operands[i]);
+                            removeValidatedNodeType(operands[i]);
+                            deriveType(cursorScope, operands[i]);
+                            setValidatedNodeType(operands[i], origNodeType);
+                            break;
+                        }
+                    }
+                }               
+            }
+        }
     }
 }
 

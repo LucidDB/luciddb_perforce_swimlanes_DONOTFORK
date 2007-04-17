@@ -25,6 +25,7 @@ package net.sf.farrago.query;
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.rel.metadata.*;
+import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 
 /**
@@ -67,11 +68,18 @@ public class FennelCartesianJoinRule
          * Joins that can use CartesianProduct will have only TRUE condition 
          * in JoinRel. Any other join conditions have to be extracted out 
          * already. This implies that only ON TRUE condition is suported for
-         * LeftOuterJoins.
+         * LeftOuterJoins or RightOuterJoins.
          */
-        boolean joinTypeFeasible = 
-            (joinRel.getJoinType() == JoinRelType.INNER) ||
-            (joinRel.getJoinType() == JoinRelType.LEFT);
+        JoinRelType joinType = joinRel.getJoinType();
+        boolean joinTypeFeasible = !(joinType == JoinRelType.FULL);
+        boolean swapped = false;
+        if (joinType == JoinRelType.RIGHT) {
+            swapped = true;
+            RelNode tmp = leftRel;
+            leftRel = rightRel;
+            rightRel = tmp;
+            joinType = JoinRelType.LEFT;
+        }
         
         /*
          * CartesianProduct relies on a post filter to do the join filtering.
@@ -90,6 +98,23 @@ public class FennelCartesianJoinRule
             return;
         }
 
+        // see if it makes sense to buffer the existing RHS; if not, try
+        // the LHS, swapping the join operands if it does make sense to buffer
+        // the LHS; but only if the join isn't a left outer join (since we
+        // can't do cartesian right outer joins)
+        FennelBufferRel bufRel =
+            bufferRight(leftRel, rightRel, joinRel.getTraits());
+        if (bufRel != null) {
+            rightRel = bufRel;
+        } else if (joinType != JoinRelType.LEFT) {
+            bufRel = bufferRight(rightRel, leftRel, joinRel.getTraits());
+            if (bufRel != null) {
+                swapped = true;
+                leftRel = rightRel;
+                rightRel = bufRel;
+            }
+        }
+
         RelNode fennelLeft =
             mergeTraitsAndConvert(
                 joinRel.getTraits(),
@@ -106,31 +131,27 @@ public class FennelCartesianJoinRule
                 rightRel);
         if (fennelRight == null) {
             return;
-        }
-
-        // See whether it makes sense to buffer the existing RHS; if not, try
-        // the LHS, swapping the join operands if it does make sense to buffer
-        // the LHS.
-        boolean swapped = false;
-        FennelBufferRel bufRel = bufferRight(fennelLeft, fennelRight);
-        if (bufRel != null) {
-            fennelRight = bufRel;
-        } else {
-            bufRel = bufferRight(fennelRight, fennelLeft);
-            if (bufRel != null) {
-                swapped = true;
-                fennelLeft = fennelRight;
-                fennelRight = bufRel;
-            }
-        }
+        }      
         
+        RelDataType joinRowType;
+        if (swapped) {
+            joinRowType =
+                JoinRel.deriveJoinRowType(
+                    fennelLeft.getRowType(),
+                    fennelRight.getRowType(),
+                    joinType,
+                    joinRel.getCluster().getTypeFactory(),
+                    null);
+        } else {
+            joinRowType = joinRel.getRowType();
+        }
         FennelCartesianProductRel productRel =
             new FennelCartesianProductRel(
                 joinRel.getCluster(),
                 fennelLeft,
                 fennelRight,
-                joinRel.getJoinType(),
-                RelOptUtil.getFieldNameList(joinRel.getRowType()));
+                joinType,
+                RelOptUtil.getFieldNameList(joinRowType));
         
         RelNode newRel;
         if (swapped) {
@@ -170,18 +191,33 @@ public class FennelCartesianJoinRule
      * 
      * @param left left hand input into the cartesian join
      * @param right right hand input into the cartesian join
+     * @param traits traits of the original join
      * 
      * @return created FennelBufferRel if it makes sense to buffer the RHS
      */
-    private FennelBufferRel bufferRight(RelNode left, RelNode right)
+    private FennelBufferRel bufferRight(
+        RelNode left,
+        RelNode right,
+        RelTraitSet traits)
     {
+        RelNode fennelInput = 
+            mergeTraitsAndConvert(
+                traits,
+                FennelRel.FENNEL_EXEC_CONVENTION,
+                right);
         FennelBufferRel bufRel =
-            new FennelBufferRel(right.getCluster(), right, false, true);
-        
+            new FennelBufferRel(right.getCluster(), fennelInput, false, true);
+
         // if we don't have a rowcount for the LHS, then just go ahead and
         // buffer
         Double nRowsLeft = RelMetadataQuery.getRowCount(left);
         if (nRowsLeft == null) {
+            return bufRel;
+        }
+
+        // If we know that the RHS is not capable of restart, then
+        // force buffering.
+        if (!FarragoRelMetadataQuery.canRestart(right)) {
             return bufRel;
         }
         

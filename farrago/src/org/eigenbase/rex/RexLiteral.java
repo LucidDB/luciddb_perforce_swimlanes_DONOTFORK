@@ -287,7 +287,11 @@ public class RexLiteral
                     nlsString.getValue(),
                     true);
             } else {
-                pw.print(nlsString.toString());
+                boolean includeCharset =
+                    (nlsString.getCharsetName() != null)
+                    && !nlsString.getCharsetName().equals(
+                        SaffronProperties.instance().defaultCharset.get());
+                pw.print(nlsString.asSql(includeCharset, false));
             }
             break;
         case SqlTypeName.Boolean_ordinal:
@@ -304,10 +308,12 @@ public class RexLiteral
             break;
         case SqlTypeName.Binary_ordinal:
             assert value instanceof ByteBuffer;
+            pw.print("X'");
             pw.print(
                 ConversionUtil.toStringFromByteArray(
                     ((ByteBuffer) value).array(),
                     16));
+            pw.print("'");
             break;
         case SqlTypeName.Null_ordinal:
             assert value == null;
@@ -320,10 +326,13 @@ public class RexLiteral
             pw.print(")");
             break;
         case SqlTypeName.Date_ordinal:
+            printDatetime(pw, new ZonelessDate(), value);
+            break;
         case SqlTypeName.Time_ordinal:
+            printDatetime(pw, new ZonelessTime(), value);
+            break;
         case SqlTypeName.Timestamp_ordinal:
-            assert value instanceof Calendar;
-            pw.print(value.toString());
+            printDatetime(pw, new ZonelessTimestamp(), value);
             break;
         case SqlTypeName.IntervalDayTime_ordinal:
         case SqlTypeName.IntervalYearMonth_ordinal:
@@ -341,6 +350,15 @@ public class RexLiteral
                 "valueMatchesType(value, typeName)");
             throw Util.needToImplement(typeName);
         }
+    }
+
+    private static void printDatetime(
+        PrintWriter pw, ZonelessDatetime datetime, Comparable value)
+    {
+        assert (value instanceof Calendar);
+        datetime.setZonelessTime(
+            ((Calendar) value).getTimeInMillis());
+        pw.print(datetime);
     }
 
     /**
@@ -401,21 +419,23 @@ public class RexLiteral
         case SqlTypeName.Time_ordinal:
         case SqlTypeName.Timestamp_ordinal:
             String format = getCalendarFormat(typeName);
+            TimeZone tz = DateTimeUtil.gmtZone;
             Calendar cal = null;
-            if (typeName.getOrdinal() == SqlTypeName.Timestamp_ordinal) {
-                SqlParserUtil.PrecisionTime ts =
-                    SqlParserUtil.parsePrecisionDateTimeLiteral(
+            if (typeName == SqlTypeName.Date) {
+                cal = DateTimeUtil.parseDateFormat(
+                    literal,
+                    format,
+                    tz);
+            } else {
+                // Allow fractional seconds for times and timestamps
+                DateTimeUtil.PrecisionTime ts =
+                    DateTimeUtil.parsePrecisionDateTimeLiteral(
                         literal,
                         format,
-                        null);
+                        tz);
                 if (ts != null) {
                     cal = ts.getCalendar();
                 }
-            } else {
-                cal = SqlParserUtil.parseDateFormat(
-                        literal,
-                        format,
-                        null);
             }
             if (cal == null) {
                 throw Util.newInternal(

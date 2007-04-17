@@ -49,14 +49,22 @@ import org.eigenbase.util14.*;
 
 /**
  * FarragoJdbcTest tests specifics of the Farrago implementation of the JDBC
- * API. See also unitsql/jdbc/*.sql. todo: test: 1. string too long for
- * char/varchar field 2. value which converted to char/varchar is too long 3.
- * various numeric values out of range, e.g. put 65537 in a tinyint 4. assign
- * boolean to integer columns (becomes 0/1) 5. assign numerics to boolean
- * 5a.small enough 5b out of range (not 0 or 1) 6. assign string to everything
- * 6a invalid string format to boolean, numerics 6b valid datetime string to
- * date, time, timestamp 7. casting betwen incompatible types 8. set null for
- * nonnullable columns 9. invalid parameter index
+ * API. See also unitsql/jdbc/*.sql.
+ *
+ * <p>TODO: test:<ol>
+ * <li>string too long for char/varchar field
+ * <li>value which converted to char/varchar is too long
+ * <li>various numeric values out of range, e.g. put 65537 in a tinyint
+ * <li>assign boolean to integer columns (becomes 0/1)
+ * <li> assign numerics to boolean
+ * (a) small enough, (b)out of range (not 0 or 1)
+ * <li>assign string to everything
+ * (a) invalid string format to boolean, numerics
+ * (b) valid datetime string to date, time, timestamp
+ * <li>casting betwen incompatible types
+ * <li>set null for nonnullable columns
+ * <li>invalid parameter index
+ * </ol>
  *
  * @author Tim Leung
  * @author John V. Sichi
@@ -1472,19 +1480,19 @@ public class FarragoJdbcTest
                     stringValue,
                     resultSet.getString(BIGINT));
                 assertEquals(
-                    
+
 
                     /*stringValue,*/
                 "0.0",
                     resultSet.getString(REAL));
                 assertEquals(
-                    
+
 
                     /*stringValue,*/
                 "0.0",
                     resultSet.getString(FLOAT));
                 assertEquals(
-                    
+
 
                     /*stringValue,*/
                 "0.0",
@@ -1496,7 +1504,7 @@ public class FarragoJdbcTest
                     "0.000",
                     resultSet.getString(DECIMAL73));
                 assertEquals(
-                    
+
 
                     /*stringValue,*/
                 "false",
@@ -2151,6 +2159,7 @@ public class FarragoJdbcTest
                 assertEquals(
                     dateNoTime.getTime(),
                     resultSet.getDate(TIMESTAMP).getTime());
+
                 break;
             case 117:
                 assertEquals(
@@ -2162,12 +2171,17 @@ public class FarragoJdbcTest
                 assertEquals(
                     timeNoDate.getTime(),
                     resultSet.getTime(TIME).getTime());
+
+                // FIXME: FNL-54
+                // SQL Spec Part 2 Section 4.6.2 Table 3 requires
+                // Time to Timestamp cast to set the date to current_date
+                // (currently stored in FarragoRuntimeContext)
                 assertEquals(
                     timeNoDate.getTime(),
                     resultSet.getTime(TIMESTAMP).getTime());
+
                 break;
             case 118:
-
                 // TODO: Should these be timestamp with or without precision?
                 assertEquals(
                     timestampNoPrec.getTime(),
@@ -2176,11 +2190,14 @@ public class FarragoJdbcTest
                     timestampNoPrec.getTime(),
                     resultSet.getTimestamp(VARCHAR).getTime());
                 assertEquals(
-                    timestamp.getTime(),
+                    dateNoTime.getTime(),
                     resultSet.getTimestamp(DATE).getTime());
-                assertEquals(
-                    timestamp.getTime(),
-                    resultSet.getTimestamp(TIME).getTime());
+                // FIXME: See Time to Timestamp note above
+                if (todo) {
+                    assertEquals(
+                        timestamp.getTime(),
+                        resultSet.getTimestamp(TIME).getTime());
+                }
                 assertEquals(
                     timestamp.getTime(),
                     resultSet.getTimestamp(TIMESTAMP).getTime());
@@ -2751,7 +2768,7 @@ public class FarragoJdbcTest
     public void testCachedQuery()
         throws Exception
     {
-        repeatQuery();
+        repeatQuery(false);
     }
 
     /**
@@ -2764,14 +2781,10 @@ public class FarragoJdbcTest
         throws Exception
     {
         // disable caching
-        stmt.execute("alter system set \"codeCacheMaxBytes\" = min");
-        repeatQuery();
-
-        // re-enable caching
-        stmt.execute("alter system set \"codeCacheMaxBytes\" = max");
+        repeatQuery(true);
     }
 
-    private void repeatQuery()
+    private void repeatQuery(boolean flushCache)
         throws Exception
     {
         String sql = "select * from sales.emps";
@@ -2782,6 +2795,9 @@ public class FarragoJdbcTest
                 getResultSetCount());
             resultSet.close();
             resultSet = null;
+            if (flushCache) {
+                stmt.execute("call sys_boot.mgmt.flush_code_cache()");
+            }
         }
     }
 
@@ -3061,6 +3077,30 @@ public class FarragoJdbcTest
         } catch (SQLException ex) {
             // expected
         }
+    }
+
+    /**
+     * Tests {@link Statement#setMaxRows}.
+     */
+    public void testMaxRows()
+        throws Exception
+    {
+        assertEquals(0, stmt.getMaxRows());
+        stmt.setMaxRows(1);
+        assertEquals(1, stmt.getMaxRows());
+        String sql = "select name from sales.depts order by 1";
+        resultSet = stmt.executeQuery(sql);
+        Set refSet = new HashSet();
+        refSet.add("Accounts");
+        compareResultSet(refSet);
+        stmt.setMaxRows(0);
+        assertEquals(0, stmt.getMaxRows());
+        resultSet = stmt.executeQuery(sql);
+        refSet = new HashSet();
+        refSet.add("Accounts");
+        refSet.add("Marketing");
+        refSet.add("Sales");
+        compareResultSet(refSet);
     }
 
     //~ Inner Interfaces -------------------------------------------------------

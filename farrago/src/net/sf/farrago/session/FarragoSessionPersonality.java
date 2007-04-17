@@ -21,16 +21,21 @@
 */
 package net.sf.farrago.session;
 
+import java.sql.*;
 import java.util.*;
 
 import org.eigenbase.jmi.*;
 import org.eigenbase.oj.rex.*;
+import org.eigenbase.rel.*;
 import org.eigenbase.rel.metadata.*;
+import org.eigenbase.reltype.*;
 import org.eigenbase.resgen.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.util.*;
 import org.eigenbase.resource.EigenbaseResource;
+
+import net.sf.farrago.catalog.*;
+import net.sf.farrago.fem.sql2003.*;
 
 
 /**
@@ -193,6 +198,16 @@ public interface FarragoSessionPersonality
     public FarragoSessionRuntimeContext newRuntimeContext(
         FarragoSessionRuntimeParams params);
 
+    /**
+     * Creates a new type factory.
+     * 
+     * @param repos a repository containing Farrago metadata
+     * 
+     * @return a new type factory
+     */
+    public RelDataTypeFactory newTypeFactory(
+        FarragoRepos repos);
+
     // TODO jvs 6-Apr-2005:  get rid of this once Aspen stops using it
     public void validate(
         FarragoSessionStmtValidator stmtValidator,
@@ -208,14 +223,27 @@ public interface FarragoSessionPersonality
      * <p>
      * 
      * This method should be called when initializing a new session or when 
-     * loading a new session personality for an existing session. The method 
-     * is fairly harmful. It has the side effect of permanently updating the 
+     * loading a new session personality for an existing session. This method 
+     * "leaves a mark", as it has the side effect of permanently updating the 
      * session variables. Even if the session personality is swapped out, 
      * the changes will remain.
      * 
      * @param variables the session variables object
      */
     public void loadDefaultSessionVariables(
+        FarragoSessionVariables variables);
+
+    /**
+     * Creates a set of session variables for use in a cloned session.
+     * Default implementation is to just return variables.cloneVariables(),
+     * but personalities may override, e.g. to reset some variables
+     * which should never be inherited.
+     *
+     * @param variables set of variables to be inherited
+     *
+     * @return result of variable inheritance
+     */
+    public FarragoSessionVariables createInheritedSessionVariables(
         FarragoSessionVariables variables);
 
     /**
@@ -278,6 +306,49 @@ public interface FarragoSessionPersonality
      * @param chain receives personality's custom providers, if any
      */
     public void registerRelMetadataProviders(ChainedRelMetadataProvider chain);
+    
+    /**
+     * Gives this personality the opportunity to retrieve rowcount information
+     * returned by a DML operation.
+     * 
+     * @param resultSet result set returned by DML operation
+     * @rowCounts list of rowcounts returned by the DML operation
+     * @param table modification operation that caused the
+     * rowcounts to be modified
+     */
+    public void getRowCounts(
+        ResultSet resultSet,
+        List<Long> rowCounts,
+        TableModificationRel.Operation tableModOp)
+        throws SQLException;
+    
+    /**
+     * Gives this personality the opportunity to update rowcount information in
+     * the catalog tables for a specified table as a result of a particular
+     * DML operation.
+     * 
+     * @param session session that needs to update rowcounts
+     * @param tableName fully qualified table name for which rowcounts will be
+     * updated
+     * @param rowCounts list of row counts returned by the DML statement
+     * @param tableModOp table modification operation that caused the
+     * rowcounts to be modified
+     * 
+     * @return number of rows affected by the DML operation
+     */
+    public long updateRowCounts(
+        FarragoSession session,
+        List<String> tableName,
+        List<Long> rowCounts,
+        TableModificationRel.Operation tableModOp);
+    
+    /**
+     * Gives this personality the opportunity to reset rowcount information in
+     * the catalog tables for a specified table
+     * 
+     * @param table column set corresponding to table
+     */
+    public void resetRowCounts(FemAbstractColumnSet table);
 }
 
 // End FarragoSessionPersonality.java

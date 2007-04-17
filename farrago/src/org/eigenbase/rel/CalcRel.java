@@ -129,6 +129,28 @@ public final class CalcRel
         return (ProjectRel) createProject(child, exprs, fieldNames, false);
     }
 
+    public static RelNode createProject(
+        RelNode child,
+        List<Integer> posList)
+    {
+        RexNode [] exprList = new RexNode[posList.size()];
+        
+        final RelOptCluster cluster = child.getCluster();        
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+        
+        for (int i = 0; i < posList.size(); i ++) {
+            exprList[i] = rexBuilder.makeInputRef(
+                (child.getRowType().getFields()[posList.get(i)]).getType(),
+                posList.get(i));
+        }
+        
+        return
+            CalcRel.createProject(
+                child,
+                exprList,
+                null);
+    }
+    
     /**
      * Creates a relational expression which projects a set of expressions.
      *

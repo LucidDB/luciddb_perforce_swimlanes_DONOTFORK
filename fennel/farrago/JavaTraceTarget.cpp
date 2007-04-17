@@ -88,9 +88,20 @@ void JavaTraceTarget::notifyTrace(
     std::string source,TraceLevel level,std::string message)
 {
     JniEnvAutoRef pEnv;
-    jstring javaSource = pEnv->NewStringUTF(source.c_str());
-    jstring javaMessage = pEnv->NewStringUTF(message.c_str());
-    pEnv->CallVoidMethod(javaTrace,methTrace,javaSource,level,javaMessage);
+    // NOTE jvs 29-Oct-2006:  use a local frame so that this method
+    // can be used by long-running Fennel-spawned threads
+    // such as the StatsTimer.  (Without this, the local references
+    // created here become memory leaks.)
+    pEnv->PushLocalFrame(2);
+    try {
+        jstring javaSource = pEnv->NewStringUTF(source.c_str());
+        jstring javaMessage = pEnv->NewStringUTF(message.c_str());
+        pEnv->CallVoidMethod(javaTrace,methTrace,javaSource,level,javaMessage);
+    } catch (...) {
+        pEnv->PopLocalFrame(NULL);
+        throw;
+    }
+    pEnv->PopLocalFrame(NULL);
 }
 
 TraceLevel JavaTraceTarget::getSourceTraceLevel(std::string source)
@@ -119,6 +130,21 @@ void JavaTraceTarget::writeCounter(std::string name, uint value)
     std::string s = boost::lexical_cast<std::string>(value);
     notifyTrace(
         name, TRACE_PERFCOUNTER_UPDATE, s);
+}
+
+void JavaTraceTarget::onTimerStart()
+{
+    JniEnvAutoRef pEnv;
+    // We want to stay attached for the duration of the timer thread,
+    // so suppress detach here and do it explicitly in onTimerStop
+    // instead.  See comments on suppressDetach about the need for a
+    // cleaner approach to attaching native-spawned threads.
+    pEnv.suppressDetach();
+}
+
+void JavaTraceTarget::onTimerStop()
+{
+    JniUtil::detachJavaEnv();
 }
 
 FENNEL_END_CPPFILE("$Id$");

@@ -29,32 +29,30 @@ import java.lang.reflect.*;
 import java.sql.*;
 
 import java.util.*;
+import java.util.logging.*;
 
 import net.sf.farrago.runtime.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.util.*;
 
+import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.runtime.*;
 import org.eigenbase.util.*;
 
-
 /**
  * FarragoExecutableJavaStmt implements FarragoSessionExecutableStmt via a
- * compiled Java class.
+ * compiled Java class.  It extends upon FarragoExecutableFennelStmt, which
+ * implements the Fennel portion of a statement.
  *
  * <p>NOTE: be sure to read superclass warnings before modifying this class.
- *
- * <p>TODO: another implementation, FarragoExecutableFennelStmt, which operates
- * off of a pure Fennel plan; for use when there is no Java needed in the
- * implementation
  *
  * @author John V. Sichi
  * @version $Id$
  */
 class FarragoExecutableJavaStmt
-    extends FarragoExecutableStmtImpl
+    extends FarragoExecutableFennelStmt
 {
 
     //~ Instance fields --------------------------------------------------------
@@ -66,12 +64,10 @@ class FarragoExecutableJavaStmt
     // will keep cache memory usage down.
     private final Class rowClass;
     private final ClassLoader statementClassLoader;
-    private final RelDataType rowType;
     private final Method method;
-    private final String xmiFennelPlan;
-    private final Set<String> referencedObjectIds;
     private final Map<String, RelDataType> resultSetTypeMap;
     private final Map<String, RelDataType> iterCalcTypeMap;
+    private final int totalByteCodeSize;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -84,38 +80,34 @@ class FarragoExecutableJavaStmt
         Method method,
         String xmiFennelPlan,
         boolean isDml,
-        Set<String> referencedObjectIds,
+        TableModificationRel.Operation tableModOp,
+        Map<String, String> referencedObjectTimestampMap,
         TableAccessMap tableAccessMap,
         Map<String, RelDataType> resultSetTypeMap,
-        Map<String, RelDataType> iterCalcTypeMap)
+        Map<String, RelDataType> iterCalcTypeMap,
+        int totalByteCodeSize)
     {
-        super(dynamicParamRowType, isDml, tableAccessMap);
+        super(
+            preparedRowType,
+            dynamicParamRowType,
+            xmiFennelPlan,
+            null,
+            isDml,
+            tableModOp,
+            referencedObjectTimestampMap,
+            tableAccessMap,
+            resultSetTypeMap);
 
         this.packageDir = packageDir;
         this.rowClass = rowClass;
         this.statementClassLoader = statementClassLoader;
         this.method = method;
-        this.xmiFennelPlan = xmiFennelPlan;
-        this.referencedObjectIds = referencedObjectIds;
         this.resultSetTypeMap = resultSetTypeMap;
         this.iterCalcTypeMap = iterCalcTypeMap;
-
-        rowType = preparedRowType;
+        this.totalByteCodeSize = totalByteCodeSize;
     }
 
     //~ Methods ----------------------------------------------------------------
-
-    // implement FarragoSessionExecutableStmt
-    public RelDataType getRowType()
-    {
-        return rowType;
-    }
-
-    // implement FarragoSessionExecutableStmt
-    public Set<String> getReferencedObjectIds()
-    {
-        return referencedObjectIds;
-    }
 
     // implement FarragoSessionExecutableStmt
     public ResultSet execute(FarragoSessionRuntimeContext runtimeContext)
@@ -167,22 +159,27 @@ class FarragoExecutableJavaStmt
     // implement FarragoSessionExecutableStmt
     public long getMemoryUsage()
     {
-        // TODO: a better approximation.  This only sums the bytecode size of
-        // the compiled classes.  Other allocations to estimate are loaded
-        // class overhead (e.g. constants and reflection info), type
-        // descriptor, JIT code size, and "this" object and fields such as
-        // packageDir/referencedObjectIds.
-        long nBytes = 0;
-        File [] files = packageDir.listFiles();
-        for (int i = 0; i < files.length; ++i) {
-            if (!files[i].getName().endsWith(".class")) {
-                continue;
+        // The size of the Java portion of the statement is estimated
+        // based on the bytecode size times an additional factor of .75.
+        // That factor was derived from measurements capturing the relative
+        // size of JIT code versus bytecode size.  JIT code size relative to
+        // bytecode size varied from .25 to .5.  So, we use .5 to account
+        // for the JIT code and then add an additional .25 factor for other
+        // class overhead (e.g. constants and reflection info), type descriptor,
+        // and "this" object and fields such as packageDir/referencedObjectIds.        
+        long nBytes = (long) ((double) totalByteCodeSize * 1.75);
+
+        if (tracer.isLoggable(Level.FINE)) {
+            tracer.fine("Java bytecode size = " + totalByteCodeSize + " bytes");
+            if (xmiFennelPlan != null) {
+                int xmiSize = FarragoUtil.getStringMemoryUsage(xmiFennelPlan);
+                tracer.fine("XMI Fennel plan size = "+ xmiSize + " bytes");
             }
-            nBytes += files[i].length();
         }
 
+        // call the superclass to account for the Fennel XMI plan
         if (xmiFennelPlan != null) {
-            nBytes += FarragoUtil.getStringMemoryUsage(xmiFennelPlan);
+            nBytes += super.getMemoryUsage();
         }
 
         return nBytes;

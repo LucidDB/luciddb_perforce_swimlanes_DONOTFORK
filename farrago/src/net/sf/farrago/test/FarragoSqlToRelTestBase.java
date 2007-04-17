@@ -77,14 +77,17 @@ public abstract class FarragoSqlToRelTestBase
 
         // guarantee release of any resources we allocate on the way
         FarragoCompoundAllocation allocations = new FarragoCompoundAllocation();
-        FarragoReposTxnContext reposTxn = new FarragoReposTxnContext(repos);
+        FarragoReposTxnContext reposTxn = repos.newTxnContext();
         try {
             reposTxn.beginReadTxn();
 
             // create a private code cache: don't pollute the real
             // database code cache
             FarragoObjectCache objCache =
-                new FarragoObjectCache(allocations, 0);
+                new FarragoObjectCache(
+                    allocations,
+                    0,
+                    new FarragoLruVictimPolicy());
 
             // FarragoPreparingStmt does most of the work for us
             FarragoSessionStmtValidator stmtValidator =

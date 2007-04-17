@@ -31,7 +31,6 @@ import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.fun.*;
-import org.eigenbase.sql.type.*;
 
 
 /**
@@ -174,6 +173,7 @@ public class LcsTableMergeRule
             rexBuilder.makeCall(
                 SqlStdOperatorTable.isNullOperator,
                 ridExpr);
+
         RelNode filterRel =
             CalcRel.createFilter(origProj.getChild(), isNullExpr);
 
@@ -219,6 +219,7 @@ public class LcsTableMergeRule
     {
         RexNode[] origProjExprs = origProj.getProjectExps();
         int nTargetFields = targetFields.length;
+        int nInsertFields = (updateOnly) ? 0 : nTargetFields;
 
         // create a filter selecting only rows where any of the update
         // columns are different from their original column values; if there's
@@ -226,72 +227,27 @@ public class LcsTableMergeRule
         // rows where the target rid is null; note also that since the
         // expression comparing the original and new values doesn't handle
         // nulls, we need to also explicitly add checks for nulls
-        List<RexNode> filterList = new ArrayList<RexNode>();
-        if (!updateOnly) {
-            createNullFilter(rexBuilder, ridExpr, filterList);
-        }   
-        
-        int nInsertFields = (updateOnly) ? 0 : nTargetFields;
-        for (int i = 0; i < updateList.size(); i++) {
-            // find the original target column corresponding to the update
-            // column
-            int targetColno;
-            for (targetColno = 0; targetColno < nTargetFields; targetColno++) {
-                if (targetFields[targetColno].getName().equals(
-                    updateList.get(i)))
-                {
-                    break;
-                }
-            }
-            assert(targetColno < nTargetFields);
-            
-            // create null filters on the original and new values, accounting
-            // for the case where both are null
-            RexNode origValue = origProjExprs[nInsertFields + targetColno];
-            RexNode newValue = origProjExprs[nInsertFields + nTargetFields + i];
-            createNullFilterAndIsNotNullFilter(
+        RelNode child = 
+            createChangeFilterRel(
+                origProj,
+                targetFields,
+                updateList,
+                updateOnly,
+                ridExpr,
                 rexBuilder,
-                origValue,
-                newValue,
-                filterList);           
-            createNullFilterAndIsNotNullFilter(
-                rexBuilder,
-                newValue,
-                origValue,
-                filterList);
-            
-            // create the != expression, comparing the original value
-            // against the new
-            RexNode filter =
-                rexBuilder.makeCall(
-                    SqlStdOperatorTable.notEqualsOperator, origValue, newValue);
-            filterList.add(filter);
-        }
-        RexNode nonUpdateFilter =
-            RexUtil.orRexNodeList(rexBuilder, filterList);
-        RelNode filterRel =
-            CalcRel.createFilter(origProj.getChild(), nonUpdateFilter);
+                nInsertFields);
 
-        // Project out the rid and 2 null columns as well as the
-        // expressions that make up a new insert target row.  The content of
-        // insert target row depends on whether the rid is null or non-null.
-        // In the case of the former, it corresponds to the target of the
-        // INSERT substatement while in the latter, it corresponds to the
-        // UPDATE.  These will be implemented using a CASE expression.  If
-        // only an UPDATE substatement is present, no CASE expression is
-        // required.
-        RexNode [] projExprs = new RexNode[nTargetFields + 3];
-        String [] fieldNames = new String[nTargetFields + 3];
+        // Project out the rid column as well as the expressions that make up 
+        // a new insert target row.  The content of insert target row depends
+        // on whether the rid is null or non-null.  In the case of the former,
+        // it corresponds to the target of the INSERT substatement while in
+        // the latter, it corresponds to the UPDATE.  These will be implemented
+        // using a CASE expression.  If only an UPDATE substatement is present,
+        // no CASE expression is required.
+        RexNode [] projExprs = new RexNode[nTargetFields + 1];
+        String [] fieldNames = new String[nTargetFields + 1];
         projExprs[0] = ridExpr;
-        RexNode nullLiteral =
-            rexBuilder.makeNullLiteral(
-                SqlTypeName.Varbinary,
-                LcsIndexGuide.LbmBitmapSegMaxSize);
-        projExprs[1] = nullLiteral;
-        projExprs[2] = nullLiteral;
         fieldNames[0] = "rid";
-        fieldNames[1] = "descriptor";
-        fieldNames[2] = "segment";
 
         // when expression used in the case expression
         RexNode whenExpr = null;
@@ -318,19 +274,112 @@ public class LcsTableMergeRule
             }
 
             if (updateOnly) {
-                projExprs[i + 3] = updateExpr;
+                projExprs[i + 1] = updateExpr;
             } else {
-                projExprs[i + 3] =
+                projExprs[i + 1] =
                     rexBuilder.makeCall(
                         SqlStdOperatorTable.caseOperator,
                         whenExpr,
                         origProjExprs[i],
                         updateExpr);
             }
-            fieldNames[i + 3] = targetFields[i].getName();
+            fieldNames[i + 1] = targetFields[i].getName();
         }
 
-        return CalcRel.createProject(filterRel, projExprs, fieldNames);
+        return CalcRel.createProject(child, projExprs, fieldNames);
+    }
+
+    /**
+     * Creates the filter expression used to detect changed rows.  The
+     * expression looks like (ROW(O1, O2, ...) IS DISTINCT FROM ROW(N1, N2,
+     * ...))  where the O references are the old values and the N references
+     * are the new values.  We rely on a custom implementation of the row-wise
+     * IS DISTINCT FROM operator in the Java calc to evaluate this efficiently
+     * and without exceeding the Java calc limit on method bytecode size.  (As
+     * opposed to {@link RelOptUtil.isDistinctFrom}, which generates a deeply
+     * nested tree.)
+     *
+     * @param origProj the original projection being replaced
+     *
+     * @param targetFields fields from the target table
+     *
+     * @param updateList list of names corresponding to the update columns
+     *
+     * @param updateOnly if true, MERGE statement contains no INSERT
+     *
+     * @param ridExpr expression representing the target rid column
+     *
+     * @param rexBuilder rex builder
+     *
+     * @param nInsertFields number of fields in INSERT portion of UPSERT
+     *
+     * @return filter rel
+     */
+    private RelNode createChangeFilterRel(
+        ProjectRel origProj,
+        RelDataTypeField[] targetFields,
+        List<String> updateList,
+        boolean updateOnly,
+        RexNode ridExpr,
+        RexBuilder rexBuilder,
+        int nInsertFields)
+    {
+        RexNode[] origProjExprs = origProj.getProjectExps();
+        List<RexNode> filterList = new ArrayList<RexNode>();
+        if (!updateOnly) {
+            createNullFilter(rexBuilder, ridExpr, filterList);
+        }
+        
+        int nTargetFields = targetFields.length;
+
+        List<RexNode> oldVals = new ArrayList<RexNode>();
+        List<RexNode> newVals = new ArrayList<RexNode>();
+        
+        Map<String, Integer> targetColnoMap = new HashMap<String, Integer>();
+        for (int i = 0; i < nTargetFields; i++) {
+            targetColnoMap.put(targetFields[i].getName(), i);
+        }
+        for (int i = 0; i < updateList.size(); i++) {
+
+            // find the original target column corresponding to the update
+            // column
+            Integer targetColno = targetColnoMap.get(updateList.get(i));
+            assert(targetColno != null);
+
+            // build up row lists
+            RexNode origValue = origProjExprs[nInsertFields + targetColno];
+            RexNode newValue = origProjExprs[nInsertFields + nTargetFields + i];
+
+            if (newValue.getType() != origValue.getType()) {
+                // comparison has to be done on result of cast from new value
+                // to type of original value (which allows nulls, due to outer
+                // join, even if target field does not)
+                newValue = rexBuilder.makeCast(
+                    origValue.getType(),
+                    newValue);
+            }
+            
+            oldVals.add(origValue);
+            newVals.add(newValue);
+        }
+
+        RexNode oldRow = rexBuilder.makeCall(
+            SqlStdOperatorTable.rowConstructor,
+            oldVals);
+        RexNode newRow = rexBuilder.makeCall(
+            SqlStdOperatorTable.rowConstructor,
+            newVals);
+        RexNode distinctTest = rexBuilder.makeCall(
+            SqlStdOperatorTable.isDifferentFromOperator,
+            oldRow,
+            newRow);
+        filterList.add(distinctTest);
+        RexNode nonUpdateFilter =
+            RexUtil.orRexNodeList(rexBuilder, filterList);
+        
+        RelNode filterRel =
+            CalcRel.createFilter(origProj.getChild(), nonUpdateFilter);
+        return filterRel;
     }
     
     /**
@@ -349,37 +398,6 @@ public class LcsTableMergeRule
         RexNode filter = rexBuilder.makeCall(
             SqlStdOperatorTable.isNullOperator,
             expr);
-        filterList.add(filter);
-    }
-    
-    /**
-     * Creates an expression AND'ing together an IS NULL expression on one
-     * expression and a IS NOT NULL expression on a second, and adds it to a
-     * list of filter
-     * 
-     * @param rexBuilder rex builder
-     * @param nullExpr expression that the IS NULL will be created on
-     * @param notNullExpr expression that the IS NOT NULL expression will be
-     * created on
-     * @param filterList list of filters
-     */
-    private void createNullFilterAndIsNotNullFilter(
-        RexBuilder rexBuilder,
-        RexNode nullExpr,
-        RexNode notNullExpr,
-        List<RexNode> filterList)
-    {
-    	RexNode nullFilter = rexBuilder.makeCall(
-            SqlStdOperatorTable.isNullOperator,
-            nullExpr);
-    	RexNode notNullFilter = rexBuilder.makeCall(
-            SqlStdOperatorTable.isNotNullOperator,
-            notNullExpr);
-        RexNode filter = rexBuilder.makeCall(
-            SqlStdOperatorTable.andOperator,
-            nullFilter,
-            notNullFilter);
-    	
         filterList.add(filter);
     }
 }

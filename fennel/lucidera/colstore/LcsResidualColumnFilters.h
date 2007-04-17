@@ -27,6 +27,7 @@
 #include "fennel/tuple/TupleDescriptor.h"
 #include "fennel/tuple/TupleData.h"
 #include "fennel/tuple/TupleDataWithBuffer.h"
+#include "fennel/tuple/UnalignedAttributeAccessor.h"
 #include "fennel/common/SearchEndpoint.h"
 #include "fennel/common/SharedTypes.h"
 
@@ -68,6 +69,11 @@ struct LcsResidualColumnFilters
     TupleDescriptor inputKeyDesc;
 
     /**
+     * accessor corresponding to inputKeyDesc
+     */
+    UnalignedAttributeAccessor attrAccessor;
+
+    /**
      * projection from outputTupleData for the key data
      */
     TupleProjection readerKeyProj;
@@ -90,7 +96,7 @@ struct LcsResidualColumnFilters
     /**
      * contains individual predicate info
      */
-    std::vector<SharedLcsResidualFilter>  filterData;
+    std::vector<SharedLcsResidualFilter> filterData;
 
     /**
      * Values bitmap for compressed batch filtering.
@@ -102,6 +108,8 @@ struct LcsResidualColumnFilters
      */
     TupleDataWithBuffer readerKeyData;
 };
+
+typedef LcsResidualColumnFilters *PLcsResidualColumnFilters;
 
 FENNEL_END_NAMESPACE
 

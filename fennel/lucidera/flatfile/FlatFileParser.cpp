@@ -20,9 +20,11 @@
 */
 
 #include "fennel/common/CommonPreamble.h"
-#include "FlatFileParser.h"
+#include "fennel/lucidera/flatfile/FlatFileParser.h"
 
 FENNEL_BEGIN_CPPFILE("$Id$");
+
+const char SPACE_CHAR = ' ';
 
 void FlatFileColumnParseResult::setResult(
     FlatFileColumnParseResult::DelimiterType type, char *buffer, uint size)
@@ -73,12 +75,13 @@ void FlatFileRowParseResult::reset()
 }
 
 FlatFileParser::FlatFileParser(
-    char fieldDelim, char rowDelim, char quote, char escape)
+    char fieldDelim, char rowDelim, char quote, char escape, bool doTrim)
 {
     this->fieldDelim = fieldDelim;
     this->rowDelim = rowDelim;
     this->quote = quote;
     this->escape = escape;
+    this->doTrim = doTrim;
 
     fixed = (fieldDelim == 0);
     if (fixed) {
@@ -100,24 +103,32 @@ void FlatFileParser::scanRow(
 
     result.status = FlatFileRowParseResult::NO_STATUS;
     bool bounded = columns.isBounded();
-    uint maxColumns;
+    bool lenient = columns.isLenient();
+    bool mapped = columns.isMapped();
+    bool strict = (bounded && (!lenient));
+
+    uint maxColumns = columns.getMaxColumns();
+    uint resultColumns = columns.size();
     if (bounded) {
-        maxColumns = columns.size();
-        result.offsets.resize(maxColumns);
-        result.sizes.resize(maxColumns);
-    } else {
-        maxColumns = FlatFileRowDescriptor::MAX_COLUMNS;
-        result.offsets.clear();
-        result.sizes.clear();
-    }
-    bool done = false;
-    for (uint i=0; i < maxColumns; i++) {
-        int maxLength;
-        if (bounded) {
-            maxLength = columns[i].maxLength;
-        } else {
-            maxLength = FlatFileRowDescriptor::MAX_COLUMN_LENGTH;
+        result.resize(resultColumns);
+        for (uint i = 0; i < resultColumns; i++) {
+            result.setNull(i);
         }
+    } else {
+        result.clear();
+    }
+
+    // Scan any initial row delimiters, helps for the case when a row
+    // delimiter is multiple characters like \r\n and the delimiter
+    // characters are split between two buffers. (The previous row could
+    // be complete due to \r, and parsing could begin at \n.
+    const char *nonDelim = scanRowDelim(row, size, false);
+    offset = nonDelim - row;
+
+    bool done = false;
+    bool rowDelim = false;
+    for (uint i = 0; i < maxColumns; i++) {
+        uint maxLength = columns.getMaxLength(i);
         scanColumn(
             row + offset,
             size - offset,
@@ -129,7 +140,7 @@ void FlatFileParser::scanRow(
             done = true;
             break;
         case FlatFileColumnParseResult::ROW_DELIM:
-            if (bounded && (i+1 != columns.size())) {
+            if (strict && (i+1 != columns.size())) {
                 if (i == 0) {
                     result.status = FlatFileRowParseResult::NO_COLUMN_DELIM;
                 } else {
@@ -137,10 +148,11 @@ void FlatFileParser::scanRow(
                 }
             }
             done = true;
+            rowDelim = true;
             break;
         case FlatFileColumnParseResult::MAX_LENGTH:
         case FlatFileColumnParseResult::FIELD_DELIM:
-            if (bounded && (i+1 == columns.size())) {
+            if (strict && (i+1 == columns.size())) {
                 result.status = FlatFileRowParseResult::TOO_MANY_COLUMNS;
                 done = true;
             }
@@ -149,23 +161,30 @@ void FlatFileParser::scanRow(
             permAssert(false);
         }
         if (bounded) {
-            result.offsets[i] = offset;
-            result.sizes[i] = columnResult.size;
+            int target = mapped ? columns.getMap(i) : i;
+            if (target >= 0) {
+                assert (target < maxColumns);
+                result.setColumn(target, offset, columnResult.size);
+            }
         } else {
-            result.offsets.push_back(offset);
-            result.sizes.push_back(columnResult.size);            
+            result.addColumn(offset, columnResult.size);
         }
         offset = columnResult.next - row;
         if (done) break;
     }
     result.current = const_cast<char *>(row);
     result.next = const_cast<char *>(
-        scanRowEnd(columnResult.next, buffer+size-columnResult.next, result));
+        scanRowEnd(
+            columnResult.next,
+            buffer+size-columnResult.next,
+            rowDelim, 
+            result));
 }
 
 const char *FlatFileParser::scanRowEnd(
     const char *buffer,
     int size,
+    bool rowDelim,
     FlatFileRowParseResult &result)
 {
     const char *read = buffer;
@@ -175,20 +194,22 @@ const char *FlatFileParser::scanRowEnd(
     case FlatFileRowParseResult::ROW_TOO_LARGE:
         assert(read == end);
         return read;
-    case FlatFileRowParseResult::TOO_MANY_COLUMNS:
+    default:
+        break;
+    }
+
+    // if a row delimiter was not encountered while scanning the row,
+    // search for the next row delimiter character
+    if (!rowDelim) {
         read = scanRowDelim(read, end-read, true);
         if (read == end) {
             return read;
         }
-    case FlatFileRowParseResult::NO_STATUS:
-    case FlatFileRowParseResult::NO_COLUMN_DELIM:
-    case FlatFileRowParseResult::TOO_FEW_COLUMNS:
-        read = scanRowDelim(read, end-read, false);
-        break;
-    default:
-        permAssert(false);
     }
     result.nRowDelimsRead++;
+
+    // search for the first non- row delimiter character
+    read = scanRowDelim(read, end-read, false);
     return read;
 }
 
@@ -228,7 +249,15 @@ void FlatFileParser::scanColumn(
     assert(buffer != NULL);
     const char *read = buffer;
     const char *end = buffer + size;
-    bool quoted = (size > 0 && *buffer == quote);
+
+    // read past leading spaces before checking for quotes
+    if (doTrim) {
+        while (read < end && SPACE_CHAR == *read) {
+            read++;
+        }
+    }
+
+    bool quoted = (read < end && *read == quote);
     bool quoteEscape = (quoted && quote == escape);
 
     FlatFileColumnParseResult::DelimiterType type =
@@ -314,6 +343,27 @@ void FlatFileParser::scanFixedColumn(
 
     uint resultSize = read - buffer;
     result.setResult(type, const_cast<char *>(buffer), resultSize);
+}
+
+void FlatFileParser::stripQuoting(
+    FlatFileRowParseResult &rowResult,
+    bool trim)
+{
+    int nFields = rowResult.getReadCount();
+
+    if (rowResult.strippedSizes.size() < nFields) {
+        rowResult.strippedSizes.resize(nFields);
+    }
+
+    for (uint i = 0; i < nFields; i++) {
+        char *value = rowResult.getColumn(i);
+        uint newSize = 0;
+        if (value != NULL) {
+            uint oldSize = rowResult.getRawColumnSize(i);
+            newSize = stripQuoting(value, oldSize, trim);
+        }
+        rowResult.strippedSizes[i] = newSize;
+    }
 }
 
 uint FlatFileParser::stripQuoting(

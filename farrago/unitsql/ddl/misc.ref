@@ -18,6 +18,23 @@ Error: Multiple PRIMARY KEY constraints not allowed on table "MISC"."DUP_PK" (st
 >     j int not null constraint charlie unique);
 Error: DDL validation error near line 3, column 39: Duplicate definition for UNIQUE constraint "CHARLIE" within table "MISC"."DUP_CONSTRAINTS"; earlier definition was near line 2, column 47 (state=,code=0)
 > 
+> -- test schema-wide index name uniqueness
+> 
+> create table t1(i int not null primary key)
+> create index xxx on t1(i);
+> 
+> -- should fail
+> create table t2(i int not null primary key)
+> create index xxx on t2(i);
+Error: DDL validation error near line 2, column 14: Target schema "LOCALDB"."MISC" already contains index "XXX" with same name (state=,code=0)
+> 
+> -- likewise for constraint name uniqueness
+> 
+> create table t3(i int not null constraint lucy primary key);
+> 
+> -- should fail
+> create table t4(i int not null constraint lucy primary key);
+Error: DDL validation error near line 1, column 56: Target schema "LOCALDB"."MISC" already contains PRIMARY KEY constraint "LUCY" with same name (state=,code=0)
 > 
 > -- FTRS-specific table validation rules
 > 
@@ -123,19 +140,19 @@ Error: PRIMARY KEY constraint required for table "MISC"."MISSING_PK" (state=,cod
 'column0'
 'FennelToIteratorConverter'
 '  FennelSortRel(key=[[0]], discardDuplicates=[false])'
-'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[3]], index=[SYS$CONSTRAINT_INDEX$T$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[3]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$T], preserveOrder=[false])'
 > 
 > explain plan for select h from t order by 1;
 'column0'
 'FennelToIteratorConverter'
 '  FennelSortRel(key=[[0]], discardDuplicates=[false])'
-'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$T$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$T], preserveOrder=[false])'
 > 
 > explain plan for select j from t order by 1;
 'column0'
 'FennelToIteratorConverter'
 '  FennelSortRel(key=[[0]], discardDuplicates=[false])'
-'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[2]], index=[SYS$CONSTRAINT_INDEX$T$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'    FtrsIndexScanRel(table=[[LOCALDB, MISC, T]], projection=[[2]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$T], preserveOrder=[false])'
 > 
 > !set outputformat table
 > 
@@ -149,13 +166,13 @@ Error: PRIMARY KEY constraint required for table "MISC"."MISSING_PK" (state=,cod
 > 
 > -- verify creation of system-defined clustered index
 > !indexes LCS_TABLE
-+------------+--------------+-------------+-------------+------------------+---------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
-| TABLE_CAT  | TABLE_SCHEM  | TABLE_NAME  | NON_UNIQUE  | INDEX_QUALIFIER  |              INDEX_NAME               | TYPE  | ORDINAL_POSITION  | COLUMN_NAME  | ASC_ORD_DESC  | CARDINALITY  | PAGES  | FILTER_CONDITION  |
-+------------+--------------+-------------+-------------+------------------+---------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
-| LOCALDB    | MISC         | LCS_TABLE   | false       |                  |                                       | 0     | 0                 |              |               | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE   | false       | LOCALDB          | SYS$DELETION_INDEX$MISC$LCS_TABLE     | 3     |                   |              | A             | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE   | true        | LOCALDB          | SYS$CLUSTERED_INDEX$MISC$LCS_TABLE$I  | 1     | 1                 | I            | A             | 0            | 0      |                   |
-+------------+--------------+-------------+-------------+------------------+---------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
++------------+--------------+-------------+-------------+------------------+----------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
+| TABLE_CAT  | TABLE_SCHEM  | TABLE_NAME  | NON_UNIQUE  | INDEX_QUALIFIER  |            INDEX_NAME            | TYPE  | ORDINAL_POSITION  | COLUMN_NAME  | ASC_ORD_DESC  | CARDINALITY  | PAGES  | FILTER_CONDITION  |
++------------+--------------+-------------+-------------+------------------+----------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
+| LOCALDB    | MISC         | LCS_TABLE   | false       |                  |                                  | 0     | 0                 |              |               | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE   | false       | LOCALDB          | SYS$DELETION_INDEX$LCS_TABLE     | 3     |                   |              | A             | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE   | true        | LOCALDB          | SYS$CLUSTERED_INDEX$LCS_TABLE$I  | 1     | 1                 | I            | A             | 0            | 0      |                   |
++------------+--------------+-------------+-------------+------------------+----------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
 > 
 > -- LCS tables may have multiple clustered indexes
 > create table lcs_table_explicit(i int not null,j int not null,k int not null)
@@ -166,15 +183,15 @@ Error: PRIMARY KEY constraint required for table "MISC"."MISSING_PK" (state=,cod
 > 
 > -- verify creation of user-defined clustered indexes
 > !indexes LCS_TABLE_EXPLICIT
-+------------+--------------+---------------------+-------------+------------------+---------------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
-| TABLE_CAT  | TABLE_SCHEM  |     TABLE_NAME      | NON_UNIQUE  | INDEX_QUALIFIER  |                 INDEX_NAME                  | TYPE  | ORDINAL_POSITION  | COLUMN_NAME  | ASC_ORD_DESC  | CARDINALITY  | PAGES  | FILTER_CONDITION  |
-+------------+--------------+---------------------+-------------+------------------+---------------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
-| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | false       |                  |                                             | 0     | 0                 |              |               | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | false       | LOCALDB          | SYS$DELETION_INDEX$MISC$LCS_TABLE_EXPLICIT  | 3     |                   |              | A             | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_I                                  | 1     | 1                 | I            | A             | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_JK1                                | 1     | 1                 | J            | A             | 0            | 0      |                   |
-| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_JK1                                | 1     | 2                 | K            | A             | 0            | 0      |                   |
-+------------+--------------+---------------------+-------------+------------------+---------------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
++------------+--------------+---------------------+-------------+------------------+----------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
+| TABLE_CAT  | TABLE_SCHEM  |     TABLE_NAME      | NON_UNIQUE  | INDEX_QUALIFIER  |               INDEX_NAME               | TYPE  | ORDINAL_POSITION  | COLUMN_NAME  | ASC_ORD_DESC  | CARDINALITY  | PAGES  | FILTER_CONDITION  |
++------------+--------------+---------------------+-------------+------------------+----------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
+| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | false       |                  |                                        | 0     | 0                 |              |               | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | false       | LOCALDB          | SYS$DELETION_INDEX$LCS_TABLE_EXPLICIT  | 3     |                   |              | A             | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_I                             | 1     | 1                 | I            | A             | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_JK1                           | 1     | 1                 | J            | A             | 0            | 0      |                   |
+| LOCALDB    | MISC         | LCS_TABLE_EXPLICIT  | true        | LOCALDB          | EXPLICIT_JK1                           | 1     | 2                 | K            | A             | 0            | 0      |                   |
++------------+--------------+---------------------+-------------+------------------+----------------------------------------+-------+-------------------+--------------+---------------+--------------+--------+-------------------+
 > 
 > -- should fail:  can't drop a clustered index
 > drop index explicit_jk1;

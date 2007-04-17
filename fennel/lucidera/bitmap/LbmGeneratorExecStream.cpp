@@ -20,30 +20,26 @@
 */
 
 #include "fennel/common/CommonPreamble.h"
-#include "fennel/exec/ExecStreamBufAccessor.h"
 #include "fennel/lucidera/bitmap/LbmGeneratorExecStream.h"
+#include "fennel/exec/ExecStreamBufAccessor.h"
+#include "fennel/tuple/UnalignedAttributeAccessor.h"
 
 FENNEL_BEGIN_CPPFILE("$Id$");
-
-LbmGeneratorExecStream::LbmGeneratorExecStream()
-{
-    dynParamsCreated = false;
-}
 
 void LbmGeneratorExecStream::prepare(LbmGeneratorExecStreamParams const &params)
 {
     BTreeExecStream::prepare(params);
     LcsRowScanBaseExecStream::prepare(params);
 
-    dynParamId = params.dynParamId;
-    assert(opaqueToInt(dynParamId) > 0);
+    insertRowCountParamId = params.insertRowCountParamId;
+    assert(opaqueToInt(insertRowCountParamId) > 0);
 
     createIndex = params.createIndex;
 
     scratchLock.accessSegment(scratchAccessor);
     scratchPageSize = scratchAccessor.pSegment->getUsablePageSize();
 
-    // setup input tuple
+    // setup input tuple -- numRowsToLoad, startRid
     assert(inAccessors[0]->getTupleDesc().size() == 2);
     inputTuple.compute(inAccessors[0]->getTupleDesc());
 
@@ -53,6 +49,11 @@ void LbmGeneratorExecStream::prepare(LbmGeneratorExecStreamParams const &params)
     // setup output tuple
     assert(treeDescriptor.tupleDescriptor == pOutAccessor->getTupleDesc());
     bitmapTupleDesc = treeDescriptor.tupleDescriptor;
+
+    attrAccessors.resize(bitmapTupleDesc.size());
+    for (int i = 0; i < bitmapTupleDesc.size(); ++i) {
+        attrAccessors[i].compute(bitmapTupleDesc[i]);
+    }
 
     nIdxKeys = treeDescriptor.keyProjection.size() - 1;
 
@@ -77,10 +78,10 @@ void LbmGeneratorExecStream::open(bool restart)
     skipRead = false;
     rowCount = 0;
     batchRead = false;
+    doneReading = false;
     if (!restart) {
         pDynamicParamManager->createParam(
-            dynParamId, inAccessors[0]->getTupleDesc()[0]);
-        dynParamsCreated = true;
+            insertRowCountParamId, inAccessors[0]->getTupleDesc()[0]);
     }
 }
 
@@ -125,8 +126,13 @@ ExecStreamResult LbmGeneratorExecStream::execute(
 {
     // read the start rid and num of rows to load
     
-    if (inAccessors[0]->getState() != EXECBUF_EOS) {
+    if (inAccessors[0]->getState() == EXECBUF_EOS) {
+        if (doneReading) {
+            pOutAccessor->markEOS();
+            return EXECRC_EOS;
+        }
 
+    } else {
         if (!inAccessors[0]->demandData()) {
             return EXECRC_BUF_UNDERFLOW;
         }
@@ -148,8 +154,16 @@ ExecStreamResult LbmGeneratorExecStream::execute(
 
         // set number of rows to load in a dynamic parameter that
         // splicer will later read
-        pDynamicParamManager->writeParam(dynParamId, inputTuple[0]);
+        pDynamicParamManager->writeParam(insertRowCountParamId, inputTuple[0]);
+
         inAccessors[0]->consumeTuple();
+
+        // special case where there are no rows -- don't bother reading
+        // from the table because we may end up reading deleted rows
+        if (!createIndex && numRowsToLoad == 0) {
+            doneReading = true;
+            return EXECRC_BUF_UNDERFLOW;
+        }
 
         // position to the starting rid
         for (uint iClu = 0; iClu < nClusters; iClu++) {
@@ -157,8 +171,8 @@ ExecStreamResult LbmGeneratorExecStream::execute(
             SharedLcsClusterReader &pScan = pClusters[iClu];
             if (!pScan->position(startRid)) {
                 // empty table
-                pOutAccessor->markEOS();
-                return EXECRC_EOS;
+                doneReading = true;
+                return EXECRC_BUF_UNDERFLOW;
             }
             syncColumns(pScan);
         }
@@ -166,10 +180,6 @@ ExecStreamResult LbmGeneratorExecStream::execute(
         // initialize bitmap table to a single entry, assuming we're
         // starting with singleton bitmaps
         initBitmapTable(1);
-    }
-
-    if (pOutAccessor->getState() == EXECBUF_EOS) {
-        return EXECRC_EOS;
     }
 
     // take care of any pending flushes first
@@ -209,8 +219,8 @@ ExecStreamResult LbmGeneratorExecStream::execute(
         if (!createIndex) {
             assert(rowCount == numRowsToLoad);
         }
-        pOutAccessor->markEOS();
-        return EXECRC_EOS;
+        doneReading = true;
+        return EXECRC_BUF_UNDERFLOW;
     default:
         permAssert(false);
     }
@@ -277,7 +287,10 @@ ExecStreamResult LbmGeneratorExecStream::generateMultiKeyBitmaps(
                     pScan->advanceWithinBatch(
                         opaqueToInt(currRid - pScan->getCurrentRid()));
                 }
-                readColVals(pScan, bitmapTuple, prevClusterEnd);
+                readColVals(
+                    pScan,
+                    bitmapTuple,
+                    prevClusterEnd);
                 prevClusterEnd += pScan->nColsToRead;
             }
         }
@@ -307,9 +320,6 @@ void LbmGeneratorExecStream::closeImpl()
 {
     BTreeExecStream::closeImpl();
     LcsRowScanBaseExecStream::closeImpl();
-    if (dynParamsCreated) {
-        pDynamicParamManager->deleteParam(dynParamId);
-    }
     keyCodes.clear();
     bitmapTable.clear();
     scratchPages.clear();
@@ -351,7 +361,8 @@ bool LbmGeneratorExecStream::generateBitmaps()
             // reset buffer before loading new value, in case previous
             // row had nulls
             bitmapTuple.resetBuffer();
-            bitmapTuple[0].loadLcsDatum(curValue);
+            
+            attrAccessors[0].loadValue(bitmapTuple[0], curValue);
             initRidAndBitmap(bitmapTuple, &currRid);
         }
         if (!addRidToBitmap(keyCodes[i], bitmapTuple, currRid)) {
@@ -393,8 +404,9 @@ bool LbmGeneratorExecStream::generateSingletons()
             for (uint iCluCol = 0; iCluCol < pScan->nColsToRead; iCluCol++) {
                 PBuffer curValue =
                     pScan->clusterCols[iCluCol].getCurrentValue();
-                bitmapTuple[projMap[prevClusterEnd + iCluCol]].
-                    loadLcsDatum(curValue);
+                uint idx = projMap[prevClusterEnd + iCluCol];
+
+                attrAccessors[idx].loadValue(bitmapTuple[idx], curValue);
             }
             prevClusterEnd += pScan->nColsToRead;
         }

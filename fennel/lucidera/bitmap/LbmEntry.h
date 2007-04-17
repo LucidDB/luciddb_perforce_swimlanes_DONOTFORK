@@ -411,6 +411,25 @@ class LbmEntry : public LbmSegment
         TupleData &inputTuple, TupleData &splitEntry);
 
     /**
+     * Determines whether a segment contains a specified rid
+     *
+     * @param rid the rid being searched for
+     * @param startRid starting rid of the segment being searched
+     * @param pSeg pointer to the start of the segment; since the segment is
+     * stored backwards, the pointer actually points to one byte past the
+     * first logical byte in the segment
+     * @param nSegBytes number of bytes in the segment being searched
+     *
+     * @return 0 if the segment contains the rid; -1 if it does not; 1 if the
+     * rid is not within the range of rid values covered by the segment
+     */
+    int segmentContainsRid(
+        LcsRid rid,
+        LcsRid startRid,
+        PBuffer pSeg,
+        uint nSegBytes);
+
+    /**
      ** STATIC MEMBERS AND METHODS
      **/
 
@@ -587,6 +606,15 @@ public:
     uint getRowCount();
 
     /**
+     * Determines if the bitmap entry contains a specified rid value
+     *
+     * @param rid rid value
+     *
+     * @return true if the entry contains the rid
+     */
+    bool containsRid(LcsRid rid);
+
+    /**
      ** STATIC METHODS
      **/
 
@@ -648,6 +676,18 @@ public:
      * @return true if the tuple is a singleton. 
      */
     inline static bool isSingleton(TupleData const &inputTuple);
+
+    /**
+     * Gets the startRID of a bitmap tuple.
+     *
+     * <p>Note: gcc 4.0.3 fails if this method is named getStartRID
+     *
+     * @param tuple tuple in which an LbmEntry is stored.
+     *
+     * @return startRID of the specified tuple
+     */
+    inline static LcsRid getStartRid(
+        TupleData const &tuple);
 };
 
 
@@ -661,6 +701,11 @@ inline bool LbmEntry::isSingleton(TupleData const &inputTuple)
         inputTuple[inputTuple.size()-1].isNull());
 }
 
+inline LcsRid LbmEntry::getStartRid(
+    TupleData const &tuple)
+{
+    return *reinterpret_cast<LcsRid const *> (tuple[tuple.size()-3].pData);
+}
 
 inline bool LbmEntry::isSingleton() const
 {

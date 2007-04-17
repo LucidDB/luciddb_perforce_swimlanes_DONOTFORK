@@ -31,7 +31,7 @@ void BTreeExecStream::prepare(BTreeExecStreamParams const &params)
 {
     SingleOutputExecStream::prepare(params);
 
-    copyParamsToDescriptor(treeDescriptor,params);
+    copyParamsToDescriptor(treeDescriptor,params,params.pCacheAccessor);
     scratchAccessor = params.scratchAccessor;
     pRootMap = params.pRootMap;
 }
@@ -39,6 +39,9 @@ void BTreeExecStream::prepare(BTreeExecStreamParams const &params)
 void BTreeExecStream::open(bool restart)
 {
     SingleOutputExecStream::open(restart);
+    if (restart) {
+        endSearch();
+    }
     if (!restart) {
         if (pRootMap) {
             treeDescriptor.rootPageId = pRootMap->getRoot(
@@ -52,6 +55,7 @@ void BTreeExecStream::open(bool restart)
 
 void BTreeExecStream::closeImpl()
 {
+    endSearch();
     if (pRootMap && pBTreeAccessBase) {
         treeDescriptor.rootPageId = NULL_PAGE_ID;
         pBTreeAccessBase->setRootPageId(NULL_PAGE_ID);
@@ -63,7 +67,7 @@ SharedBTreeReader BTreeExecStream::newReader()
 {
     SharedBTreeReader pReader = SharedBTreeReader(
         new BTreeReader(treeDescriptor));
-    pBTreeAccessBase = pReader;
+    pBTreeAccessBase = pBTreeReader = pReader;
     return pReader;
 }
 
@@ -71,14 +75,14 @@ SharedBTreeWriter BTreeExecStream::newWriter()
 {
     SharedBTreeWriter pWriter = SharedBTreeWriter(
         new BTreeWriter(treeDescriptor,scratchAccessor));
-    pBTreeAccessBase = pWriter;
+    pBTreeAccessBase = pBTreeReader = pWriter;
     return pWriter;
 }
 
 SharedBTreeWriter BTreeExecStream::newWriter(BTreeExecStreamParams const &params)
 {
     BTreeDescriptor treeDescriptor;
-    copyParamsToDescriptor(treeDescriptor,params);
+    copyParamsToDescriptor(treeDescriptor,params,params.pCacheAccessor);
     return SharedBTreeWriter(
         new BTreeWriter(
             treeDescriptor,params.scratchAccessor));
@@ -86,15 +90,23 @@ SharedBTreeWriter BTreeExecStream::newWriter(BTreeExecStreamParams const &params
 
 void BTreeExecStream::copyParamsToDescriptor(
     BTreeDescriptor &treeDescriptor,
-    BTreeExecStreamParams const &params)
+    BTreeParams const &params,
+    SharedCacheAccessor const &pCacheAccessor)
 {
     treeDescriptor.segmentAccessor.pSegment = params.pSegment;
-    treeDescriptor.segmentAccessor.pCacheAccessor = params.pCacheAccessor;
+    treeDescriptor.segmentAccessor.pCacheAccessor = pCacheAccessor;
     treeDescriptor.tupleDescriptor = params.tupleDesc;
     treeDescriptor.keyProjection = params.keyProj;
     treeDescriptor.rootPageId = params.rootPageId;
     treeDescriptor.segmentId = params.segmentId;
     treeDescriptor.pageOwnerId = params.pageOwnerId;
+}
+
+void BTreeExecStream::endSearch()
+{
+    if (pBTreeReader && pBTreeReader->isSingular() == false) {
+        pBTreeReader->endSearch();
+    }
 }
 
 BTreeExecStreamParams::BTreeExecStreamParams()

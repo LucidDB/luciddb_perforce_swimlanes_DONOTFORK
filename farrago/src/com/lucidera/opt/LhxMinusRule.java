@@ -79,6 +79,10 @@ public class LhxMinusRule
         List<Integer> leftKeys = new ArrayList<Integer>();
         List<Integer> rightKeys = new ArrayList<Integer>();
 
+        // an empty array means no filtering of null values
+        // i.e. a null value is considered to match another null value
+        List<Integer> filterNulls = new ArrayList<Integer>();
+
         for (int i = 0; i < leftRel.getRowType().getFieldCount(); i++) {
             leftKeys.add(i);
             rightKeys.add(i);
@@ -113,9 +117,6 @@ public class LhxMinusRule
             }
 
             Double numBuildRows = RelMetadataQuery.getRowCount(fennelRight);
-            if (numBuildRows == null) {
-                numBuildRows = 10000.0;
-            }
 
             // implement minus as a "right anti" join;
             // derive cardinality of builde side(LHS) join keys.
@@ -131,8 +132,8 @@ public class LhxMinusRule
                     fennelLeft,
                     joinKeyMap);
 
-            if ((cndBuildKey == null) || (cndBuildKey > numBuildRows)) {
-                cndBuildKey = numBuildRows;
+            if (cndBuildKey == null) {
+                cndBuildKey = -1.0;
             }
 
             // implement minus as a "right anti" join;
@@ -147,9 +148,10 @@ public class LhxMinusRule
                     isSetop,
                     rightKeys,
                     leftKeys,
+                    filterNulls,
                     newJoinOutputNames,
-                    numBuildRows.intValue(),
-                    cndBuildKey.intValue());
+                    numBuildRows.longValue(),
+                    cndBuildKey.longValue());
         }
         call.transformTo(leftRel);
     }

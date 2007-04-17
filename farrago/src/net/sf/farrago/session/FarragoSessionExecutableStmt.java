@@ -28,6 +28,7 @@ import java.util.*;
 
 import net.sf.farrago.util.*;
 
+import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 
@@ -77,6 +78,12 @@ public interface FarragoSessionExecutableStmt
      * @return true if this statement is DML; false if a query
      */
     public boolean isDml();
+    
+    /**
+     * @return the table modification operation type if this is a table
+     * modification statement; otherwise null
+     */
+    public TableModificationRel.Operation getTableModOp();
 
     /**
      * @return approximate total number of bytes used by this statement's
@@ -88,6 +95,12 @@ public interface FarragoSessionExecutableStmt
      * @return Set of MOFID's of objects accessed when this stmt is executed
      */
     public Set<String> getReferencedObjectIds();
+
+    /**
+     * @return the modification time of an object accessed by this statement,
+     *   or null if the modification time is not available
+     */
+    public String getReferencedObjectModTime(String mofid);
 
     /**
      * @return map of access modes for all tables referenced

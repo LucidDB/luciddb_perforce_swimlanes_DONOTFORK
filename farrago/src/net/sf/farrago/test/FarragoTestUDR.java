@@ -31,6 +31,7 @@ import java.util.*;
 import net.sf.farrago.runtime.*;
 
 import org.eigenbase.util.*;
+import org.eigenbase.util14.*;
 
 
 /**
@@ -51,7 +52,13 @@ public abstract class FarragoTestUDR
 
     public static String substring24(String in)
     {
-        return in.substring(2, 4);
+        try {
+            return in.substring(2, 4);
+        } catch (NullPointerException ex) {
+            // NOTE jvs 21-Dec-2006:  hide the fact that jrockit-R27
+            // no longer includes the string "null"
+            throw new NullPointerException("null");
+        }
     }
 
     public static String toHexString(int i)
@@ -174,17 +181,85 @@ public abstract class FarragoTestUDR
         PreparedStatement resultInserter)
         throws SQLException
     {
+        generateRows(inputSet, null, delimiter, resultInserter);
+    }
+    
+    public static void stringifyColumns(
+        ResultSet inputSet,       
+        List<String> columns,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {       
+        generateRows(inputSet, columns, delimiter, resultInserter);
+    }
+    
+    public static void stringify2ColumnLists(
+        List<String> columns1,
+        List<String> columns2,
+        ResultSet inputSet,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+        columns1.addAll(columns2);
+        generateRows(inputSet, columns1, delimiter, resultInserter);
+    }
+    
+    public static void combineStringifyColumns(
+        ResultSet inputSet1,
+        List<String> columns1,
+        ResultSet inputSet2,
+        List<String> columns2,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+        generateRows(inputSet1, columns1, delimiter, resultInserter);
+        generateRows(inputSet2, columns2, delimiter, resultInserter);
+    }
+    
+    public static void combineStringifyColumnsJumbledArgs(
+        List<String> columns2,
+        ResultSet inputSet1,
+        String delimiter,
+        ResultSet inputSet2,
+        List<String> columns1,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+        generateRows(inputSet1, columns1, delimiter, resultInserter);
+        generateRows(inputSet2, columns2, delimiter, resultInserter);
+    }
+    
+    private static void generateRows(
+        ResultSet inputSet,       
+        List<String> columns,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
         // Test ParameterMetaData
         assert (resultInserter.getParameterMetaData().getParameterCount() == 1);
-
-        // Also test ResultSetMetaData
-        int n = inputSet.getMetaData().getColumnCount();
+        
+        // Also test ResultSetMetaData       
+        ResultSetMetaData metaData = inputSet.getMetaData();
+        int n = metaData.getColumnCount();
+        int numGenCols = (columns == null) ? n : columns.size();
         StringBuilder sb = new StringBuilder();
         while (inputSet.next()) {
             sb.setLength(0);
+            int currCol = 0;
             for (int i = 1; i <= n; ++i) {
+                // exclude columns not contained in the input list, if one is
+                // specified
+                if (columns != null &&
+                    !columns.contains(metaData.getColumnName(i)))
+                {
+                    continue;
+                }
                 sb.append(inputSet.getString(i));
-                if (i < n) {
+                if (++currCol < numGenCols) {
                     sb.append(delimiter);
                 }
             }
@@ -193,6 +268,33 @@ public abstract class FarragoTestUDR
                 sb.toString());
             resultInserter.executeUpdate();
         }
+    }
+    
+    public static void badStringifyColumns1(
+        ResultSet inputSet,       
+        List columns,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+    }
+    
+    public static void badStringifyColumns2(
+        ResultSet inputSet,       
+        List<Integer> columns,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+    }
+    
+    public static void badStringifyColumns3(
+        ResultSet inputSet,       
+        Map<String, Integer> columns,
+        String delimiter,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
     }
 
     public static void digest(
@@ -232,6 +334,29 @@ public abstract class FarragoTestUDR
         ramp(
             nBoxed.intValue(),
             resultInserter);
+    }
+
+    public static void foreignTime(
+        Timestamp ts, 
+        String tsZoneId,
+        String foreignZoneId, 
+        PreparedStatement resultInserter)
+    throws SQLException
+    {
+        // convert timestamp to the specified time zone
+        // (makes this method more useful for testing)
+        TimeZone tsZone = TimeZone.getTimeZone(tsZoneId);
+        ZonelessTimestamp zts = new ZonelessTimestamp();
+        zts.setZonedTime(ts.getTime(), TimeZone.getDefault());
+        long millis = zts.getJdbcTimestamp(tsZone);
+        
+        // display the time in the foreign time zone
+        TimeZone foreignZone = TimeZone.getTimeZone(foreignZoneId);
+        Calendar cal = Calendar.getInstance(foreignZone);
+        resultInserter.setTimestamp(1, new Timestamp(millis), cal);
+        resultInserter.setDate(2, new java.sql.Date(millis), cal);
+        resultInserter.setTime(3, new Time(millis), cal);
+        resultInserter.executeUpdate();
     }
 }
 

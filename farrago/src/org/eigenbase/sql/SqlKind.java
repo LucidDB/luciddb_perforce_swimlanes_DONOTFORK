@@ -557,11 +557,20 @@ public class SqlKind
         new SqlKind("TopLevel", TopLevelORDINAL);
 
     /**
-     * Aggregate of SQL statement types {@link #Query}, {@link #Dml}.
+     * <code>ScalarQuery</code> is an aggregate of scalar query node types.
      */
     public static final int ScalarQueryORDINAL = 305;
     public static final SqlKind ScalarQuery =
         new SqlKind("ScalarQuery", ScalarQueryORDINAL);
+    
+    /**
+     * COLUMN_LIST constructor, for example, the ROW() call in
+     * <code>select * from TABLE(udx(CURSOR(select ...), ROW(a, b, c, d),
+     * x, y, z))</code>
+     */
+    public static final int ColumnListConstructorORDINAL = 306;
+    public static final SqlKind ColumnListConstructor =
+        new SqlKind("COLUMN_LIST", ColumnListConstructorORDINAL);
 
     public static final EnumeratedValues enumeration =
         new EnumeratedValues(

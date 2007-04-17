@@ -247,3 +247,158 @@ explain plan for
 select EMP.LNAME, DEPT.DNAME
     from EMP, DEPT, LOCATION EL, LOCATION DL
     where EL.LOCID = EMP.LOCID and DL.LOCID=DEPT.LOCID;
+
+-- tables needed for complex select below; taken from pge query 1
+
+create table CUST_SERV_ACCT(CUST_SERV_ACCT_KEY DECIMAL(10,0),
+ CU_ID DECIMAL(10,0),
+ CU_TYP_IND CHAR(1),
+ CUOR_CUST_NM VARCHAR(50),
+ ORGDTL_STR_ID_TXT VARCHAR(10),
+ ORGDTL_NM VARCHAR(50),
+ ORGDTL_DBA_NM VARCHAR(18),
+ CUIN_LST_NM VARCHAR(25),
+ CUIN_FST_NM VARCHAR(25),
+ CUIN_MID_INIT_TXT CHAR(1),
+ CA_ID DECIMAL(10,0),
+ MAIL_ADDR_ID DECIMAL(10,0),
+ SITE_ID DECIMAL(10,0),
+ SERV_ADDR VARCHAR(40),
+ MNCPLT_NM VARCHAR(25),
+ ST_CD CHAR(2),
+ ZIP_CD_NUM CHAR(5),
+ CO_CD CHAR(3),
+ GEOG_KEY DECIMAL(10,0),
+ SITUSE_CD CHAR(2),
+ SAA_ID DECIMAL(10,0),
+ SAA_SEQ_NUM DECIMAL(5,0),
+ SRVPLN_KEY DECIMAL(10,0),
+ CYC_FREQY_CD CHAR(2),
+ ACYC_NUM CHAR(2),
+ CNTLUT_NUM DECIMAL(10,0),
+ IS_DWLGS_VAL DECIMAL(5,0),
+ SERV_SIC_CD CHAR(4),
+ BU_CD CHAR(3),
+ UTIL_TYP_CD CHAR(2),
+ SAA_SPLINSTL_INDCR CHAR(1),
+ SAA_CLRG_ACCT_ID DECIMAL(10,0),
+ SAA_ST_TX_EXM_INDC CHAR(1),
+ IS_SERV_INSTLD_DT TIMESTAMP,
+ RCD_EFF_DT TIMESTAMP,
+ RCD_END_DT TIMESTAMP,
+ PROC_BAT_ID DECIMAL(10,0)) 
+;
+create table GEOG(GEOG_KEY DECIMAL(10,0),
+ DPT_CD CHAR(3),
+ RVTWN_CD CHAR(3),
+ RVTWN_DESC VARCHAR(30),
+ GEOG_CNTY_CD CHAR(2),
+ GEOG_CNTY_DESC VARCHAR(30),
+ ST_CD CHAR(2),
+ ST_DESC VARCHAR(30),
+ PROC_BATCH_ID VARCHAR(10)) 
+;
+create table REVN_DTL_RAND(CUST_SERV_ACCT_KEY DECIMAL(10,0),
+ GEOG_KEY DECIMAL(10,0),
+ SRVPLN_KEY DECIMAL(10,0),
+ REVN_YR_MO DECIMAL(6,0),
+ USG_VAL DOUBLE,
+ USG_BILL_THERM DOUBLE,
+ USG_BILL_KWH DOUBLE,
+ USGC_BILL_KW_VAL DOUBLE,
+ RSD_SVC_BILG_AMT DOUBLE,
+ RSD_ST_SLSTX_AMT DOUBLE,
+ RSD_TRSPT_CHRG_AMT DOUBLE,
+ RSD_BALG_CHRG_AMT DOUBLE,
+ RSD_TOP_SRCHRG_AMT DOUBLE,
+ RSD_CCOGA_AMT DOUBLE,
+ RSD_CCOGC_AMT DOUBLE,
+ RSD_CUST_CHRG_AMT DOUBLE,
+ RSD_DMND_CHRG_AMT DOUBLE,
+ RSD_CU_CNT DECIMAL(5,0),
+ SAS_FNL_BIL_INDCR CHAR(1),
+ SAS_TYP_CD CHAR(1),
+ USG_DAYS_NUM DECIMAL(5,0),
+ USG_STRT_DT TIMESTAMP,
+ USG_END_DT TIMESTAMP,
+ CISPD_DT TIMESTAMP,
+ PROC_BAT_ID DECIMAL(10,0)) 
+;
+create table REVN_PRD(REVN_YR_MO DECIMAL(6,0),
+ REVN_YR_MO_DESC VARCHAR(14),
+ REVN_MO DECIMAL(2,0),
+ REVN_MO_DESC VARCHAR(9),
+ REVN_YR DECIMAL(4,0),
+ REVN_QTR CHAR(1),
+ REVN_QTR_YR CHAR(7),
+ REVN_QTR_YR_DESC VARCHAR(20),
+ USER_ID CHAR(4)) 
+;
+create table SERV_PLAN(SRVPLN_KEY DECIMAL(10,0),
+ SRVPLN_ID DECIMAL(10,0),
+ SRVPLN_NM VARCHAR(25),
+ SPO_ID DECIMAL(10,0),
+ SPO_NM VARCHAR(25),
+ BU_CD CHAR(3),
+ BU_DESC VARCHAR(30),
+ RC_CD CHAR(2),
+ RC_DESC VARCHAR(30),
+ PROC_BAT_ID DECIMAL(10,0)) 
+;
+
+-- this query exercises the case where merge projections are required as
+-- joins are being converted to MultiJoinRels and projections are pulled up;
+-- the resulting query plan should NOT contain cartesian product joins
+explain plan for
+SELECT DISTINCT AL1.CUST_SERV_ACCT_KEY
+   FROM
+    CUST_SERV_ACCT AL1,
+    GEOG AL2,
+    SERV_PLAN AL3,
+    REVN_PRD AL4,
+    REVN_DTL_RAND AL5
+   WHERE AL5.REVN_YR_MO=AL4.REVN_YR_MO
+    AND AL2.GEOG_KEY=AL5.GEOG_KEY
+    AND AL3.SRVPLN_KEY=AL5.SRVPLN_KEY
+    AND AL1.CUST_SERV_ACCT_KEY=AL5.CUST_SERV_ACCT_KEY
+    AND AL5.SAS_FNL_BIL_INDCR='Y' AND AL4.REVN_YR=1995;
+
+-- this query exercises ensuring that all projections are merged before
+-- converting joins to MultiJoinRels; the resulting query plan
+-- should NOT contain cartesian product joins
+explain plan for
+SELECT AL1.CU_ID, AL4.REVN_YR_MO, SUM(AL5.USG_VAL),
+ SUM(AL5.USG_BILL_THERM), SUM(AL5.USGC_BILL_KW_VAL),
+ SUM(AL5.RSD_SVC_BILG_AMT), AL5.RSD_CU_CNT
+FROM
+ CUST_SERV_ACCT AL1,
+ GEOG AL2,
+ SERV_PLAN AL3,
+ REVN_PRD AL4,
+ REVN_DTL_RAND AL5
+WHERE (AL5.REVN_YR_MO=AL4.REVN_YR_MO
+ AND AL2.GEOG_KEY=AL5.GEOG_KEY AND AL3.SRVPLN_KEY=AL5.SRVPLN_KEY
+ AND AL1.CUST_SERV_ACCT_KEY=AL5.CUST_SERV_ACCT_KEY)
+ AND (AL2.ST_CD='IN' AND AL2.GEOG_CNTY_DESC='LAPORTE'
+ AND AL4.REVN_YR=1995 AND AL3.SRVPLN_NM LIKE '%DUSK%'
+ AND AL3.SPO_NM LIKE '%SODIUM%'
+ AND AL3.RC_DESC='RESIDENTIAL - GENERAL SERVICE')
+GROUP BY AL1.CU_ID, AL4.REVN_YR_MO, AL5.RSD_CU_CNT;
+
+
+-- LER-3639 -- Projects should not be pulled up in this case because the
+-- projection expression is used as a join key.  If this query is not properly
+-- optimized, a cartesian join is incorrectly chosen.
+create table t1(t1a char(10));
+create table t2(t2a char(10));
+create table t3(t3a char(10));
+call sys_boot.mgmt.stat_set_row_count('LOCALDB', 'JO', 'T1', 4841);
+call sys_boot.mgmt.stat_set_row_count('LOCALDB', 'JO', 'T2', 25199);
+call sys_boot.mgmt.stat_set_row_count('LOCALDB', 'JO', 'T3', 25199);
+explain plan for
+select * from (select t1a||t2a as a from t1, t2 where t1a = t2a) as x, t3
+where t3a = a;
+
+-- same query as above except without the subquery in the from clause
+explain plan for
+select * from t1, t2, t3 where t1a = t2a and t1a||t2a = t3a;

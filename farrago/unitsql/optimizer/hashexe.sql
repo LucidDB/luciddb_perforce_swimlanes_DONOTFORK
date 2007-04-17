@@ -2,11 +2,8 @@
 -- LucidDB SQL test for Hash Join and Hash Agg --
 -------------------------------------------------
 
--- TODO jvs 11-Sept-2006:  Get rid of this once leak is investigated.
-alter system set "codeCacheMaxBytes" = min;
-
 ------------------------------------------------
--- non LDB personality uses cartesian product --
+-- default personality uses cartesian product --
 ------------------------------------------------
 create schema lhx;
 set schema 'lhx';
@@ -14,6 +11,8 @@ set path 'lhx';
 
 -- force usage of Java calculator
 alter system set "calcVirtualMachine" = 'CALCVM_JAVA';
+
+alter session implementation set default;
 
 create table lhxemps(
     empno integer not null,
@@ -42,6 +41,13 @@ order by empno, ename;
 select * from lhxemps, lhxdepts
 where lhxemps.deptno = lhxdepts.deptnoA
 order by empno, ename;
+
+---------------------------------------------------
+-- test "is not distinct from" as join condition --
+---------------------------------------------------
+explain plan for
+select * from lhxemps, lhxdepts
+where lhxemps.deptno is not distinct from lhxdepts.deptnoA;
 
 -- Clean up
 !set outputformat table
@@ -298,12 +304,16 @@ select * from lhxemps3 left outer join lhxemps4
 on lhxemps3.enameB = lhxemps4.enameC
 order by 1, 2;
 
+-- put a filter on the RHS of the outer join to force the RHS to remain on
+-- the RHS
 explain plan for
-select * from lhxemps3 right outer join lhxemps4
+select * from lhxemps3 right outer join
+    (select * from lhxemps4 where enameC > 'A' or enameC is null) as lhxemps4
 on lhxemps3.enameB = lhxemps4.enameC
 order by 1, 2;
 
-select * from lhxemps3 right outer join lhxemps4
+select * from lhxemps3 right outer join
+    (select * from lhxemps4 where enameC > 'A' or enameC is null) as lhxemps4
 on lhxemps3.enameB = lhxemps4.enameC
 order by 1, 2;
 
@@ -422,7 +432,8 @@ order by 1, 2;
 
 -- filter pushed down
 explain plan for
-select * from lhxemps5 right outer join lhxemps6
+select * from lhxemps5 right outer join
+    (select * from lhxemps6 where empnoB > 0) as lhxemps6
 on lhxemps5.empnoA = lhxemps6.empnoB and
    lhxemps5.empnoA <> 2
 order by 1, 2;
@@ -481,7 +492,8 @@ order by 1, 2;
 -- outer join on filter can not be evaluated as post filter
 -- this should report an error
 explain plan without implementation for
-select * from lhxemps5 right outer join lhxemps6
+select * from lhxemps5 right outer join
+    (select * from lhxemps6 where empnoB > 0) as lhxemps6
 on lhxemps5.empnoA = lhxemps6.empnoB and
    lhxemps5.empnoA > lhxemps6.empnoB
 order by 1, 2;
@@ -493,6 +505,13 @@ select * from lhxemps5 full outer join lhxemps6
 on lhxemps5.empnoA = lhxemps6.empnoB and
    lhxemps5.empnoA > lhxemps6.empnoB
 order by 1, 2;
+
+---------------------------------------------------
+-- test "is not distinct from" as join condition --
+---------------------------------------------------
+explain plan for
+select * from lhxemps, lhxdepts
+where lhxemps.deptno is not distinct from lhxdepts.deptnoA;
 
 --------------------
 -- hash aggregate --
@@ -646,6 +665,27 @@ explain plan for
 select ename1 from emps1
 where upper(ename1) in (select upper(ename2) from emps2)
 order by 1;
+
+-----------------------------------------------------
+-- LDB-144
+-- removed an incorrect assert in LhxHashGenerator --
+-- check that the following query no longer fails  --
+-----------------------------------------------------
+create table A(a int not null);
+create table B(b int not null);
+create table C(c int not null);
+insert into A values (1), (2), (3);
+insert into B values (2), (3), (4);
+insert into C values (3), (4), (5);
+
+explain plan for
+select * from A right outer join (select * from B inner join C on b = c) on a = b and a = c order by a;
+
+select * from A right outer join (select * from B inner join C on b = c) on a = b and a = c order by a;
+
+drop table A;
+drop table B;
+drop table C;
 
 --------------
 -- Clean up --

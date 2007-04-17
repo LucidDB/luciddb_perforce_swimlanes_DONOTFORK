@@ -9,7 +9,6 @@
 > --------------------------
 > -- Test Sort Aggreagtes --
 > --------------------------
-> alter system set "codeCacheMaxBytes"=min;
 > alter session implementation set default;
 > !set outputformat table
 > 
@@ -67,6 +66,22 @@
 | EXPR$0  |
 +---------+
 | 20      |
++---------+
+> 
+> select min(TRUE) from emps group by deptno;
++---------+
+| EXPR$0  |
++---------+
+| true    |
+| true    |
+| true    |
++---------+
+> 
+> select max(FALSE) from depts;
++---------+
+| EXPR$0  |
++---------+
+| false   |
 +---------+
 > 
 > ------------
@@ -141,7 +156,7 @@
 '  FennelRenameRel(fieldNames=[[EXPR$0]])'
 '    FennelAggRel(groupCount=[0], agg#0=[COUNT()])'
 '      FennelCalcRel(expr#0=[{inputs}], expr#1=[true], $f0=[$t1])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select count(city) from emps;
@@ -150,7 +165,7 @@
 '  FennelRenameRel(fieldNames=[[EXPR$0]])'
 '    FennelAggRel(groupCount=[0], agg#0=[COUNT(0)])'
 '      FennelRenameRel(fieldNames=[[$f0]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[4]], index=[SYS$CONSTRAINT_INDEX$EMPS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[4]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$EMPS], preserveOrder=[false])'
 > 
 > explain plan for
 > select sum(deptno) from depts;
@@ -159,7 +174,7 @@
 '  FennelRenameRel(fieldNames=[[EXPR$0]])'
 '    FennelAggRel(groupCount=[0], agg#0=[SUM(0)])'
 '      FennelRenameRel(fieldNames=[[$f0]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select max(deptno) from depts;
@@ -168,7 +183,7 @@
 '  FennelRenameRel(fieldNames=[[EXPR$0]])'
 '    FennelAggRel(groupCount=[0], agg#0=[MAX(0)])'
 '      FennelRenameRel(fieldNames=[[$f0]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select min(deptno) from depts;
@@ -177,7 +192,7 @@
 '  FennelRenameRel(fieldNames=[[EXPR$0]])'
 '    FennelAggRel(groupCount=[0], agg#0=[MIN(0)])'
 '      FennelRenameRel(fieldNames=[[$f0]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select avg(deptno) from depts;
@@ -187,7 +202,7 @@
 '    FennelCalcRel(expr#0..1=[{inputs}], expr#2=[/($t0, $t1)], expr#3=[CAST($t2):INTEGER], $f0=[$t3])'
 '      FennelAggRel(groupCount=[0], agg#0=[SUM(0)], agg#1=[COUNT(0)])'
 '        FennelRenameRel(fieldNames=[[$f0]])'
-'          FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan without implementation for
 > select deptno,max(name) from sales.emps group by deptno;
@@ -223,7 +238,7 @@
 '          FennelCartesianProductRel(leftouterjoin=[false])'
 '            FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2]], index=[EMPS_UX], preserveOrder=[false])'
 '            FennelBufferRel(inMemory=[false], multiPass=[true])'
-'              FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'              FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select deptno, gender, min(age), max(age) from emps
@@ -234,7 +249,7 @@
 '    FennelAggRel(groupCount=[2], agg#0=[MIN(2)], agg#1=[MAX(2)])'
 '      FennelSortRel(key=[[0, 1]], discardDuplicates=[false])'
 '        FennelRenameRel(fieldNames=[[$f0, $f1, $f2]])'
-'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 3, 6]], index=[SYS$CONSTRAINT_INDEX$EMPS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 3, 6]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$EMPS], preserveOrder=[false])'
 > 
 > explain plan for
 > select sum(age) from emps group by deptno;
@@ -244,12 +259,14 @@
 '    FennelAggRel(groupCount=[1], agg#0=[SUM(1)])'
 '      FennelSortRel(key=[[0]], discardDuplicates=[false])'
 '        FennelRenameRel(fieldNames=[[$f0, $f1]])'
-'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 6]], index=[SYS$CONSTRAINT_INDEX$EMPS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 6]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$EMPS], preserveOrder=[false])'
 > 
 > --------------------------
 > -- Test Hash Aggreagtes --
 > --------------------------
-> alter system set "codeCacheMaxBytes"=max;
+> alter system set "calcVirtualMachine" = 'CALCVM_JAVA';
+> call sys_boot.mgmt.flush_code_cache();
+> alter system set "calcVirtualMachine" = 'CALCVM_FENNEL';
 > alter session implementation set jar sys_boot.sys_boot.luciddb_plugin;
 > !set outputformat table
 > 
@@ -372,7 +389,7 @@
 '      FennelReshapeRel(projection=[[2]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0) NOT NULL])'
 '        LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[INNER])'
 '          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2]], index=[EMPS_UX], preserveOrder=[false])'
-'          FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$DEPTS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
 > 
 > explain plan for
 > select deptno, gender, min(age), max(age) from emps
@@ -382,7 +399,7 @@
 '  FennelRenameRel(fieldNames=[[DEPTNO, GENDER, EXPR$2, EXPR$3]])'
 '    LhxAggRel(groupCount=[2], agg#0=[MIN(2)], agg#1=[MAX(2)])'
 '      FennelRenameRel(fieldNames=[[$f0, $f1, $f2]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 3, 6]], index=[SYS$CONSTRAINT_INDEX$EMPS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 3, 6]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$EMPS], preserveOrder=[false])'
 > 
 > explain plan for
 > select sum(age) from emps group by deptno;
@@ -391,7 +408,842 @@
 '  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(INTEGER EXPR$0) NOT NULL])'
 '    LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
 '      FennelRenameRel(fieldNames=[[$f0, $f1]])'
-'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 6]], index=[SYS$CONSTRAINT_INDEX$EMPS$SYS$PRIMARY_KEY], preserveOrder=[false])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 6]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$EMPS], preserveOrder=[false])'
+> 
+> ---------------------------------------------
+> -- more aggregate queries, with subqueries --
+> ---------------------------------------------
+> 
+> alter system set "calcVirtualMachine" = 'CALCVM_JAVA';
+> alter session implementation set jar sys_boot.sys_boot.luciddb_plugin;
+> 
+> explain plan without implementation for
+> select name 
+> from emps 
+> group by name 
+> having emps.name in ('ab', 'cd');
+'column0'
+'ProjectRel(NAME=[$0])'
+'  FilterRel(condition=[OR(=($0, 'ab'), =($0, 'cd'))])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel($f0=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+> 
+> explain plan for
+> select name 
+> from emps 
+> group by name 
+> having emps.name in ('ab', 'cd');
+'column0'
+'FennelToIteratorConverter'
+'  FennelRenameRel(fieldNames=[[NAME]])'
+'    IteratorToFennelConverter'
+'      IterCalcRel(expr#0=[{inputs}], expr#1=['ab'], expr#2=[=($t0, $t1)], expr#3=['cd'], expr#4=[=($t0, $t3)], expr#5=[OR($t2, $t4)], $f0=[$t0], $condition=[$t5])'
+'        FennelToIteratorConverter'
+'          LhxAggRel(groupCount=[1])'
+'            FennelRenameRel(fieldNames=[[$f0]])'
+'              FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select name 
+> from emps 
+> group by name 
+> having name in ('ab', 'cd');
+'column0'
+'ProjectRel(NAME=[$0])'
+'  FilterRel(condition=[OR(=($0, 'ab'), =($0, 'cd'))])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel($f0=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+> 
+> explain plan for
+> select name 
+> from emps 
+> group by name 
+> having name in ('ab', 'cd');
+'column0'
+'FennelToIteratorConverter'
+'  FennelRenameRel(fieldNames=[[NAME]])'
+'    IteratorToFennelConverter'
+'      IterCalcRel(expr#0=[{inputs}], expr#1=['ab'], expr#2=[=($t0, $t1)], expr#3=['cd'], expr#4=[=($t0, $t3)], expr#5=[OR($t2, $t4)], $f0=[$t0], $condition=[$t5])'
+'        FennelToIteratorConverter'
+'          LhxAggRel(groupCount=[1])'
+'            FennelRenameRel(fieldNames=[[$f0]])'
+'              FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select name from 
+> emps group by empno, name 
+> having (emps.name, emps.empno) in (('ab', 10), ('cd', 20));
+'column0'
+'ProjectRel(NAME=[$1])'
+'  FilterRel(condition=[OR(AND(=($1, 'ab'), =($0, 10)), AND(=($1, 'cd'), =($0, 20)))])'
+'    AggregateRel(groupCount=[2])'
+'      ProjectRel($f0=[$0], $f1=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+> 
+> explain plan for
+> select name from 
+> emps group by empno, name 
+> having (emps.name, emps.empno) in (('ab', 10), ('cd', 20));
+'column0'
+'IterCalcRel(expr#0..1=[{inputs}], expr#2=['ab'], expr#3=[=($t1, $t2)], expr#4=[10], expr#5=[=($t0, $t4)], expr#6=[AND($t3, $t5)], expr#7=['cd'], expr#8=[=($t1, $t7)], expr#9=[20], expr#10=[=($t0, $t9)], expr#11=[AND($t8, $t10)], expr#12=[OR($t6, $t11)], NAME=[$t1], $condition=[$t12])'
+'  FennelToIteratorConverter'
+'    LhxAggRel(groupCount=[2])'
+'      FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[0, 1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> -- this is not sql 2003 standard
+> -- see sql2003 part2,  7.9
+> -- error expected: can't find emps in subquery
+> explain plan without implementation for
+> select count(*)
+> from emps
+> where exists (select count(*) from depts group by emps.empno);
+Error: From line 4, column 51 to line 4, column 54: Table 'EMPS' not found (state=,code=0)
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name)='ab';
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  FilterRel(condition=[=($2, 'ab')])'
+'    AggregateRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'      ProjectRel($f0=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name)='ab';
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], filterOp=[COMP_EQ], filterOrdinals=[[2]], filterTuple=[['ab']], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxAggRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'      FennelRenameRel(fieldNames=[[$f0]])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having emps.name=(select max(name) from depts);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  FilterRel(condition=[=($0, $2)])'
+'    JoinRel(condition=[true], joinType=[left])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'      ProjectRel(EXPR$0=[$0])'
+'        AggregateRel(groupCount=[0], agg#0=[MAX(0)])'
+'          ProjectRel($f0=[$1])'
+'            TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having emps.name=(select max(name) from depts);
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[=($t0, $t2)], EXPR$0=[$t1], $condition=[$t3])'
+'  FennelToIteratorConverter'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+'      FennelBufferRel(inMemory=[false], multiPass=[true])'
+'        FennelRenameRel(fieldNames=[[EXPR$0]])'
+'          FennelAggRel(groupCount=[0], agg#0=[MAX(0)])'
+'            FennelRenameRel(fieldNames=[[$f0]])'
+'              FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name)=(select max(name) from depts);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  FilterRel(condition=[=($2, $3)])'
+'    JoinRel(condition=[true], joinType=[left])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'      ProjectRel(EXPR$0=[$0])'
+'        AggregateRel(groupCount=[0], agg#0=[MAX(0)])'
+'          ProjectRel($f0=[$1])'
+'            TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name)=(select max(name) from depts);
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[=($t1, $t2)], EXPR$0=[$t0], $condition=[$t3])'
+'  FennelToIteratorConverter'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      FennelReshapeRel(projection=[[1, 2]], outputRowType=[RecordType(BIGINT NOT NULL $f1, VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" $f2) NOT NULL])'
+'        LhxAggRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'          FennelRenameRel(fieldNames=[[$f0]])'
+'            FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+'      FennelBufferRel(inMemory=[false], multiPass=[true])'
+'        FennelRenameRel(fieldNames=[[EXPR$0]])'
+'          FennelAggRel(groupCount=[0], agg#0=[MAX(0)])'
+'            FennelRenameRel(fieldNames=[[$f0]])'
+'              FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having emps.name in (select name from depts);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  JoinRel(condition=[=($2, $3)], joinType=[inner])'
+'    ProjectRel($f0=[$0], $f1=[$1], $f2=[$0])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel(NAME=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having emps.name in (select name from depts);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHTSEMI])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name, empno
+> having emps.name in (select name from depts);
+'column0'
+'ProjectRel(EXPR$0=[$2])'
+'  JoinRel(condition=[=($3, $4)], joinType=[inner])'
+'    ProjectRel($f0=[$0], $f1=[$1], $f2=[$2], $f3=[$0])'
+'      AggregateRel(groupCount=[2], agg#0=[COUNT()])'
+'        ProjectRel($f0=[$1], $f1=[$0])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel(NAME=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name, empno
+> having emps.name in (select name from depts);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHTSEMI])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      FennelReshapeRel(projection=[[0, 2]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0, BIGINT NOT NULL $f2) NOT NULL])'
+'        LhxAggRel(groupCount=[2], agg#0=[COUNT()])'
+'          FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'            FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name) in (select name from depts);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  JoinRel(condition=[=($3, $4)], joinType=[inner])'
+'    ProjectRel($f0=[$0], $f1=[$1], $f2=[$2], $f3=[$2])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel(NAME=[$1])'
+'        TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.name) in (select name from depts);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[0]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[1]], rightKeys=[[1]], joinType=[RIGHTSEMI])'
+'      FennelReshapeRel(projection=[[0, 0]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL NAME, VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" CAST($0):VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary") NOT NULL])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      FennelReshapeRel(projection=[[1, 2]], outputRowType=[RecordType(BIGINT NOT NULL $f1, VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" $f2) NOT NULL])'
+'        LhxAggRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(0)])'
+'          FennelRenameRel(fieldNames=[[$f0]])'
+'            FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having emps.name in 
+>     (select name from depts where depts.deptno = emps.deptno);
+Error: java.lang.AssertionError: Internal error: Identifier 'EMPS.DEPTNO' is not a group expr (state=,code=0)
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having emps.name in 
+>     (select name from depts where depts.name = emps.name);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  CorrelatorRel(condition=[=($2, $3)], joinType=[inner], correlations=[[var0=offset0]])'
+'    ProjectRel($f0=[$0], $f1=[$1], $f2=[$0])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel(NAME=[$1])'
+'        FilterRel(condition=[=($1, $cor0.NAME)])'
+'          TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having emps.name in 
+>     (select name from depts where depts.name = emps.name);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0, 1]], rightKeys=[[0, 0]], joinType=[RIGHTSEMI])'
+'      LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[INNER])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'        LhxAggRel(groupCount=[1])'
+'          FennelReshapeRel(projection=[[0]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0) NOT NULL])'
+'            LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'              FennelRenameRel(fieldNames=[[$f0]])'
+'                FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.deptno) in 
+>     (select deptno from depts where depts.name = emps.name);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  CorrelatorRel(condition=[=($3, $4)], joinType=[inner], correlations=[[var0=offset0]])'
+'    ProjectRel($f0=[$0], $f1=[$1], $f2=[$2], $f3=[$2])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(1)])'
+'        ProjectRel($f0=[$1], $f1=[$2])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'    AggregateRel(groupCount=[1])'
+'      ProjectRel(DEPTNO=[$0])'
+'        FilterRel(condition=[=($1, $cor0.NAME)])'
+'          TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*)
+> from emps
+> group by name
+> having min(emps.deptno) in 
+>     (select deptno from depts where depts.name = emps.name);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[2, 0]], rightKeys=[[2, 1]], joinType=[LEFTSEMI])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(1)])'
+'        FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1, 2]], index=[EMPS_UX], preserveOrder=[false])'
+'      FennelReshapeRel(projection=[[0, 2, 0]], outputRowType=[RecordType(INTEGER NOT NULL DEPTNO, VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0, INTEGER CAST($0):INTEGER) NOT NULL])'
+'        LhxJoinRel(leftKeys=[[1]], rightKeys=[[0]], joinType=[INNER])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'          LhxAggRel(groupCount=[1])'
+'            FennelReshapeRel(projection=[[0]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0) NOT NULL])'
+'              LhxAggRel(groupCount=[1], agg#0=[COUNT()], agg#1=[MIN(1)])'
+'                FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'                  FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1, 2]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> explain plan without implementation for 
+> select *
+> from (
+> select count(*), name
+> from emps e
+> group by name
+> ) v
+> where exists (select * from depts where depts.name = v.name);
+'column0'
+'ProjectRel(EXPR$0=[$0], NAME=[$1])'
+'  FilterRel(condition=[IS TRUE($2)])'
+'    CorrelatorRel(condition=[true], joinType=[left], correlations=[[var0=offset1]])'
+'      ProjectRel(EXPR$0=[$1], NAME=[$0])'
+'        AggregateRel(groupCount=[1], agg#0=[COUNT()])'
+'          ProjectRel($f0=[$1])'
+'            TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'      AggregateRel(groupCount=[0], agg#0=[MIN(0)])'
+'        ProjectRel($f0=[true])'
+'          ProjectRel(DEPTNO=[$0], NAME=[$1])'
+'            FilterRel(condition=[=($1, $cor0.NAME)])'
+'              TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select *
+> from (
+> select count(*), name
+> from emps e
+> group by name
+> ) v
+> where exists (select * from depts where depts.name = v.name);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1, 0]], filterOp=[COMP_EQ], filterOrdinals=[[3]], filterTuple=[[true]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0, VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL NAME) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[LEFT])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[MIN(1)])'
+'        IteratorToFennelConverter'
+'          IterCalcRel(expr#0..1=[{inputs}], expr#2=[true], $f0=[$t1], $f0=[$t2])'
+'            FennelToIteratorConverter'
+'              LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[INNER])'
+'                FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'                LhxAggRel(groupCount=[1])'
+'                  FennelReshapeRel(projection=[[0]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0) NOT NULL])'
+'                    LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'                      FennelRenameRel(fieldNames=[[$f0]])'
+'                        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> -- fixed with hack to look up group expr projected from agg
+> explain plan without implementation for 
+> select count(*) 
+> from emps 
+> group by name 
+> having exists (select * from depts where depts.name = emps.name);
+'column0'
+'ProjectRel(EXPR$0=[$1])'
+'  FilterRel(condition=[IS TRUE($2)])'
+'    CorrelatorRel(condition=[true], joinType=[left], correlations=[[var0=offset0]])'
+'      AggregateRel(groupCount=[1], agg#0=[COUNT()])'
+'        ProjectRel($f0=[$1])'
+'          TableAccessRel(table=[[LOCALDB, SALES, EMPS]])'
+'      AggregateRel(groupCount=[0], agg#0=[MIN(0)])'
+'        ProjectRel($f0=[true])'
+'          ProjectRel(DEPTNO=[$0], NAME=[$1])'
+'            FilterRel(condition=[=($1, $cor0.NAME)])'
+'              TableAccessRel(table=[[LOCALDB, SALES, DEPTS]])'
+> 
+> explain plan for
+> select count(*) 
+> from emps 
+> group by name 
+> having exists (select * from depts where depts.name = emps.name);
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], filterOp=[COMP_EQ], filterOrdinals=[[3]], filterTuple=[[true]], outputRowType=[RecordType(BIGINT NOT NULL EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[LEFT])'
+'      LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[MIN(1)])'
+'        IteratorToFennelConverter'
+'          IterCalcRel(expr#0..1=[{inputs}], expr#2=[true], $f0=[$t1], $f0=[$t2])'
+'            FennelToIteratorConverter'
+'              LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[INNER])'
+'                FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[1]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'                LhxAggRel(groupCount=[1])'
+'                  FennelReshapeRel(projection=[[0]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL $f0) NOT NULL])'
+'                    LhxAggRel(groupCount=[1], agg#0=[COUNT()])'
+'                      FennelRenameRel(fieldNames=[[$f0]])'
+'                        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[1]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> -- this will fail in parsing
+> explain plan for
+> select count(*)
+> from emps 
+> group by name 
+> having exists (select * from depts where depts.deptno = max(emps.deptno));
+Error: From line 5, column 57 to line 5, column 72: Aggregate expression is illegal in WHERE clause (state=,code=0)
+> 
+> -- LER 2746 cast(agg() as datatype) triggers an error
+> explain plan for
+> select cast(sum(empno) as decimal(10, 2)) from emps;
+'column0'
+'IterCalcRel(expr#0=[{inputs}], expr#1=[100], expr#2=[*($t0, $t1)], expr#3=[true], expr#4=[Reinterpret($t2, $t3)], EXPR$0=[$t4])'
+'  FennelToIteratorConverter'
+'    FennelAggRel(groupCount=[0], agg#0=[SUM(0)])'
+'      FennelRenameRel(fieldNames=[[$f0]])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> ------------------------------------------------------------------
+> -- Aggregate queries, with scalar subqueries in the select list --
+> ------------------------------------------------------------------
+> explain plan for
+> SELECT 
+>     sum(empno), 1
+> FROM 
+>     emps
+> group by deptno, name;
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[1], EXPR$0=[$t2], EXPR$1=[$t3])'
+'  FennelToIteratorConverter'
+'    LhxAggRel(groupCount=[2], agg#0=[SUM(2)])'
+'      FennelRenameRel(fieldNames=[[$f0, $f1, $f2]])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 1, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> 
+> explain plan for
+> SELECT 
+>     sum(empno), deptno + 1
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..1=[{inputs}], expr#2=[1], expr#3=[+($t0, $t2)], EXPR$0=[$t1], EXPR$1=[$t3])'
+'  FennelToIteratorConverter'
+'    LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'      FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM (values(0)))
+> FROM 
+>     emps;
+'column0'
+'FennelToIteratorConverter'
+'  FennelRenameRel(fieldNames=[[EXPR$0, EXPR$1]])'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      FennelAggRel(groupCount=[0], agg#0=[SUM(0)])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[0]], index=[EMPS_UX], preserveOrder=[false])'
+'      FennelAggRel(groupCount=[0], agg#0=[SINGLE_VALUE(0)])'
+'        IteratorToFennelConverter'
+'          IterCalcRel(expr#0=[{inputs}], expr#1=[1], EXPR$0=[$t1])'
+'            FennelToIteratorConverter'
+'              FennelValuesRel(tuples=[[{ 0 }]])'
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM (values(0)))
+> FROM 
+>     emps
+> group by deptno, name;
+'column0'
+'FennelToIteratorConverter'
+'  FennelRenameRel(fieldNames=[[EXPR$0, EXPR$1]])'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      FennelReshapeRel(projection=[[2]], outputRowType=[RecordType(INTEGER $f2) NOT NULL])'
+'        LhxAggRel(groupCount=[2], agg#0=[SUM(2)])'
+'          FennelRenameRel(fieldNames=[[$f0, $f1, $f2]])'
+'            FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 1, 0]], index=[EMPS_UX], preserveOrder=[false])'
+'      FennelAggRel(groupCount=[0], agg#0=[SINGLE_VALUE(0)])'
+'        IteratorToFennelConverter'
+'          IterCalcRel(expr#0=[{inputs}], expr#1=[1], EXPR$0=[$t1])'
+'            FennelToIteratorConverter'
+'              FennelValuesRel(tuples=[[{ 0 }]])'
+> 
+> -- expect error
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps;
+Error: java.lang.AssertionError: Internal error: Identifier 'EMPS.DEPTNO' is not a group expr (state=,code=0)
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[IS NULL($t0)], expr#4=[null], expr#5=[CAST($t4):INTEGER], expr#6=[1], expr#7=[CAST($t6):INTEGER], expr#8=[CASE($t3, $t5, $t7)], EXPR$0=[$t2], EXPR$1=[$t8])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'        FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     sum(empno) a,
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A','EXPR$1'
+'100','1'
+'110',''
+'230','1'
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1+2 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[IS NULL($t0)], expr#4=[null], expr#5=[CAST($t4):INTEGER], expr#6=[1], expr#7=[CAST($t6):INTEGER], expr#8=[CASE($t3, $t5, $t7)], expr#9=[2], expr#10=[CAST($t9):INTEGER], expr#11=[CASE($t3, $t5, $t10)], expr#12=[+($t8, $t11)], expr#13=[CAST($t12):INTEGER], expr#14=[CASE($t3, $t5, $t13)], EXPR$0=[$t2], EXPR$1=[$t14])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'        FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     sum(empno) a,
+>     (select 1+2 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A','EXPR$1'
+'100','3'
+'110',''
+'230','3'
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> having
+>     deptno = (select max(deptno) from depts where deptno = emps.deptno);
+'column0'
+'IterCalcRel(expr#0..3=[{inputs}], expr#4=[IS NULL($t0)], expr#5=[null], expr#6=[CAST($t5):INTEGER], expr#7=[1], expr#8=[CAST($t7):INTEGER], expr#9=[CASE($t4, $t6, $t8)], EXPR$0=[$t2], EXPR$1=[$t9])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[1]], rightKeys=[[1]], joinType=[RIGHT])'
+'      FennelReshapeRel(projection=[[0, 0]], outputRowType=[RecordType(INTEGER NOT NULL DEPTNO, INTEGER CAST($0):INTEGER) NOT NULL])'
+'        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      IteratorToFennelConverter'
+'        IterCalcRel(expr#0..2=[{inputs}], expr#3=[CAST($t2):INTEGER], expr#4=[=($t0, $t3)], $f1=[$t1], $f2=[$t3], $condition=[$t4])'
+'          FennelToIteratorConverter'
+'            LhxAggRel(groupCount=[2], agg#0=[MAX(2)])'
+'              FennelReshapeRel(projection=[[2, 3, 0, 1]], outputRowType=[RecordType(INTEGER NOT NULL $f0, INTEGER $f1, INTEGER $f2, BOOLEAN $f3) NOT NULL])'
+'                LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'                  IteratorToFennelConverter'
+'                    IterCalcRel(expr#0=[{inputs}], expr#1=[true], proj#0..1=[{exprs}])'
+'                      FennelToIteratorConverter'
+'                        FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'                  LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'                    FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'                      FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     sum(empno) a,
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> having
+>     deptno = (select max(deptno) from depts where deptno = emps.deptno)
+> order by a;
+'A','EXPR$1'
+'100','1'
+'230','1'
+> 
+> -- expect error
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> having
+>     deptno = (select max(deptno) from depts where name = emps.name);
+Error: java.lang.AssertionError: Internal error: Identifier 'EMPS.NAME' is not a group expr (state=,code=0)
+> 
+> -- subquery select complex expressions
+> -- this should work
+> explain plan for
+> SELECT 
+>     (select name FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(VARCHAR(128) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" EXPR$0) NOT NULL])'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[*], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     (select name FROM depts where deptno = emps.deptno) a
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A'
+''
+'Marketing'
+'Sales'
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select deptno + 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[IS NULL($t0)], expr#4=[null], expr#5=[CAST($t4):INTEGER], expr#6=[1], expr#7=[CAST($t6):INTEGER], expr#8=[CASE($t3, $t5, $t7)], expr#9=[+($t0, $t8)], expr#10=[CAST($t9):INTEGER], expr#11=[CASE($t3, $t5, $t10)], EXPR$0=[$t2], EXPR$1=[$t11])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'        FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     sum(empno) a,
+>     (select deptno + 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A','EXPR$1'
+'100','11'
+'110',''
+'230','21'
+> 
+> explain plan for
+> SELECT 
+>     sum(empno),
+>     (select emps.deptno + 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..2=[{inputs}], expr#3=[IS NULL($t0)], expr#4=[null], expr#5=[CAST($t4):INTEGER], expr#6=[CAST($t1):INTEGER], expr#7=[CASE($t3, $t5, $t6)], expr#8=[1], expr#9=[CAST($t8):INTEGER], expr#10=[CASE($t3, $t5, $t9)], expr#11=[+($t7, $t10)], expr#12=[CAST($t11):INTEGER], expr#13=[CASE($t3, $t5, $t12)], EXPR$0=[$t2], EXPR$1=[$t13])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1], agg#0=[SUM(1)])'
+'        FennelRenameRel(fieldNames=[[$f0, $f1]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2, 0]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     sum(empno) a,
+>     (select emps.deptno + 1 FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A','EXPR$1'
+'100','11'
+'110',''
+'230','21'
+> 
+> explain plan for
+> SELECT 
+>     (select cast((deptno+1) as decimal(10,2)) FROM depts where deptno = emps.deptno)
+> FROM 
+>     emps
+> group by deptno;
+'column0'
+'IterCalcRel(expr#0..1=[{inputs}], expr#2=[IS NULL($t0)], expr#3=[null], expr#4=[CAST($t3):DECIMAL(10, 2)], expr#5=[CAST($t3):INTEGER], expr#6=[1], expr#7=[CAST($t6):INTEGER], expr#8=[CASE($t2, $t5, $t7)], expr#9=[+($t0, $t8)], expr#10=[CAST($t9):INTEGER], expr#11=[CASE($t2, $t5, $t10)], expr#12=[100], expr#13=[*($t11, $t12)], expr#14=[true], expr#15=[Reinterpret($t13, $t14)], expr#16=[Reinterpret($t15)], expr#17=[Reinterpret($t16)], expr#18=[Reinterpret($t4)], expr#19=[Reinterpret($t17)], expr#20=[CASE($t2, $t18, $t19)], expr#21=[Reinterpret($t20)], EXPR$0=[$t21])'
+'  FennelToIteratorConverter'
+'    LhxJoinRel(leftKeys=[[0]], rightKeys=[[0]], joinType=[RIGHT])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      LhxAggRel(groupCount=[1])'
+'        FennelRenameRel(fieldNames=[[$f0]])'
+'          FtrsIndexScanRel(table=[[LOCALDB, SALES, EMPS]], projection=[[2]], index=[EMPS_UX], preserveOrder=[false])'
+> 
+> SELECT 
+>     (select cast((deptno+1) as decimal(10,2)) FROM depts where deptno = emps.deptno) a
+> FROM 
+>     emps
+> group by deptno
+> order by a;
+'A'
+''
+'11.00'
+'21.00'
+> 
+> ---------------------------------------------
+> -- Implicit aggregate in scalar subqueries --
+> ---------------------------------------------
+> create table depts2 (deptno int);
+> 
+> explain plan for
+> select (select deptno from depts2) from depts;
+'column0'
+'FennelToIteratorConverter'
+'  FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(INTEGER EXPR$0) NOT NULL])'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      FennelAggRel(groupCount=[0], agg#0=[SINGLE_VALUE(0)])'
+'        LcsRowScanRel(table=[[LOCALDB, SALES, DEPTS2]], projection=[*], clustered indexes=[[SYS$CLUSTERED_INDEX$DEPTS2$DEPTNO]])'
+> 
+> explain plan for
+> select (select depts.deptno from depts2) from depts;
+'column0'
+'IterCalcRel(expr#0..1=[{inputs}], expr#2=[IS NULL($t1)], expr#3=[null], expr#4=[CAST($t3):INTEGER], expr#5=[CAST($t0):INTEGER], expr#6=[CASE($t2, $t4, $t5)], EXPR$0=[$t6])'
+'  FennelToIteratorConverter'
+'    FennelCartesianProductRel(leftouterjoin=[true])'
+'      FtrsIndexScanRel(table=[[LOCALDB, SALES, DEPTS]], projection=[[0]], index=[SYS$CONSTRAINT_INDEX$SYS$PRIMARY_KEY$DEPTS], preserveOrder=[false])'
+'      FennelBufferRel(inMemory=[false], multiPass=[true])'
+'        FennelReshapeRel(projection=[[1]], outputRowType=[RecordType(BOOLEAN $f1) NOT NULL])'
+'          FennelAggRel(groupCount=[0], agg#0=[SINGLE_VALUE(0)], agg#1=[SINGLE_VALUE(1)])'
+'            IteratorToFennelConverter'
+'              IterCalcRel(expr#0=[{inputs}], expr#1=[true], proj#0..1=[{exprs}])'
+'                FennelToIteratorConverter'
+'                  LcsRowScanRel(table=[[LOCALDB, SALES, DEPTS2]], projection=[*], clustered indexes=[[SYS$CLUSTERED_INDEX$DEPTS2$DEPTNO]])'
+> 
+> select (select deptno from depts2) a from depts order by a;
+'A'
+''
+''
+''
+> 
+> select (select depts.deptno from depts2) a from depts order by a;
+'A'
+''
+''
+''
+> 
+> insert into depts2 values(null);
+> 
+> select (select deptno from depts2) a from depts order by a;
+'A'
+''
+''
+''
+> 
+> select (select depts.deptno from depts2) a from depts order by a;
+'A'
+'10'
+'20'
+'30'
+> 
+> drop table depts2;
 > 
 > -- End agg.sql
 > 

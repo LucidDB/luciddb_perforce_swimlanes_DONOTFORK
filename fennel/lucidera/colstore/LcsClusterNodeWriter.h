@@ -27,6 +27,7 @@
 #include "fennel/lucidera/colstore/LcsClusterDump.h"
 #include "fennel/btree/BTreeWriter.h"
 #include "fennel/tuple/TupleData.h"
+#include "fennel/tuple/UnalignedAttributeAccessor.h"
 #include <boost/scoped_array.hpp>
 
 FENNEL_BEGIN_NAMESPACE
@@ -163,9 +164,19 @@ private:
     boost::scoped_array<uint> maxValueSize;
 
     /**
+     * Accessors for reading unaligned values.
+     */
+    boost::scoped_array<UnalignedAttributeAccessor> attrAccessors;
+
+    /**
      * Cluster dump
      */
     SharedLcsClusterDump clusterDump;
+
+    /**
+     * Tuple descriptor of the columns being loaded
+     */
+    TupleDescriptor colTupleDesc;
 
     /**
      * Associates an offset with an address, determining whether a value is
@@ -236,8 +247,11 @@ private:
 
 public:
     explicit LcsClusterNodeWriter(
-        BTreeDescriptor &treeDescriptorInit, SegmentAccessor &accessorInit,
-        SharedTraceTarget pTraceTargetInit, std::string nameInit);
+        BTreeDescriptor const &treeDescriptorInit,
+        SegmentAccessor const &accessorInit,
+        TupleDescriptor const &colTupleDescInit,
+        SharedTraceTarget pTraceTargetInit,
+        std::string nameInit);
 
     ~LcsClusterNodeWriter();
 

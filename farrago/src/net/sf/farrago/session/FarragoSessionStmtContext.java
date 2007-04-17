@@ -166,7 +166,7 @@ public interface FarragoSessionStmtContext
      * @return number of rows affected, or -1 if statement is non-DML or its
      * update count was already returned
      */
-    public int getUpdateCount();
+    public long getUpdateCount();
 
     /**
      * Closes any result set associated with this statement context.
@@ -184,6 +184,13 @@ public interface FarragoSessionStmtContext
      */
     public void unprepare();
 
+    /**
+     * Gets the warning queue for this statement.
+     *
+     * @return warning queue
+     */
+    public FarragoWarningQueue getWarningQueue();
+    
     public void setQueryTimeout(int milliseconds);
 
     public int getQueryTimeout();

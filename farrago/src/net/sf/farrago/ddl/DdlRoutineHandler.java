@@ -38,14 +38,12 @@ import net.sf.farrago.cwm.relational.enumerations.*;
 import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.plugin.*;
 import net.sf.farrago.query.*;
-import net.sf.farrago.resource.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.type.*;
-import net.sf.farrago.util.*;
 
-import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.*;
+import org.eigenbase.sql.pretty.*;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.sql.validate.*;
 import org.eigenbase.util.*;
@@ -106,6 +104,7 @@ public class DdlRoutineHandler
                 ++iOrdinal;
             }
             validateRoutineParam(param);
+            
             if (param.getType().getName().equals("CURSOR")) {
                 if (!(FarragoCatalogUtil.isTableFunction(routine))) {
                     throw validator.newPositionalError(
@@ -116,6 +115,11 @@ public class DdlRoutineHandler
                 }
             }
         }
+        
+        // validate column list parameters, now that we've set the types of
+        // the source cursor parameters
+        validateColumnListParams(routine);
+        
         if (FarragoCatalogUtil.isTableFunction(routine)) {
             routine.setUdx(true);
             validateAttributeSet(routine);
@@ -323,6 +327,22 @@ public class DdlRoutineHandler
             throw validator.newPositionalError(routine, ex);
         }
         if (sqlRoutine.getJar() != null) {
+            // Fully expand reference to jar in string
+            SqlIdentifier jarId =
+                FarragoCatalogUtil.getQualifiedName(sqlRoutine.getJar());
+            SqlPrettyWriter pw = new SqlPrettyWriter(
+                new SqlDialect(
+                    validator.getStmtValidator().
+                    getSession().getDatabaseMetaData()));
+            String fqjn = pw.format(jarId);
+            // replace 'jar_name:method_spec' with
+            // 'fully.qualified.jar_name:method_spec'
+            String expandedExternalName = routine.getExternalName();
+            expandedExternalName =
+                fqjn
+                + expandedExternalName.substring(
+                    expandedExternalName.indexOf(':'));
+            routine.setExternalName(expandedExternalName);
             validator.createDependency(
                 routine,
                 Collections.singleton(sqlRoutine.getJar()));
@@ -496,6 +516,41 @@ public class DdlRoutineHandler
         validateTypedElement(param, (FemRoutine) param.getBehavioralFeature());
     }
 
+    private void validateColumnListParams(FemRoutine routine)
+    {
+        for (FemRoutineParameter param :
+            Util.cast(routine.getParameter(), FemRoutineParameter.class))
+        {
+            if (param.getType().getName().equals("COLUMN_LIST")) {
+                // for COLUMN_LIST parameters, make sure the routine contains
+                // a CURSOR parameter matching the COLUMN_LIST parameter's
+                // source cursor
+                FemColumnListRoutineParameter colListParam =
+                    (FemColumnListRoutineParameter) param;
+                String sourceCursor = colListParam.getSourceCursorName();
+                boolean found = false;
+                for (FemRoutineParameter p :
+                    Util.cast(
+                        routine.getParameter(), FemRoutineParameter.class))
+                {
+                    if (p.getName().equals(sourceCursor)) {
+                        if (p.getType().getName().equals("CURSOR")) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
+                    throw validator.newPositionalError(
+                        routine,
+                        res.ValidatorNoMatchingSourceCursor.ex(
+                            repos.getLocalizedObjectName(sourceCursor),
+                            repos.getLocalizedObjectName(param)));
+                }
+            }
+        }
+    }
+    
     // implement FarragoSessionDdlHandler
     public void validateDefinition(FemJar jar)
     {

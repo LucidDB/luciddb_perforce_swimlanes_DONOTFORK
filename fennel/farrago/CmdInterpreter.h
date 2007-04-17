@@ -36,6 +36,7 @@ FENNEL_BEGIN_NAMESPACE
 
 class TraceTarget;
 class JavaTraceTarget;
+class JavaErrorTarget;
 class BTreeDescriptor;
 
 /**
@@ -91,7 +92,8 @@ public:
         SharedExecStreamGraph pExecStreamGraph;
         SharedExecStreamScheduler pScheduler;
         TxnHandle *pTxnHandle;
-        jobject javaRuntimeContext;     // a global ref to the FarragoRuntimeContext
+        // a global ref to the FarragoRuntimeContext
+        jobject javaRuntimeContext;
 
         explicit StreamGraphHandle()
             : pTxnHandle(0), javaRuntimeContext(0)
@@ -191,6 +193,9 @@ public:
     static void readTupleProjection(
         TupleProjection &tupleProj,
         SharedProxyTupleProjection pJavaTupleProj);
+
+    static SharedErrorTarget newErrorTarget(
+        jobject fennelJavaErrorTarget);
 };
 
 inline jobject CmdInterpreter::getObjectFromLong(jlong jHandle)

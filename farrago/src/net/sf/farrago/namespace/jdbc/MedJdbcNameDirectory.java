@@ -59,6 +59,8 @@ class MedJdbcNameDirectory
 
     final boolean shouldSubstituteTypes;
 
+    final Properties typeMapping;
+
     //~ Constructors -----------------------------------------------------------
 
     MedJdbcNameDirectory(MedJdbcDataServer server)
@@ -75,6 +77,15 @@ class MedJdbcNameDirectory
                 server.getProperties(),
                 MedJdbcDataServer.PROP_TYPE_SUBSTITUTION,
                 true);
+        this.typeMapping = new Properties();
+        String mappingsString =
+            server.getProperties().getProperty(
+                MedJdbcDataServer.PROP_TYPE_MAPPING, "");
+        String[] mappingsArray = mappingsString.split(";");
+        for (int i = 0; i < mappingsArray.length; i++) {
+            addTypeMapping(mappingsArray[i]);
+        }
+
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -139,7 +150,7 @@ class MedJdbcNameDirectory
 
             PreparedStatement ps = null;
             try {
-                ps = server.connection.prepareStatement(sql);
+                ps = server.getConnection().prepareStatement(sql);
             } catch (Exception ex) {
                 // Some drivers don't support prepareStatement
             }
@@ -159,7 +170,7 @@ class MedJdbcNameDirectory
                     if (ps != null) {
                         rs = ps.executeQuery();
                     } else {
-                        stmt = server.connection.createStatement();
+                        stmt = server.getConnection().createStatement();
                         rs = stmt.executeQuery(sql);
                     }
                     md = rs.getMetaData();
@@ -167,7 +178,8 @@ class MedJdbcNameDirectory
                 rowType =
                     typeFactory.createResultSetType(
                         md,
-                        shouldSubstituteTypes);
+                        shouldSubstituteTypes,
+                        typeMapping);
             } finally {
                 if (rs != null) {
                     rs.close();
@@ -197,7 +209,9 @@ class MedJdbcNameDirectory
     String normalizeQueryString(String sql)
     {
         // some drivers don't like multi-line SQL, so convert all
-        // whitespace into plain spaces
+        // whitespace into plain spaces, and also mask Windows
+        // line-ending diffs
+        sql = sql.replaceAll("\\r\\n", " ");
         return sql.replaceAll("\\s", " ");
     }
 
@@ -465,7 +479,8 @@ class MedJdbcNameDirectory
                 RelDataType type =
                     sink.getTypeFactory().createJdbcColumnType(
                         resultSet,
-                        shouldSubstituteTypes);
+                        shouldSubstituteTypes,
+                        typeMapping);
                 String remarks = resultSet.getString(12);
                 String defaultValue = resultSet.getString(13);
                 int ordinalZeroBased = resultSet.getInt(17) - 1;
@@ -517,6 +532,24 @@ class MedJdbcNameDirectory
         }
         return s1.equals(s2);
     }
+
+    private void addTypeMapping(String s)
+    {
+        String[] map = s.split(":");
+        if (map.length != 2) {
+            return;
+        }
+
+        // store in Properties as DATATYPE(P,S);
+        // ie. all upper-case and lose whitespace
+        String key = map[0].trim().toUpperCase().replaceAll("\\s","");
+        String value = map[1].trim().toUpperCase().replaceAll("\\s","");;
+
+        if (!key.equals("") && !value.equals("")) {
+            this.typeMapping.setProperty(key, value);
+        }
+    }
+
 }
 
 // End MedJdbcNameDirectory.java

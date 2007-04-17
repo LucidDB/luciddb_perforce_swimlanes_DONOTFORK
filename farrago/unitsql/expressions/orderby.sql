@@ -25,3 +25,15 @@ select * from (select name from sales.depts order by name);
 
 -- ORDER BY on explicit TABLE
 table sales.depts order by name;
+
+-- ORDER BY DESC
+select name from sales.depts order by name desc;
+
+-- ORDER BY DESC, ASC
+select deptno, name from sales.emps order by deptno desc, name asc;
+
+-- ORDER BY DESC, DESC
+select deptno, name from sales.emps order by deptno desc, name desc;
+
+-- ORDER BY ASC, DESC
+select deptno, name from sales.emps order by deptno asc, name desc;

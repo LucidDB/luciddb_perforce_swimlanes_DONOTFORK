@@ -111,7 +111,8 @@ public abstract class RelMetadataQuery
                 "getRowCount",
                 null);
         assert (assertNonNegative(result));
-        return result;
+        return validateResult(result);
+        
     }
 
     /**
@@ -245,7 +246,26 @@ public abstract class RelMetadataQuery
                 "getUniqueKeys",
                 null);
     }
-
+    
+    /**
+     * Determines if a specified set of columns from a specified relational
+     * expression are unique.
+     * 
+     * @param rel the relational expression
+     * @param columns column mask representing the ssubset of columns for which
+     * uniqueness will be determined
+     * 
+     * @return true or false depending on whether the columns are unique, or
+     * null if not enough information is available to make that determination
+     */
+    public static Boolean areColumnsUnique(RelNode rel, BitSet columns)
+    {
+        return (Boolean) rel.getCluster().getMetadataProvider().getRelMetadata(
+            rel,
+            "areColumnsUnique",
+            new Object[] { columns });
+    }
+    
     /**
      * Estimates the distinct row count in the original source for the given
      * groupKey, ignoring any filtering being applied by the expression.
@@ -267,7 +287,7 @@ public abstract class RelMetadataQuery
                 "getPopulationSize",
                 new Object[] { groupKey });
         assert (assertNonNegative(result));
-        return result;
+        return validateResult(result);
     }
 
     /**
@@ -295,7 +315,7 @@ public abstract class RelMetadataQuery
                 "getDistinctRowCount",
                 new Object[] { groupKey, predicate });
         assert (assertNonNegative(result));
-        return result;
+        return validateResult(result);
     }
 
     private static boolean assertPercentage(Double result)
@@ -317,6 +337,20 @@ public abstract class RelMetadataQuery
         double d = result.doubleValue();
         assert (d >= 0.0);
         return true;
+    }
+    
+    private static Double validateResult(Double result)
+    {
+        if (result == null) {
+            return result;
+        }
+        // never let the result go below 1, as it will result in incorrect
+        // calculations if the rowcount is used as the denominator in a
+        // division expression
+        if (result < 1.0) {
+            result = 1.0;
+        }
+        return result;
     }
 }
 

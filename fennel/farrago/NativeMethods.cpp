@@ -116,9 +116,11 @@ Java_net_sf_farrago_fennel_FennelStorage_tupleStreamFetch(
             return 0;
         }
         assert(bufAccessor.isConsumptionPossible());
-        uint cbActual = bufAccessor.getConsumptionAvailable();
+        uint cbLimit = uint(pEnv->GetArrayLength(byteArray));
+        uint cbActual = bufAccessor.getConsumptionAvailableBounded(cbLimit);
+        assert(cbActual);
         PConstBuffer pBuffer = bufAccessor.getConsumptionStart();
-        assert(uint(pEnv->GetArrayLength(byteArray)) >= cbActual);
+        assert(cbLimit >= cbActual);
         pEnv->SetByteArrayRegion(
             byteArray,0,cbActual,(jbyte *)(pBuffer));
         bufAccessor.consumeData(pBuffer + cbActual);
@@ -153,9 +155,11 @@ Java_net_sf_farrago_fennel_FennelStorage_tupleStreamTransformFetch(
             return -1;
         }
 
-        uint cbActual = bufAccessor->getConsumptionAvailable();
+        uint cbLimit = uint(pEnv->GetArrayLength(byteArray));
+        uint cbActual = bufAccessor->getConsumptionAvailableBounded(cbLimit);
+        assert(cbActual);
         PConstBuffer pBuffer = bufAccessor->getConsumptionStart();
-        assert(uint(pEnv->GetArrayLength(byteArray)) >= cbActual);
+        assert(cbLimit >= cbActual);
         pEnv->SetByteArrayRegion(
             byteArray,0,cbActual,(jbyte *)(pBuffer));
         bufAccessor->consumeData(pBuffer + cbActual);
@@ -183,7 +187,7 @@ Java_net_sf_farrago_fennel_FennelStorage_tupleStreamRestart(
 extern "C" JNIEXPORT void JNICALL
 Java_net_sf_farrago_fennel_FennelStorage_tupleStreamGraphOpen(
     JNIEnv *pEnvInit, jclass, jlong hStreamGraph, jlong hTxn,
-    jobject hJavaStreamMap)
+    jobject hJavaStreamMap, jobject hJavaErrorTarget)
 {
     JniEnvRef pEnv(pEnvInit);
     try {
@@ -191,10 +195,13 @@ Java_net_sf_farrago_fennel_FennelStorage_tupleStreamGraphOpen(
             CmdInterpreter::getStreamGraphHandleFromLong(hStreamGraph);
         CmdInterpreter::TxnHandle &txnHandle =
             CmdInterpreter::getTxnHandleFromLong(hTxn);
-        // Provide runtime context for stream open(), which a scheduler may defer
-        // til after out java caller returns: hence the global ref.
-        streamGraphHandle.javaRuntimeContext = pEnv->NewGlobalRef(hJavaStreamMap);
+        // Provide runtime context for stream open(), which a scheduler may
+        // defer til after out java caller returns: hence the global ref.
+        streamGraphHandle.javaRuntimeContext =
+            pEnv->NewGlobalRef(hJavaStreamMap);
         streamGraphHandle.pExecStreamGraph->setTxn(txnHandle.pTxn);
+        streamGraphHandle.pExecStreamGraph->setErrorTarget(
+            CmdInterpreter::newErrorTarget(hJavaErrorTarget));
         txnHandle.pResourceGovernor->requestResources(
             *(streamGraphHandle.pExecStreamGraph));
         streamGraphHandle.pExecStreamGraph->open();

@@ -27,6 +27,7 @@ import java.io.*;
 import java.net.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.*;
 import java.util.List;
 import java.util.logging.*;
 
@@ -90,6 +91,10 @@ public class FarragoPreparingStmt
     private static final Logger planDumpTracer =
         FarragoTrace.getPlanDumpTracer();
 
+    // REVIEW jvs 11-Oct-2006:  For debugging it would be handier to
+    // use the db-level stmt ID here.
+    private static final AtomicLong idGen = new AtomicLong();
+
     //~ Instance fields --------------------------------------------------------
 
     private final String sql;
@@ -100,7 +105,7 @@ public class FarragoPreparingStmt
     private FarragoAllocation javaCodeDir;
     protected SqlValidatorImpl sqlValidator;
     private final Set<CwmModelElement> directDependencies;
-    private final Set<CwmModelElement> allDependencies;
+    protected final Set<CwmModelElement> allDependencies;
     private final Set<URL> jarUrlSet;
     protected SqlOperatorTable sqlOperatorTable;
     private final FarragoUserDefinedRoutineLookup routineLookup;
@@ -113,6 +118,7 @@ public class FarragoPreparingStmt
     private boolean allowPartialImplementation;
     private final Map<String, RelDataType> resultSetTypeMap;
     private final Map<String, RelDataType> iterCalcTypeMap;
+    private boolean cachingDisabled;
 
     /**
      * Name of Java package containing code generated for this statement.
@@ -197,7 +203,15 @@ public class FarragoPreparingStmt
     // implement FarragoSessionPreparingStmt: cache everything
     public boolean mayCacheImplementation()
     {
+        if (cachingDisabled) {
+            return false;
+        }
         return true;
+    }
+
+    public void disableStatementCaching()
+    {
+        cachingDisabled = true;
     }
 
     public FarragoSessionStmtValidator getStmtValidator()
@@ -281,7 +295,7 @@ public class FarragoPreparingStmt
 
         definePackageName();
         PreparedResult preparedResult =
-            super.prepareSql(
+            prepareSql(
                 sqlNode,
                 sqlNodeOriginal,
                 getSession().getPersonality().getRuntimeContextClass(
@@ -295,14 +309,21 @@ public class FarragoPreparingStmt
     public void preImplement()
     {
         definePackageName();
-        implementingArgs = new Argument[] {
+        initClassDecl();
+    }
+
+    protected void initClassDecl()
+    {
+        if (implementingClassDecl == null) {
+            implementingArgs = new Argument[] {
                 new Argument(
                     connectionVariable,
                     getSession().getPersonality().getRuntimeContextClass(
                         this),
                     this)
             };
-        implementingClassDecl = super.init(implementingArgs);
+            implementingClassDecl = super.init(implementingArgs);
+        }
     }
 
     protected ClassDeclaration getImplementingClassDecl()
@@ -405,19 +426,33 @@ public class FarragoPreparingStmt
 
     private void definePackageName()
     {
-        // TODO:  once and only once
+        String packageNameUnqualified = "stmt" + idGen.incrementAndGet();
+
+        // NOTE:  we're not actually creating the directory here, because
+        // we might decide we don't actually need any Java compilation;
+        // but we need to know its name during preparation in case it
+        // turns out that we are going to compile something
         packageDir = classesRoot;
         packageDir = new File(packageDir, "net");
         packageDir = new File(packageDir, "sf");
         packageDir = new File(packageDir, "farrago");
         packageDir = new File(packageDir, "dynamic");
-        try {
-            packageDir.mkdirs();
-            packageDir = File.createTempFile("stmt", "", packageDir);
-        } catch (IOException ex) {
-            throw Util.newInternal(ex);
+        packageDir = new File(packageDir, packageNameUnqualified);
+
+        packageName = "net.sf.farrago.dynamic." + packageNameUnqualified;
+    }
+
+    // Override OJPreparingStmt
+    protected BoundMethod compileAndBind(
+        ClassDeclaration decl,
+        ParseTree parseTree,
+        Argument [] arguments)
+    {
+        if (packageDir.exists()) {
+            // Blow away existing package; could be left over from
+            // a previous run.
+            new FarragoFileAllocation(packageDir).closeAllocation();
         }
-        packageName = "net.sf.farrago.dynamic." + packageDir.getName();
 
         // Normally, we want to make sure all generated code gets cleaned up.
         // To disable this for debugging, you can explicitly set
@@ -427,17 +462,8 @@ public class FarragoPreparingStmt
             javaCodeDir = new FarragoFileAllocation(packageDir);
         }
 
-        // createTempFile created a normal file; we want a directory
-        packageDir.delete();
         packageDir.mkdir();
-    }
 
-    // Override OJPreparingStmt
-    protected BoundMethod compileAndBind(
-        ClassDeclaration decl,
-        ParseTree parseTree,
-        Argument [] arguments)
-    {
         BoundMethod boundMethod =
             super.compileAndBind(decl, parseTree, arguments);
 
@@ -470,6 +496,18 @@ public class FarragoPreparingStmt
         }
     }
 
+    protected boolean treeContainsJava(RelNode rootRel)
+    {
+        // if the topmost node isn't a FennelToIteratorConverter, then
+        // we know we don't have a pure Fennel plan; otherwise, check
+        // the rest of the tree, ignoring the converter, which we'll strip
+        // off later if it turns out we do have a pure Fennel plan
+        if (!(rootRel instanceof FennelToIteratorConverter)) {
+            return true;
+        }
+        return super.treeContainsJava(rootRel.getInput(0));
+    }
+
     protected FarragoSessionExecutableStmt implement(
         PreparedResult preparedResult)
     {
@@ -478,26 +516,19 @@ public class FarragoPreparingStmt
             PreparedExecution preparedExecution =
                 (PreparedExecution) preparedResult;
             RelDataType rowType = preparedExecution.getPhysicalRowType();
-            OJClass ojRowClass =
-                OJUtil.typeToOJClass(
-                    rowType,
-                    getFarragoTypeFactory());
-            Class rowClass;
-            try {
-                String ojRowClassName = ojRowClass.getName();
-                int i = ojRowClassName.lastIndexOf('.');
-                assert (i != -1);
-                ojRowClassName = OJUtil.replaceDotWithDollar(ojRowClassName, i);
-                rowClass =
-                    Class.forName(
-                        ojRowClassName,
-                        true,
-                        javaCompiler.getClassLoader());
-            } catch (ClassNotFoundException ex) {
-                throw Util.newInternal(ex);
-            }
-
             RelDataType dynamicParamRowType = getParamRowType();
+
+            String streamName = null;
+            if (!containsJava) {
+                RelNode rootRel = preparedExecution.getRootRel();
+                if (relImplementor == null) {
+                    relImplementor =
+                        newRelImplementor(rootRel.getCluster().getRexBuilder());
+                }
+                FemExecutionStreamDef streamDef =
+                    relImplementor.visitFennelChild((FennelRel) rootRel);
+                streamName = streamDef.getName();
+            }
 
             String xmiFennelPlan = null;
             Set<FemExecutionStreamDef> streamDefSet =
@@ -515,20 +546,55 @@ public class FarragoPreparingStmt
             }
 
             assert (tableAccessMap != null);
-            executableStmt =
-                new FarragoExecutableJavaStmt(
-                    packageDir,
-                    rowClass,
-                    javaCompiler.getClassLoader(),
-                    (originalRowType == null) ? rowType : originalRowType,
-                    dynamicParamRowType,
-                    preparedExecution.getMethod(),
-                    xmiFennelPlan,
-                    preparedResult.isDml(),
-                    getReferencedObjectIds(),
-                    tableAccessMap,
-                    resultSetTypeMap,
-                    iterCalcTypeMap);
+            if (containsJava) {
+                OJClass ojRowClass =
+                    OJUtil.typeToOJClass(
+                        rowType,
+                        getFarragoTypeFactory());
+                Class rowClass;
+                try {
+                    String ojRowClassName = ojRowClass.getName();
+                    int i = ojRowClassName.lastIndexOf('.');
+                    assert (i != -1);
+                    ojRowClassName =
+                        OJUtil.replaceDotWithDollar(ojRowClassName, i);
+                    rowClass =
+                        Class.forName(
+                            ojRowClassName,
+                            true,
+                            javaCompiler.getClassLoader());
+                } catch (ClassNotFoundException ex) {
+                    throw Util.newInternal(ex);
+                }
+                executableStmt =
+                    new FarragoExecutableJavaStmt(
+                        packageDir,
+                        rowClass,
+                        javaCompiler.getClassLoader(),
+                        (originalRowType == null) ? rowType : originalRowType,
+                        dynamicParamRowType,
+                        preparedExecution.getMethod(),
+                        xmiFennelPlan,
+                        preparedResult.isDml(),
+                        preparedResult.getTableModOp(),
+                        getReferencedObjectTimestampMap(),
+                        tableAccessMap,
+                        resultSetTypeMap,
+                        iterCalcTypeMap,
+                        javaCompiler.getTotalByteCodeSize());
+            } else {
+                executableStmt =
+                    new FarragoExecutableFennelStmt(
+                        rowType,
+                        dynamicParamRowType,
+                        xmiFennelPlan,
+                        streamName,
+                        preparedResult.isDml(),
+                        preparedResult.getTableModOp(),
+                        getReferencedObjectTimestampMap(),
+                        tableAccessMap,
+                        resultSetTypeMap);
+            }
         } else {
             assert (preparedResult instanceof PreparedExplanation);
             executableStmt =
@@ -582,10 +648,9 @@ public class FarragoPreparingStmt
 
         // For queries, fill in some more information.
         if (rootRel != null) {
-            // Make sure we have RelMetadataProvider set up.
-            finalizeRelMetadata(rootRel);
-
             if (analyzedSql.optimized) {
+                rootRel = flattenTypes(rootRel, true);
+
                 rootRel = optimize(
                         rootRel.getRowType(),
                         rootRel);
@@ -644,13 +709,18 @@ public class FarragoPreparingStmt
         sqlNode.accept(udfInvocationFinder);
     }
 
-    protected Set<String> getReferencedObjectIds()
+    protected Map<String, String> getReferencedObjectTimestampMap()
     {
-        Set<String> set = new HashSet<String>();
+        Map<String, String> map = new HashMap<String, String>();
         for (CwmModelElement refObj : allDependencies) {
-            set.add(refObj.refMofId());
+            String modTime = null;
+            if (refObj instanceof FemAnnotatedElement) {
+                FemAnnotatedElement annotated = (FemAnnotatedElement) refObj;
+                modTime = annotated.getModificationTimestamp();
+            }
+            map.put(refObj.refMofId(), modTime);
         }
-        return set;
+        return map;
     }
 
     // implement FarragoSessionPreparingStmt
@@ -665,10 +735,12 @@ public class FarragoPreparingStmt
         return getSqlToRelConverter().getCluster();
     }
 
-    // override OJPreparingStmt
-    protected RelNode optimize(RelDataType rowType, RelNode rootRel)
+    protected RelNode flattenTypes(
+        RelNode rootRel,
+        boolean restructure)
     {
         boolean dumpPlan = planDumpTracer.isLoggable(Level.FINE);
+
         if (dumpPlan) {
             planDumpTracer.fine(
                 RelOptUtil.dumpPlan(
@@ -677,20 +749,57 @@ public class FarragoPreparingStmt
                     false,
                     SqlExplainLevel.EXPPLAN_ATTRIBUTES));
         }
-        originalRowType = rowType;
-        rootRel = flattenTypes(rootRel, true);
+
+        RelNode newRootRel =
+            getSqlToRelConverter().flattenTypes(rootRel, restructure);
+
+        if (timingTracer != null) {
+            timingTracer.traceTime("end type flattening and view expansion");
+        }
         if (dumpPlan) {
             planDumpTracer.fine(
                 RelOptUtil.dumpPlan(
                     "Plan after flattening",
-                    rootRel,
+                    newRootRel,
                     false,
                     SqlExplainLevel.EXPPLAN_ATTRIBUTES));
         }
+        return newRootRel;
+    }
+
+    protected RelNode decorrelate(
+        SqlNode query,
+        RelNode rootRel)
+    {
+        boolean dumpPlan = planDumpTracer.isLoggable(Level.FINE);
 
         // Now that all plugins have been seen (flattening above expanded
-        // views), we can finalize the relational expression metadata query
-        // providers to use during optimization.
+        // views), finalize the relational expression metadata query providers
+        // to use during decorrelation.
+        finalizeRelMetadata(rootRel);
+
+        RelNode newRootRel =
+            getSqlToRelConverter().decorrelate(query, rootRel);
+
+        if (dumpPlan) {
+            planDumpTracer.fine(
+                RelOptUtil.dumpPlan(
+                    "Plan after decorrelating RelNode",
+                    newRootRel,
+                    false,
+                    SqlExplainLevel.EXPPLAN_ATTRIBUTES));
+        }
+        return newRootRel;
+    }
+
+    // override OJPreparingStmt
+    protected RelNode optimize(RelDataType rowType, RelNode rootRel)
+    {
+        boolean dumpPlan = planDumpTracer.isLoggable(Level.FINE);
+        originalRowType = rowType;
+
+        // Since rootRel might have changed, first finalize the relational
+        // expression metadata query providers to use during optimization.
         finalizeRelMetadata(rootRel);
 
         RelTraitSet desiredTraits = getDesiredRootTraitSet(rootRel);
@@ -790,15 +899,6 @@ public class FarragoPreparingStmt
         relMetadataProvider = null;
     }
 
-    protected RelNode flattenTypes(RelNode rootRel, boolean restructure)
-    {
-        RelStructuredTypeFlattener typeFlattener =
-            new RelStructuredTypeFlattener(
-                sqlToRelConverter.getRexBuilder());
-        rootRel = typeFlattener.rewrite(rootRel, restructure);
-        return rootRel;
-    }
-
     protected RelDataType getParamRowType()
     {
         return
@@ -894,13 +994,13 @@ public class FarragoPreparingStmt
         return rexNode;
     }
 
-    void setDmlValidation(SqlIdentifier target, PrivilegedAction action)
+    public void setDmlValidation(SqlIdentifier target, PrivilegedAction action)
     {
         dmlTarget = target;
         dmlAction = action;
     }
 
-    void clearDmlValidation()
+    public void clearDmlValidation()
     {
         dmlTarget = null;
         dmlAction = null;
@@ -932,6 +1032,10 @@ public class FarragoPreparingStmt
             sqlToRelConverter.setDefaultValueFactory(
                 new ReposDefaultValueFactory(this));
             sqlToRelConverter.enableTableAccessConversion(false);
+            // currently the only physical implementation available
+            // for ValuesRel is FennelValuesRel
+            sqlToRelConverter.enableValuesRelCreation(
+                getRepos().isFennelEnabled());
         }
         return sqlToRelConverter;
     }
@@ -1010,11 +1114,14 @@ public class FarragoPreparingStmt
     // implement RelOptSchema
     public RelOptTable getTableForMember(String [] names)
     {
-        return getTableForMember(names, null);
+        return getTableForMember(names, null, null);
     }
 
     // implement RelOptSchemaWithSampling
-    public RelOptTable getTableForMember(String [] names, String datasetName)
+    public RelOptTable getTableForMember(
+        String[] names,
+        String datasetName,
+        boolean[] usedDataset)
     {
         FarragoSessionResolvedObject<CwmNamedColumnSet> resolved =
             stmtValidator.resolveSchemaObjectName(
@@ -1038,6 +1145,10 @@ public class FarragoPreparingStmt
             if (sampleColumnSet != null) {
                 oldColumnSet = columnSet;
                 columnSet = sampleColumnSet;
+                if (usedDataset != null) {
+                    assert usedDataset.length == 1;
+                    usedDataset[0] = true;
+                }
             }
         }
 
@@ -1308,7 +1419,7 @@ public class FarragoPreparingStmt
         allDependencies.add(supplier);
     }
 
-    void mapResultSetType(
+    public void mapResultSetType(
         String resultSetName,
         RelDataType rowType)
     {
@@ -1354,7 +1465,7 @@ public class FarragoPreparingStmt
     {
         return packageDir;
     }
-    
+
     // override OJPreparingStmt
     protected String getClassRoot()
     {

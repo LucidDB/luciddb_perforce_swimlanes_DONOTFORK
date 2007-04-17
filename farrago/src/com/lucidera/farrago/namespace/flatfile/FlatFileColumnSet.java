@@ -57,7 +57,7 @@ class FlatFileColumnSet
     public static final String PROP_LOG_FILENAME = "LOG_FILENAME";
 
     private static final String TIMESTAMP_PREFIX = "_";
-    private static final String TIMESTAMP_FORMAT = "yyyyMMddHHmmss";
+    private static final String TIMESTAMP_FORMAT = "yyyy-MM-dd_HH_mm_ss";
 
     //~ Instance fields --------------------------------------------------------
 
@@ -200,16 +200,10 @@ class FlatFileColumnSet
         FennelRel child, 
         RexProgram program)
     {
-        // insert a converter to force the usage of Java calc
-        RelNode iterRel =
-            new FennelToIteratorConverter(
-                cluster,
-                child);
-
         return new CalcRel(
             cluster,
             new RelTraitSet(CallingConvention.NONE),
-            iterRel,
+            child,
             program.getOutputRowType(),
             program,
             Collections.EMPTY_LIST);

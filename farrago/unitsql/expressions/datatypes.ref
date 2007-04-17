@@ -67,8 +67,8 @@
 > -- dtbug 401 (JIRA FRG-74)
 > 
 > -- singleline literals
-> create view literal_view(lit1,lit2,lit3,lit4) 
-> as values ('pumpkin ','pie','','  ');
+> create view literal_view(lit1,lit2,lit3,lit4,lit5) 
+> as values ('pumpkin ','pie','','  ',cast('' as varchar(0)));
 > 
 > select column_name,type_name,column_size,nullable
 > from sys_boot.jdbc_metadata.columns_view
@@ -81,6 +81,7 @@
 | LIT2         | CHAR       | 3            | 0         |
 | LIT3         | CHAR       | 1            | 0         |
 | LIT4         | CHAR       | 2            | 0         |
+| LIT5         | VARCHAR    | 1            | 0         |
 +--------------+------------+--------------+-----------+
 > 
 > -- multiline literals
@@ -106,8 +107,8 @@
 > 
 > !set outputformat csv
 > select * from literal_view;
-'LIT1','LIT2','LIT3','LIT4'
-'pumpkin ','pie',' ','  '
+'LIT1','LIT2','LIT3','LIT4','LIT5'
+'pumpkin ','pie',' ','  ',''
 > select * from literal_view2;
 'LIT1','LIT2','LIT3','LIT4'
 'pumpkin ','pie',' ','  '

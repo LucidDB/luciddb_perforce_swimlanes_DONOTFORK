@@ -53,16 +53,6 @@ struct TupleAttributeDescriptor
         TupleStorageByteLength cbStorage = 0);
 
     bool operator == (TupleAttributeDescriptor const &other) const;
-
-    /**
-     * Get the storage required to store any value of this attribute in the Lcs
-     * column storage format. See TupleData.h for a description of this format.
-     *
-     * @return maximum storage length required for this attribute
-     */
-    inline TupleStorageByteLength getMaxLcsLength() {
-        return cbStorage + 2;
-    }
 };
 
 /**
@@ -77,11 +67,23 @@ public:
     
     void readPersistent(
         ByteInputStream &);
+
+    void projectFrom(
+        TupleProjection const &sourceProjection,
+        TupleProjection const &tupleProjection);
 };
 
 /**
  * A TupleDescriptor specifies a vector of stored attributes, as explained in
  * the <a href="structTupleDesign.html#TupleDescriptor">design docs</a>.
+ *
+ *<p>
+ *
+ * The compareTuples[Key] methods return the standard zero, negative,
+ * or positive to indicate EQ, LT, GT.  However, rather than returning
+ * -1 or 1 for LT/GT, they return the 1-based ordinal of the first
+ * non-equal column (negated if LT).  This allows a caller to
+ * implement ORDER BY DESC without having to pass in ASC/DESC information.
  */
 class TupleDescriptor : public std::vector<TupleAttributeDescriptor>
 {

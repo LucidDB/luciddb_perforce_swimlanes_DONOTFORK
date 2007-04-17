@@ -2120,7 +2120,7 @@ public class SqlValidatorTest
         checkFails(
             "select * from emp as emps, dept as d" + NL
             + "where ^dept^.deptno > 5",
-            "Unknown identifier 'DEPT'");
+            "Table 'DEPT' not found");
 
         // fail: ambiguous column reference in ON clause
         checkFails(
@@ -2307,7 +2307,7 @@ public class SqlValidatorTest
             "select * from emp" + NL
             + "union" + NL
             + "select * from dept where ^empno^ < 10",
-            "Unknown identifier 'EMPNO'");
+            "Column 'EMPNO' not found in any table");
     }
 
     public void testUnionCountMismatchFails()
@@ -2547,7 +2547,13 @@ public class SqlValidatorTest
      */
     public void testLarge()
     {
-        final int x = 1000;
+        int x = 1000;
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            // NOTE jvs 1-Nov-2006:  Default thread stack size
+            // on Windows is too small, so avoid stack overflow
+            x /= 3;
+        }
+
         // E.g. large = "deptno * 1 + deptno * 2 + deptno * 3".
         String large = list(" + ", "deptno * ", x);
         check("select " + large + "from emp");
@@ -2983,10 +2989,9 @@ public class SqlValidatorTest
     public void testCorrelatingVariables()
     {
         // reference to unqualified correlating column
-        checkFails(
+        check(
             "select * from emp where exists (" + NL
-            + "select * from dept where deptno = sal)",
-            "Unknown identifier 'SAL'");
+            + "select * from dept where deptno = sal)");
 
         // reference to qualified correlating column
         check(
@@ -3166,7 +3171,7 @@ public class SqlValidatorTest
     {
         checkFails(
             "select * from emp, (select * from dept where emp.deptno=dept.deptno)",
-            "(?s).*Unknown identifier 'EMP'.*");
+            "Table 'EMP' not found");
 
         check(
             "select * from emp, LATERAL (select * from dept where emp.deptno=dept.deptno)");
@@ -3216,10 +3221,8 @@ public class SqlValidatorTest
 
     public void testMinMaxFunctions()
     {
-        checkFails("SELECT ^MIN(true)^ from emp",
-            "The MIN function does not support the BOOLEAN data type.");
-        checkFails("SELECT ^MAX(false)^ from emp",
-            "The MAX function does not support the BOOLEAN data type.");
+        check("SELECT MIN(true) from emp");
+        check("SELECT MAX(false) from emp");
 
         check("SELECT MIN(sal+deptno) FROM emp");
         check("SELECT MAX(ename) FROM emp");

@@ -45,6 +45,7 @@ import org.eigenbase.rex.*;
 import org.eigenbase.sarg.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.fun.*;
+import org.eigenbase.sql.type.*;
 import org.eigenbase.stat.*;
 import org.eigenbase.util.*;
 
@@ -86,7 +87,7 @@ public class LoptMetadataTest
     // guess for any sargable predicate when stats are missing
     private static final double DEFAULT_SARGABLE_SELECTIVITY = 0.1;
 
-    private static final double DEFAULT_ROWCOUNT = 100.0;
+    private static final double DEFAULT_ROWCOUNT = 1.0;
 
     //~ Instance fields --------------------------------------------------------
 
@@ -237,7 +238,7 @@ public class LoptMetadataTest
             + "   DATE'2002-01-01', TIME'12:01:01', TIMESTAMP'2004-01-01 12:01:01'),"
             + "  ('mystery', null, null, null, null, "
             + "   null, null, null),"
-            + "  ('mystery', null, null, null, null, "
+            + "  ('mystery2', null, null, null, null, "
             + "   null, null, null)");
         stmt.executeUpdate(
             "analyze table WINES compute statistics for all columns");
@@ -501,9 +502,11 @@ public class LoptMetadataTest
         RelOptCost cost = RelMetadataQuery.getCumulativeCost(rootRel);
 
         // Cumulative cost is full table access plus the filtered rowcount for
-        // the sort.
+        // the sort.  Note the filter cost uses the default equality selectivity
+        // because the filter expression effectively becomes
+        // upper(name) = 'ZELDA', which isn't sargable
         double tableRowCount = COLSTORE_EMPS_ROWCOUNT;
-        double sortRowCount = tableRowCount * .005;
+        double sortRowCount = tableRowCount * DEFAULT_EQUAL_SELECTIVITY;
         checkCost(
             tableRowCount + sortRowCount,
             cost);
@@ -751,28 +754,26 @@ public class LoptMetadataTest
         value = rexBuilder.makeBinaryLiteral(code);
         searchColumn(4, value, 0.2, 1.0);
 
-        Calendar cal = Calendar.getInstance();
+        RelDataTypeFactory factory = rexBuilder.getTypeFactory();
 
         // note: this matches a value of each column
         // be careful of 0-indexed month, and timezone
-        cal.clear();
-        cal.setTimeZone(new SimpleTimeZone(0, "GMT+00:00"));
-        cal.set(2002, 0, 1);
-        value = rexBuilder.makeDateLiteral(cal);
+        value = RexLiteral.fromJdbcString(
+            factory.createSqlType(SqlTypeName.Date),
+            SqlTypeName.Date,
+            "2002-01-01");
         searchColumn(5, value, 0.2, 1.0);
 
-        cal.clear();
-        cal.setTimeZone(new SimpleTimeZone(0, "GMT+00:00"));
-        cal.set(Calendar.HOUR_OF_DAY, 12);
-        cal.set(Calendar.MINUTE, 1);
-        cal.set(Calendar.SECOND, 1);
-        value = rexBuilder.makeTimeLiteral(cal, 3);
+        value = RexLiteral.fromJdbcString(
+            factory.createSqlType(SqlTypeName.Time),
+            SqlTypeName.Time,
+            "12:01:01");
         searchColumn(6, value, 0.2, 1.0);
 
-        cal.clear();
-        cal.setTimeZone(new SimpleTimeZone(0, "GMT+00:00"));
-        cal.set(2002, 0, 1, 12, 1, 1);
-        value = rexBuilder.makeTimestampLiteral(cal, 3);
+        value = RexLiteral.fromJdbcString(
+            factory.createSqlType(SqlTypeName.Timestamp),
+            SqlTypeName.Timestamp,
+            "2002-01-01 12:01:01");
         searchColumn(7, value, 0.4, 1.0);
 
         // all of first bar + 1/2 of second bar
@@ -1020,13 +1021,22 @@ public class LoptMetadataTest
         stmt.executeUpdate(
             "create table tabwithuniquekey(a int not null constraint u unique,"
             + "b int)");
+        FarragoJdbcEngineConnection farragoConnection =
+            (FarragoJdbcEngineConnection) connection;
+        FarragoSession session = farragoConnection.getSession();
+        FarragoStatsUtil.setTableRowCount(
+            session,
+            "",
+            "",
+            "TABWITHUNIQUEKEY",
+            100);
         BitSet groupKey = new BitSet();
         groupKey.set(0);
         groupKey.set(1);
         double expected =
             RelMdUtil.numDistinctVals(
-                DEFAULT_ROWCOUNT,
-                DEFAULT_ROWCOUNT);
+                100.0,
+                100.0);
         checkDistinctRowCount(
             "select * from tabwithuniqueKey",
             groupKey,
@@ -1049,7 +1059,7 @@ public class LoptMetadataTest
         Double result = RelMetadataQuery.getSelectivity(rootRel, null);
         assertTrue(result != null);
         assertEquals(
-            DEFAULT_SARGABLE_SELECTIVITY,
+            1.0,
             result.doubleValue());
     }
 
@@ -1289,6 +1299,95 @@ public class LoptMetadataTest
 
         Set<BitSet> result = RelMetadataQuery.getUniqueKeys(rootRel);
         assertTrue(result.equals(expected));
+        
+        for (BitSet key : expected) {
+            Boolean boolResult =
+                RelMetadataQuery.areColumnsUnique(rootRel, key);
+            assertTrue(boolResult.equals(true));
+        }
+    }
+    
+    private Set<RelColumnOrigin> checkSimpleColumnOrigin(String sql)
+        throws Exception
+    {
+        HepProgramBuilder programBuilder = new HepProgramBuilder();
+        transformQuery(
+            programBuilder.createProgram(),
+            sql);
+        return LoptMetadataQuery.getSimpleColumnOrigins(rootRel, 0);
+    }
+
+    private void checkNoSimpleColumnOrigin(String sql)
+        throws Exception
+    {
+        Set<RelColumnOrigin> result = checkSimpleColumnOrigin(sql);
+        assertTrue(result == null);
+    }
+
+    public static void checkSimpleColumnOrigin(
+        RelColumnOrigin rco,
+        String expectedTableName,
+        String expectedColumnName,
+        boolean expectedDerived)
+    {
+        RelOptTable actualTable = rco.getOriginTable();
+        String [] actualTableName = actualTable.getQualifiedName();
+        assertEquals(
+            actualTableName[actualTableName.length - 1],
+            expectedTableName);
+        assertEquals(
+            actualTable.getRowType().getFields()[rco.getOriginColumnOrdinal()]
+            .getName(),
+            expectedColumnName);
+        assertEquals(
+            rco.isDerived(),
+            expectedDerived);
+    }
+
+    private void checkSingleColumnOrigin(
+        String sql,
+        String expectedTableName,
+        String expectedColumnName,
+        boolean expectedDerived)
+        throws Exception
+    {
+        Set<RelColumnOrigin> result = checkSimpleColumnOrigin(sql);
+        assertTrue(result != null);
+        assertEquals(
+            1,
+            result.size());
+        RelColumnOrigin rco = result.iterator().next();
+        checkSimpleColumnOrigin(
+            rco,
+            expectedTableName,
+            expectedColumnName,
+            expectedDerived);
+    }
+
+    public void testSimpleColumnOriginsProjFilter()
+        throws Exception
+    {
+        // projects and filters are ok
+        checkSingleColumnOrigin(
+            "select dname as name from depts where deptno = 10",
+            "DEPTS",
+            "DNAME",
+            false);
+    }
+    
+    public void testSimpleColumnOriginsAggregate()
+        throws Exception
+    {
+        checkNoSimpleColumnOrigin(
+            "select x from (select min(deptno) as x from depts)");
+    }
+    
+    public void testSimpleColumnOriginsUnion()
+        throws Exception
+    {
+        checkNoSimpleColumnOrigin(
+            "select dname from " +
+            "(select dname from depts union select name from emps)");
     }
 }
 

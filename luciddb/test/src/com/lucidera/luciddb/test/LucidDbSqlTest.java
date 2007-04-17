@@ -27,7 +27,7 @@ import net.sf.farrago.util.*;
 import net.sf.farrago.test.*;
 import net.sf.farrago.cwm.relational.*;
 import net.sf.farrago.fem.med.*;
-
+import net.sf.farrago.fem.security.*;
 
 /**
  * LucidDbSqlTest refines {@link net.sf.farrago.test.FarragoSqlTest} 
@@ -118,8 +118,8 @@ public class LucidDbSqlTest extends FarragoTestCase
     protected void runTest()
         throws Exception
     {
-        // mask out source control Id
-        addDiffMask("\\$Id.*\\$");
+        // mask out source control Id, etc
+        setRefFileDiffMasks();
         runSqlLineTest(getName());
     }
 
@@ -157,6 +157,7 @@ public class LucidDbSqlTest extends FarragoTestCase
         {
             String name = schema.getName();
             return name.equals("APPLIB")
+                || name.equals("FOODMART")
                 || super.isBlessedSchema(schema);
         }
 
@@ -167,9 +168,17 @@ public class LucidDbSqlTest extends FarragoTestCase
             return name.equals("ORACLE")
                 || name.equals("SQL SERVER")
                 || name.equals("FLAT FILE")
+                || name.equals("LUCIDDB LOCAL")
                 || name.equals("SALESFORCE")
                 || name.equals("NETSUITE")
                 || super.isBlessedWrapper(wrapper);
+        }
+
+        // override Cleanup
+        protected boolean isBlessedAuthId(FemAuthId authId)
+        {
+            String name = authId.getName();
+            return super.isBlessedAuthId(authId);
         }
     }
 

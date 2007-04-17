@@ -1,7 +1,7 @@
 <project name="bh" default="conv_numeric">
   <target name="conv_numeric">
     <test-suite name="conv_numeric">
-      
+
       <init-hook>
         <test-suite name="init">
           <test-suite-call testfile="${open.dir}/luciddb/test/sql/tinit.xml">

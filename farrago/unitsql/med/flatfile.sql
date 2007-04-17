@@ -14,7 +14,7 @@ options (
     directory 'unitsql/med/flatfiles/',
     file_extension 'csv',
     with_header 'yes', 
-    log_directory 'testlog/');
+    lenient 'no');
 
 
 ---------------------------------------------------------------------------
@@ -60,27 +60,6 @@ options (filename 'missing');
 select * from flatfile_missing;
 
 --
--- 1.4 Test whether an attempt is made to log errors
---     (the following column description is invalid)
---
-create server flatfile_server_locked
-foreign data wrapper sys_file_wrapper
-options (
-    directory 'unitsql/med/flatfiles/',
-    file_extension 'csv',
-    log_directory 'unitsql/med/flatfiles/');
-
-create foreign table flatfile_locked(
-    id int not null,
-    name varchar(50) not null)
-server flatfile_server_locked
-options (
-    filename 'noheader',
-    log_filename 'locked');
-
-select * from flatfile_locked;
-
---
 -- 1.5 Test bad line delimiter
 --      (note that the delimiter does not occur in the file)
 --      (note that you can also choose an empty file extension
@@ -91,7 +70,7 @@ foreign data wrapper sys_file_wrapper
 options (
     file_extension '',
     line_delimiter '\t', 
-    log_directory 'testlog/');
+    lenient 'no');
 
 create foreign table flatfile_badLineDelim(
     id int not null,
@@ -111,7 +90,7 @@ foreign data wrapper sys_file_wrapper
 options (
     file_extension 'csv',
     field_delimiter '\t', 
-    log_directory 'testlog/');
+    lenient 'no');
 
 create foreign table flatfile_badFieldDelim(
     id int not null,
@@ -135,7 +114,7 @@ options (
     file_extension 'csv',
     with_header 'no',
     line_delimiter 'G', 
-    log_directory 'testlog/');
+    lenient 'no');
 
 create foreign table flatfile_incompleteColumn(
     id int not null,
@@ -144,6 +123,7 @@ create foreign table flatfile_incompleteColumn(
 server flatfile_server_incompleteColumn
 options (filename 'unitsql/med/flatfiles/noheader');
 
+-- Note: Farrago's error handler quietly swallows row errors
 select * from flatfile_incompleteColumn;
 
 --
@@ -181,7 +161,7 @@ options (
     directory 'unitsql/med/flatfiles/',
     file_extension 'txt',
     with_header 'yes', 
-    log_directory 'testlog/');
+    lenient 'no');
 
 select * from flatfile_server_rowTooLong.BCP."longrow";
 
@@ -198,8 +178,7 @@ options (
     file_extension 'esc',
     control_file_extension 'ctl',
     with_header 'yes', 
-    escape_char '\',
-    log_directory 'testlog/');
+    escape_char '\');
 
 select * from flatfile_server_esc.BCP."example" order by 3;
 
@@ -218,8 +197,7 @@ options (
     file_extension 'dat',
     with_header 'no',
     field_delimiter '',
-    line_delimiter '\r\n', 
-    log_directory 'testlog/');
+    line_delimiter '\r\n');
 
 --
 -- 2.2 valid definition
@@ -233,8 +211,7 @@ options (
     field_delimiter '',
     escape_char '',
     quote_char '',
-    line_delimiter '\r\n', 
-    log_directory 'testlog/');
+    line_delimiter '\r\n');
 
 select * from flatfile_server_fixed.BCP."fixed" order by 3;
 
@@ -271,8 +248,7 @@ create server flatfile_server_empty
 foreign data wrapper sys_file_wrapper
 options (
     directory 'unitsql/med/flatfiles/',
-    file_extension 'txt',
-    log_directory 'testlog/');
+    file_extension 'txt');
 
 select * from flatfile_server_empty.SAMPLE."empty";
 
@@ -308,8 +284,7 @@ options (
     directory 'unitsql/med/flatfiles/',
     control_file_extension 'bcp2',
     file_extension 'txt',
-    with_header 'no',
-    log_directory 'testlog/');
+    with_header 'no');
 
 select * from flatfile_server_badbcp.BCP."nobcpheader";
 
@@ -327,6 +302,15 @@ select * from flatfile_server_badbcp.BCP."toomanybcpcolumns";
 
 select * from flatfile_server_badbcp.BCP."invalidbcpcolumns";
 
+--
+-- 3.12 test column header names which include spaces
+--
+select * from flatfile_server.BCP."headerswithwhitespace";
+
+select "ONE SPACE" from flatfile_server.BCP."headerswithwhitespace";
+
+-- generating bcp file
+select * from flatfile_server.BCP."headerswithwhitespacenobcp";
 
 ---------------------------------------------------------------------------
 -- Part 4. Reading metadata from bcp files                               --
@@ -345,8 +329,7 @@ foreign data wrapper sys_file_wrapper
 options (
     directory 'unitsql/med/flatfiles/',
     file_extension 'fail',
-    control_file_extension 'failbcp',
-    log_directory 'testlog/');
+    control_file_extension 'failbcp');
 
 import foreign schema bcp
 from server flatfile_server_fail
@@ -372,8 +355,7 @@ foreign data wrapper sys_file_wrapper
 options (
     directory 'unitsql/med/flatfiles/',
     file_extension 'csv',
-    with_header 'yes', 
-    log_directory 'testlog/');
+    with_header 'yes');
 
 import foreign schema bcp
 from server flatfiledir_server
@@ -458,8 +440,7 @@ foreign data wrapper local_file_wrapper
 options (
     directory 'unitsql/med/flatfiles/',
     file_extension 'csv',
-    with_header 'yes', 
-    log_directory 'testlog/');
+    with_header 'yes');
 
 -- query for available schemas
 select * from table(sys_boot.mgmt.browse_foreign_schemas('FF_SERVER'))
@@ -479,11 +460,17 @@ alter session set "etlActionId" = 'SelectBuggy';
 
 set schema 'flatfile_schema';
 
+create server ff_lenient
+foreign data wrapper sys_file_wrapper
+options (
+    directory 'unitsql/med/flatfiles/',
+    file_extension 'csv');
+
 create foreign table buggy(
     author varchar(30),
     title varchar(45) not null,
     cost decimal(10,2))
-server flatfile_server
+server ff_lenient
 options (filename 'buggy');
 
 -- errors are usually returned immediately
@@ -500,13 +487,49 @@ options (
     directory 'testlog',
     file_extension 'log');
 
-select le_exception, le_target_column 
-from log_server.bcp."101_SelectBuggy_Read.LOCALDB.FLATFILE_SCHEMA.BUGGY";
+-- log files now exclude schema name and include timestamp
+-- select le_exception, le_target_column 
+-- from log_server.bcp."101_SelectBuggy_Read.LOCALDB.FLATFILE_SCHEMA.BUGGY";
 
 -- we can also view the error log summaries
+-- (filter by process_id since other tests such as mergeUniqIndex.sql pollute)
 select process_id, action_id, error_count, "SQL"
-from log_server.bcp."Summary";
+from log_server.bcp."Summary"
+where cast(process_id as varchar(100))='101'
+order by error_count;
+
+-- make sure we receive a warning for DML
+create table surrey(
+    author varchar(30),
+    title varchar(45) not null,
+    cost decimal(10,2));
+insert into surrey select * from buggy;
 
 -- we can limit the number of errors
 alter session set "errorMax" = 1;
 select * from buggy order by 1;
+
+-- another case of bad options
+create server mapped_server
+foreign data wrapper sys_file_wrapper
+options (
+    directory 'testlog',
+    file_extension 'log',
+    with_header 'no',
+    mapped 'yes');
+
+-- test decimals from long values and overflows
+alter session set "errorMax" = 25;
+select * from flatfile_server.bcp."decimal";
+
+-- test "DEFAULT" schema name
+select count(*) from flatfile_server."DEFAULT"."example";
+
+create schema test_schema;
+import foreign schema "DEFAULT" from server flatfile_server into test_schema;
+select count(*) from test_schema."example";
+
+-- this should fail
+select * from flatfile_server.""."example";
+
+drop schema test_schema cascade;

@@ -23,6 +23,7 @@
 
 #include "fennel/common/CommonPreamble.h"
 #include "fennel/farrago/CmdInterpreter.h"
+#include "fennel/farrago/JavaErrorTarget.h"
 #include "fennel/farrago/JavaTraceTarget.h"
 #include "fennel/exec/ExecStreamGraphEmbryo.h"
 #include "fennel/exec/SimpleExecStreamGovernor.h"
@@ -46,6 +47,8 @@
 #include "fennel/btree/BTreeVerifier.h"
 
 #include <boost/lexical_cast.hpp>
+
+#include <malloc.h>
 
 FENNEL_BEGIN_CPPFILE("$Id$");
 
@@ -126,7 +129,9 @@ CmdInterpreter::DbHandle::~DbHandle()
     statsTimer.stop();
     
     // close database before trace
-    pDb->close();
+    if (pDb) {
+        pDb->close();
+    }
     JniUtil::decrementHandleCount(DBHANDLE_TRACE_TYPE_STR, this);
 
     JniUtil::shutdown();
@@ -149,6 +154,14 @@ CmdInterpreter::StreamGraphHandle::~StreamGraphHandle()
 JavaTraceTarget *CmdInterpreter::newTraceTarget()
 {
     return new JavaTraceTarget();
+}
+
+SharedErrorTarget CmdInterpreter::newErrorTarget(
+    jobject fennelJavaErrorTarget)
+{
+    SharedErrorTarget errorTarget;
+    errorTarget.reset(new JavaErrorTarget(fennelJavaErrorTarget));
+    return errorTarget;
 }
 
 void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
@@ -184,7 +197,8 @@ void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
         pCache,
         configMap,
         openMode,
-        pDbHandle->pTraceTarget);
+        pDbHandle->pTraceTarget,
+        SharedPseudoUuidGenerator(new JniPseudoUuidGenerator()));
 
     pDbHandle->pDb = pDb;
 
@@ -390,12 +404,16 @@ void CmdInterpreter::visit(ProxyCmdBeginTxn &cmd)
     // block checkpoints during this method
     DbHandle *pDbHandle = getDbHandle(cmd.getDbHandle());
     SharedDatabase pDb = pDbHandle->pDb;
-    SXMutexSharedGuard actionMutexGuard(
-        pDb->getCheckpointThread()->getActionMutex());
-
     bool readOnly = cmd.isReadOnly();
 
-    if (!readOnly && pDb->shouldForceTxns()) {
+    // block checkpoints during this method (but if we're going to
+    // do that for the duration of the txn, avoid taking a second lock, since
+    // double-locking can lead to deadlock)
+    bool txnBlocksCheckpoint = !readOnly && pDb->shouldForceTxns();
+    SXMutexSharedGuard actionMutexGuard(
+        pDb->getCheckpointThread()->getActionMutex(), !txnBlocksCheckpoint);
+    
+    if (txnBlocksCheckpoint) {
         // We're equating transactions with checkpoints, so take
         // out an extra lock to block checkpoints for the duration
         // of the transaction.  But we don't need to do this for
@@ -443,22 +461,23 @@ void CmdInterpreter::visit(ProxyCmdCommit &cmd)
     TxnHandle *pTxnHandle = getTxnHandle(cmd.getTxnHandle());
     SharedDatabase pDb = pTxnHandle->pDb;
 
-    // block checkpoints during this method
+    // block checkpoints during this method (but if we already
+    // did that for the duration of the txn, avoid that, since
+    // double-locking can lead to deadlock)
+    bool txnBlocksCheckpoint = !pTxnHandle->readOnly && pDb->shouldForceTxns();
     SXMutexSharedGuard actionMutexGuard(
-        pDb->getCheckpointThread()->getActionMutex());
+        pDb->getCheckpointThread()->getActionMutex(), !txnBlocksCheckpoint);
     
     if (cmd.getSvptHandle()) {
         SavepointId svptId = getSavepointId(cmd.getSvptHandle());
         pTxnHandle->pTxn->commitSavepoint(svptId);
     } else {
         pTxnHandle->pTxn->commit();
-        bool readOnly = pTxnHandle->readOnly;
         deleteAndNullify(pTxnHandle);
-        if (!readOnly && pDb->shouldForceTxns()) {
+        if (txnBlocksCheckpoint) {
             // release the checkpoint lock acquired at BeginTxn
             pDb->getCheckpointThread()->getActionMutex().release(
                 LOCKMODE_S);
-            actionMutexGuard.unlock();
             // force a checkpoint now to flush all data modified by transaction
             // to disk; wait for it to complete before reporting the
             // transaction as committed
@@ -472,18 +491,20 @@ void CmdInterpreter::visit(ProxyCmdRollback &cmd)
     TxnHandle *pTxnHandle = getTxnHandle(cmd.getTxnHandle());
     SharedDatabase pDb = pTxnHandle->pDb;
 
-    // block checkpoints during this method
+    // block checkpoints during this method (but if we already
+    // did that for the duration of the txn, avoid that, since
+    // double-locking can lead to deadlock)
+    bool txnBlocksCheckpoint = !pTxnHandle->readOnly && pDb->shouldForceTxns();
     SXMutexSharedGuard actionMutexGuard(
-        pDb->getCheckpointThread()->getActionMutex());
+        pDb->getCheckpointThread()->getActionMutex(), !txnBlocksCheckpoint);
     
     if (cmd.getSvptHandle()) {
         SavepointId svptId = getSavepointId(cmd.getSvptHandle());
         pTxnHandle->pTxn->rollback(&svptId);
     } else {
         pTxnHandle->pTxn->rollback();
-        bool readOnly = pTxnHandle->readOnly;
         deleteAndNullify(pTxnHandle);
-        if (!readOnly && pDb->shouldForceTxns()) {
+        if (txnBlocksCheckpoint) {
             // implement rollback by simulating crash recovery,
             // reverting all pages modified by transaction
             pDb->recoverOnline();
@@ -497,6 +518,11 @@ void CmdInterpreter::visit(ProxyCmdRollback &cmd)
 
 void CmdInterpreter::visit(ProxyCmdCreateExecutionStreamGraph &cmd)
 {
+#if 0
+    struct mallinfo minfo = mallinfo();
+    std::cout << "Number of allocated bytes before stream graph construction = "
+        << minfo.uordblks << " bytes" << std::endl;
+#endif
     TxnHandle *pTxnHandle = getTxnHandle(cmd.getTxnHandle());
     SharedExecStreamGraph pGraph =
         ExecStreamGraph::newExecStreamGraph();
@@ -541,6 +567,11 @@ void CmdInterpreter::visit(ProxyCmdPrepareExecutionStreamGraph &cmd)
     streamBuilder.buildStreamGraph(cmd, true);
     pStreamGraphHandle->pExecStreamFactory.reset();
     pStreamGraphHandle->pScheduler = pScheduler;
+#if 0
+    struct mallinfo minfo = mallinfo();
+    std::cout << "Number of allocated bytes after stream graph construction = "
+        << minfo.uordblks << " bytes" << std::endl;
+#endif
 }
 
 void CmdInterpreter::visit(ProxyCmdCreateStreamHandle &cmd)

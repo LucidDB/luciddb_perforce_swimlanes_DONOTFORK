@@ -40,6 +40,10 @@
 
 #include <boost/filesystem/operations.hpp>
 
+#ifdef __MINGW32__
+#include <process.h>
+#endif
+
 FENNEL_BEGIN_CPPFILE("$Id$");
 
 using namespace boost::filesystem;
@@ -67,10 +71,16 @@ SharedDatabase Database::newDatabase(
     SharedCache pCacheInit,
     ConfigMap const &configMapInit,
     DeviceMode openModeInit,
-    SharedTraceTarget pTraceTarget)
+    SharedTraceTarget pTraceTarget,
+    SharedPseudoUuidGenerator pUuidGenerator)
 {
+    if (!pUuidGenerator) {
+        pUuidGenerator.reset(new PseudoUuidGenerator());
+    }
     return SharedDatabase(
-        new Database(pCacheInit, configMapInit, openModeInit, pTraceTarget),
+        new Database(
+            pCacheInit, configMapInit, openModeInit, pTraceTarget,
+            pUuidGenerator),
         ClosableObjectDestructor());
 }
 
@@ -78,10 +88,12 @@ Database::Database(
     SharedCache pCacheInit,
     ConfigMap const &configMapInit,
     DeviceMode openModeInit,
-    SharedTraceTarget pTraceTarget)
+    SharedTraceTarget pTraceTarget,
+    SharedPseudoUuidGenerator pUuidGeneratorInit)
     : TraceSource(pTraceTarget,"database"),
       pCache(pCacheInit),
-      configMap(configMapInit)
+      configMap(configMapInit),
+      pUuidGenerator(pUuidGeneratorInit)
 {
     openMode = openModeInit;
 
@@ -162,7 +174,7 @@ void Database::prepareForRecovery()
 
 void Database::openSegments()
 {
-    FENNEL_TRACE(TRACE_INFO, "opening database");
+    FENNEL_TRACE(TRACE_INFO, "opening database; process ID = " << getpid());
     
     pCheckpointThread = SharedCheckpointThread(
         new CheckpointThread(*this),
@@ -170,7 +182,8 @@ void Database::openSegments()
     
     createTempSegment();
 
-    header.onlineUuid.generate();
+    pUuidGenerator->generateUuid(header.onlineUuid);
+    FENNEL_TRACE(TRACE_INFO, "online UUID = " << header.onlineUuid);
     
     DeviceMode txnLogMode = openMode;
     txnLogMode.create = true;
@@ -230,7 +243,12 @@ void Database::closeImpl()
     if (isRecoveryRequired()) {
         closeDevices();
     } else {
-        checkpointImpl();
+        // NOTE jvs 14-Nov-2006:  In case we're auto-closing after
+        // a failed startup, skip checkpoint if we don't have
+        // everything we need for it.
+        if (pTxnLog && pDataSegment) {
+            checkpointImpl();
+        }
         closeDevices();
         deleteLogs();
     }
@@ -670,6 +688,9 @@ void Database::recoverOnline()
 
     // after recovery, flush recovered data pages; no need to discard them
     recoverPhysical(CHECKPOINT_FLUSH_ALL);
+
+    // this will bump up version number to be used by further page writes
+    checkpointImpl(CHECKPOINT_FLUSH_ALL);
 }
 
 void Database::recover(

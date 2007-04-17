@@ -14,7 +14,7 @@
 >     directory 'unitsql/med/flatfiles/',
 >     file_extension 'csv',
 >     with_header 'yes', 
->     log_directory 'testlog/');
+>     lenient 'no');
 > 
 > 
 > ---------------------------------------------------------------------------
@@ -81,28 +81,6 @@
 Error: Could not read data file unitsql/med/flatfiles/missing.csv (state=,code=0)
 > 
 > --
-> -- 1.4 Test whether an attempt is made to log errors
-> --     (the following column description is invalid)
-> --
-> create server flatfile_server_locked
-> foreign data wrapper sys_file_wrapper
-> options (
->     directory 'unitsql/med/flatfiles/',
->     file_extension 'csv',
->     log_directory 'unitsql/med/flatfiles/');
-> 
-> create foreign table flatfile_locked(
->     id int not null,
->     name varchar(50) not null)
-> server flatfile_server_locked
-> options (
->     filename 'noheader',
->     log_filename 'locked');
-> 
-> select * from flatfile_locked;
-Error: Could not write log file unitsql/med/flatfiles/locked (state=,code=0)
-> 
-> --
 > -- 1.5 Test bad line delimiter
 > --      (note that the delimiter does not occur in the file)
 > --      (note that you can also choose an empty file extension
@@ -113,7 +91,7 @@ Error: Could not write log file unitsql/med/flatfiles/locked (state=,code=0)
 > options (
 >     file_extension '',
 >     line_delimiter '\t', 
->     log_directory 'testlog/');
+>     lenient 'no');
 > 
 > create foreign table flatfile_badLineDelim(
 >     id int not null,
@@ -134,7 +112,7 @@ Error: Could not read header from data file unitsql/med/flatfiles/noheader.csv: 
 > options (
 >     file_extension 'csv',
 >     field_delimiter '\t', 
->     log_directory 'testlog/');
+>     lenient 'no');
 > 
 > create foreign table flatfile_badFieldDelim(
 >     id int not null,
@@ -159,7 +137,7 @@ Error: Could not read header from data file unitsql/med/flatfiles/noheader.csv: 
 >     file_extension 'csv',
 >     with_header 'no',
 >     line_delimiter 'G', 
->     log_directory 'testlog/');
+>     lenient 'no');
 > 
 > create foreign table flatfile_incompleteColumn(
 >     id int not null,
@@ -168,8 +146,12 @@ Error: Could not read header from data file unitsql/med/flatfiles/noheader.csv: 
 > server flatfile_server_incompleteColumn
 > options (filename 'unitsql/med/flatfiles/noheader');
 > 
+> -- Note: Farrago's error handler quietly swallows row errors
 > select * from flatfile_incompleteColumn;
-Error: Read no rows from file unitsql/med/flatfiles/noheader.csv; last error was: Column has no delimiter (state=,code=0)
++-----+-------+--------------+
+| ID  | NAME  | EXTRA_FIELD  |
++-----+-------+--------------+
++-----+-------+--------------+
 > 
 > --
 > -- 1.8 Test data file with too many columns
@@ -208,7 +190,7 @@ Error: Could not read header from data file unitsql/med/flatfiles/example.csv: R
 >     directory 'unitsql/med/flatfiles/',
 >     file_extension 'txt',
 >     with_header 'yes', 
->     log_directory 'testlog/');
+>     lenient 'no');
 > 
 > select * from flatfile_server_rowTooLong.BCP."longrow";
 +----------+-------+-------+
@@ -238,8 +220,7 @@ Error: Could not read header from data file unitsql/med/flatfiles/example.csv: R
 >     file_extension 'esc',
 >     control_file_extension 'ctl',
 >     with_header 'yes', 
->     escape_char '\',
->     log_directory 'testlog/');
+>     escape_char '\');
 > 
 > select * from flatfile_server_esc.BCP."example" order by 3;
 +------+------------------------------------------+--------------+
@@ -268,8 +249,7 @@ Error: Could not read header from data file unitsql/med/flatfiles/example.csv: R
 >     file_extension 'dat',
 >     with_header 'no',
 >     field_delimiter '',
->     line_delimiter '\r\n', 
->     log_directory 'testlog/');
+>     line_delimiter '\r\n');
 Error: Fixed position parsing, enabled by setting an empty field delimiter, requires an empty quote character and an empty escape character (state=,code=0)
 > 
 > --
@@ -284,8 +264,7 @@ Error: Fixed position parsing, enabled by setting an empty field delimiter, requ
 >     field_delimiter '',
 >     escape_char '',
 >     quote_char '',
->     line_delimiter '\r\n', 
->     log_directory 'testlog/');
+>     line_delimiter '\r\n');
 > 
 > select * from flatfile_server_fixed.BCP."fixed" order by 3;
 +-------+-------------------------------------------+--------------+
@@ -348,8 +327,7 @@ Error: From line 1, column 15 to line 1, column 46: Table 'FLATFILE_SERVER.SAMPL
 > foreign data wrapper sys_file_wrapper
 > options (
 >     directory 'unitsql/med/flatfiles/',
->     file_extension 'txt',
->     log_directory 'testlog/');
+>     file_extension 'txt');
 > 
 > select * from flatfile_server_empty.SAMPLE."empty";
 Error: Could not derive column sizes for data file unitsql/med/flatfiles/empty.txt (state=,code=0)
@@ -380,12 +358,13 @@ Error: Cannot derive column types for file unitsql/med/flatfiles/nullheader.txt 
 > -- 3.8 Test sampling of a file with nulls in data
 > --
 > select * from flatfile_server_empty.BCP."nulldata";
-+---------+-----+--------+-----+
-| header  | no  | nulls  | ok  |
-+---------+-----+--------+-----+
-| but     |     | nulls  |     |
-|         | in  | data   |     |
-+---------+-----+--------+-----+
++---------+------+--------+----------+
+| header  |  no  | nulls  |    ok    |
++---------+------+--------+----------+
+| but     |      | nulls  |          |
+|         | in   | data   |          |
+|         | too  | many   | columns  |
++---------+------+--------+----------+
 > 
 > --
 > -- 3.9 Select when BCP file is empty
@@ -396,8 +375,7 @@ Error: Cannot derive column types for file unitsql/med/flatfiles/nullheader.txt 
 >     directory 'unitsql/med/flatfiles/',
 >     control_file_extension 'bcp2',
 >     file_extension 'txt',
->     with_header 'no',
->     log_directory 'testlog/');
+>     with_header 'no');
 > 
 > select * from flatfile_server_badbcp.BCP."nobcpheader";
 Error: Control file unitsql/med/flatfiles/nobcpheader.bcp2 is not valid (state=,code=0)
@@ -420,6 +398,39 @@ Error: Too many columns in control file unitsql/med/flatfiles/toomanybcpcolumns.
 > select * from flatfile_server_badbcp.BCP."invalidbcpcolumns";
 Error: Invalid row 5 in control file unitsql/med/flatfiles/invalidbcpcolumns.bcp2 (state=,code=0)
 > 
+> --
+> -- 3.12 test column header names which include spaces
+> --
+> select * from flatfile_server.BCP."headerswithwhitespace";
++------------+------------------+---------------------+
+| ONE SPACE  | TWO SPACES HERE  | ONE TWO THREE FOUR  |
++------------+------------------+---------------------+
+| 1 1        | 2 2              | 3 3                 |
+| a          |                  |                     |
+|            |                  |                     |
+| 3          | 2                | 1                   |
++------------+------------------+---------------------+
+> 
+> select "ONE SPACE" from flatfile_server.BCP."headerswithwhitespace";
++------------+
+| ONE SPACE  |
++------------+
+| 1 1        |
+| a          |
+|            |
+| 3          |
++------------+
+> 
+> -- generating bcp file
+> select * from flatfile_server.BCP."headerswithwhitespacenobcp";
++------------+------------------+------------------------------+
+| one space  | two spaces here  |    un-trimmed whitespaces    |
++------------+------------------+------------------------------+
+| 1 1        | 2 2              | 3 3                          |
+| a          |                  |                              |
+|            |                  |                              |
+| 3          | 2                | 1                            |
++------------+------------------+------------------------------+
 > 
 > ---------------------------------------------------------------------------
 > -- Part 4. Reading metadata from bcp files                               --
@@ -439,8 +450,7 @@ Error: Unknown foreign schema "TESTDATA" (state=,code=0)
 > options (
 >     directory 'unitsql/med/flatfiles/',
 >     file_extension 'fail',
->     control_file_extension 'failbcp',
->     log_directory 'testlog/');
+>     control_file_extension 'failbcp');
 > 
 > import foreign schema bcp
 > from server flatfile_server_fail
@@ -478,8 +488,7 @@ Error: From line 1, column 15 to line 1, column 39: Table 'FLATFILE_SCHEMA.examp
 > options (
 >     directory 'unitsql/med/flatfiles/',
 >     file_extension 'csv',
->     with_header 'yes', 
->     log_directory 'testlog/');
+>     with_header 'yes');
 > 
 > import foreign schema bcp
 > from server flatfiledir_server
@@ -616,32 +625,40 @@ Error: From line 1, column 15 to line 1, column 43: Table 'FLATFILEDIR_SCHEMA.ex
 > select '' as option_name, '' as option_value
 > from sys_boot.jdbc_metadata.empty_view)))
 > order by option_ordinal, option_choice_ordinal;
-+-----------------+-------------------------+----------------------------------------------------------------+---------------------+------------------------+----------------------+
-| OPTION_ORDINAL  |       OPTION_NAME       |                       OPTION_DESCRIPTION                       | IS_OPTION_REQUIRED  | OPTION_CHOICE_ORDINAL  | OPTION_CHOICE_VALUE  |
-+-----------------+-------------------------+----------------------------------------------------------------+---------------------+------------------------+----------------------+
-| 0               | DIRECTORY               | OS directory path containing flat files                        | true                | -1                     |                      |
-| 1               | FILE_EXTENSION          | File name extension                                            | true                | -1                     | txt                  |
-| 1               | FILE_EXTENSION          | File name extension                                            | true                | 0                      | txt                  |
-| 2               | CONTROL_FILE_EXTENSION  | Control file extension                                         | true                | -1                     | bcp                  |
-| 2               | CONTROL_FILE_EXTENSION  | Control file extension                                         | true                | 0                      | bcp                  |
-| 3               | FIELD_DELIMITER         | Field delimiter character                                      | true                | -1                     | ,                    |
-| 3               | FIELD_DELIMITER         | Field delimiter character                                      | true                | 0                      | ,                    |
-| 4               | LINE_DELIMITER          | Line delimiter character                                       | true                | -1                     | \n                   |
-| 4               | LINE_DELIMITER          | Line delimiter character                                       | true                | 0                      | \n                   |
-| 5               | QUOTE_CHAR              | Character used to quote                                        | true                | -1                     | "                    |
-| 5               | QUOTE_CHAR              | Character used to quote                                        | true                | 0                      | "                    |
-| 6               | ESCAPE_CHAR             | Character used to escape the special characters                | true                | -1                     | "                    |
-| 6               | ESCAPE_CHAR             | Character used to escape the special characters                | true                | 0                      | "                    |
-| 7               | WITH_HEADER             | Whether the files include a header                             | true                | -1                     | TRUE                 |
-| 7               | WITH_HEADER             | Whether the files include a header                             | true                | 0                      | TRUE                 |
-| 7               | WITH_HEADER             | Whether the files include a header                             | true                | 1                      | FALSE                |
-| 8               | NUM_ROWS_SCAN           | The number of rows to scan to deduce the data type of columns  | true                | -1                     | 5                    |
-| 8               | NUM_ROWS_SCAN           | The number of rows to scan to deduce the data type of columns  | true                | 0                      | 5                    |
-| 9               | WITH_LOGGING            | Whether to log row errors                                      | true                | -1                     | TRUE                 |
-| 9               | WITH_LOGGING            | Whether to log row errors                                      | true                | 0                      | TRUE                 |
-| 9               | WITH_LOGGING            | Whether to log row errors                                      | true                | 1                      | FALSE                |
-| 10              | LOG_DIRECTORY           | OS directory path for writing log files                        | false               | -1                     |                      |
-+-----------------+-------------------------+----------------------------------------------------------------+---------------------+------------------------+----------------------+
++-----------------+-------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+----------------------+
+| OPTION_ORDINAL  |       OPTION_NAME       |                                                                                                                                    OPTION_DESCRIPTION                                                                                                                                    | IS_OPTION_REQUIRED  | OPTION_CHOICE_ORDINAL  | OPTION_CHOICE_VALUE  |
++-----------------+-------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+----------------------+
+| 0               | DIRECTORY               | OS directory path containing flat files                                                                                                                                                                                                                                                  | true                | -1                     |                      |
+| 1               | FILE_EXTENSION          | File name extension                                                                                                                                                                                                                                                                      | true                | -1                     | txt                  |
+| 1               | FILE_EXTENSION          | File name extension                                                                                                                                                                                                                                                                      | true                | 0                      | txt                  |
+| 2               | CONTROL_FILE_EXTENSION  | Control file extension                                                                                                                                                                                                                                                                   | true                | -1                     | bcp                  |
+| 2               | CONTROL_FILE_EXTENSION  | Control file extension                                                                                                                                                                                                                                                                   | true                | 0                      | bcp                  |
+| 3               | FIELD_DELIMITER         | Field delimiter character                                                                                                                                                                                                                                                                | true                | -1                     | ,                    |
+| 3               | FIELD_DELIMITER         | Field delimiter character                                                                                                                                                                                                                                                                | true                | 0                      | ,                    |
+| 4               | LINE_DELIMITER          | Line delimiter character                                                                                                                                                                                                                                                                 | true                | -1                     | \n                   |
+| 4               | LINE_DELIMITER          | Line delimiter character                                                                                                                                                                                                                                                                 | true                | 0                      | \n                   |
+| 5               | QUOTE_CHAR              | Character used to quote                                                                                                                                                                                                                                                                  | true                | -1                     | "                    |
+| 5               | QUOTE_CHAR              | Character used to quote                                                                                                                                                                                                                                                                  | true                | 0                      | "                    |
+| 6               | ESCAPE_CHAR             | Character used to escape the special characters                                                                                                                                                                                                                                          | true                | -1                     | "                    |
+| 6               | ESCAPE_CHAR             | Character used to escape the special characters                                                                                                                                                                                                                                          | true                | 0                      | "                    |
+| 7               | WITH_HEADER             | Whether the files include a header                                                                                                                                                                                                                                                       | true                | -1                     | TRUE                 |
+| 7               | WITH_HEADER             | Whether the files include a header                                                                                                                                                                                                                                                       | true                | 0                      | TRUE                 |
+| 7               | WITH_HEADER             | Whether the files include a header                                                                                                                                                                                                                                                       | true                | 1                      | FALSE                |
+| 8               | NUM_ROWS_SCAN           | The number of rows to scan to deduce the data type of columns                                                                                                                                                                                                                            | true                | -1                     | 5                    |
+| 8               | NUM_ROWS_SCAN           | The number of rows to scan to deduce the data type of columns                                                                                                                                                                                                                            | true                | 0                      | 5                    |
+| 9               | TRIM                    | Whether to trim column values                                                                                                                                                                                                                                                            | true                | -1                     | TRUE                 |
+| 9               | TRIM                    | Whether to trim column values                                                                                                                                                                                                                                                            | true                | 0                      | TRUE                 |
+| 9               | TRIM                    | Whether to trim column values                                                                                                                                                                                                                                                            | true                | 1                      | FALSE                |
+| 10              | LENIENT                 | Whether to fill in missing columns at the end of rows with null and discard extra columns                                                                                                                                                                                                | true                | -1                     | TRUE                 |
+| 10              | LENIENT                 | Whether to fill in missing columns at the end of rows with null and discard extra columns                                                                                                                                                                                                | true                | 0                      | TRUE                 |
+| 10              | LENIENT                 | Whether to fill in missing columns at the end of rows with null and discard extra columns                                                                                                                                                                                                | true                | 1                      | FALSE                |
+| 11              | MAPPED                  | Whether to match source columns in a data file with target columns specified by a control file or foreign table definition. If true, then the data file must have a header and the server must be lenient. Any target columns that are not in a data file will be filled in with nulls.  | true                | -1                     | FALSE                |
+| 11              | MAPPED                  | Whether to match source columns in a data file with target columns specified by a control file or foreign table definition. If true, then the data file must have a header and the server must be lenient. Any target columns that are not in a data file will be filled in with nulls.  | true                | 0                      | FALSE                |
+| 11              | MAPPED                  | Whether to match source columns in a data file with target columns specified by a control file or foreign table definition. If true, then the data file must have a header and the server must be lenient. Any target columns that are not in a data file will be filled in with nulls.  | true                | 1                      | TRUE                 |
+| 12              | DATE_FORMAT             | A custom datetime format for date columns                                                                                                                                                                                                                                                | false               | -1                     |                      |
+| 13              | TIME_FORMAT             | A custom datetime format for time columns                                                                                                                                                                                                                                                | false               | -1                     |                      |
+| 14              | TIMESTAMP_FORMAT        | A custom datetime format for timestamp columns                                                                                                                                                                                                                                           | false               | -1                     |                      |
++-----------------+-------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+----------------------+
 > 
 > -- query for available connection options, with specified set values
 > select option_name, option_choice_ordinal, option_choice_value from table(
@@ -672,10 +689,18 @@ Error: From line 1, column 15 to line 1, column 43: Table 'FLATFILEDIR_SCHEMA.ex
 | WITH_HEADER             | 1                      | FALSE                |
 | NUM_ROWS_SCAN           | -1                     | 100                  |
 | NUM_ROWS_SCAN           | 0                      | 5                    |
-| WITH_LOGGING            | -1                     | TRUE                 |
-| WITH_LOGGING            | 0                      | TRUE                 |
-| WITH_LOGGING            | 1                      | FALSE                |
-| LOG_DIRECTORY           | -1                     |                      |
+| TRIM                    | -1                     | TRUE                 |
+| TRIM                    | 0                      | TRUE                 |
+| TRIM                    | 1                      | FALSE                |
+| LENIENT                 | -1                     | TRUE                 |
+| LENIENT                 | 0                      | TRUE                 |
+| LENIENT                 | 1                      | FALSE                |
+| MAPPED                  | -1                     | FALSE                |
+| MAPPED                  | 0                      | FALSE                |
+| MAPPED                  | 1                      | TRUE                 |
+| DATE_FORMAT             | -1                     |                      |
+| TIME_FORMAT             | -1                     |                      |
+| TIMESTAMP_FORMAT        | -1                     |                      |
 +-------------------------+------------------------+----------------------+
 > 
 > create server ff_server
@@ -683,8 +708,7 @@ Error: From line 1, column 15 to line 1, column 43: Table 'FLATFILEDIR_SCHEMA.ex
 > options (
 >     directory 'unitsql/med/flatfiles/',
 >     file_extension 'csv',
->     with_header 'yes', 
->     log_directory 'testlog/');
+>     with_header 'yes');
 > 
 > -- query for available schemas
 > select * from table(sys_boot.mgmt.browse_foreign_schemas('FF_SERVER'))
@@ -709,16 +733,22 @@ Error: From line 1, column 15 to line 1, column 43: Table 'FLATFILEDIR_SCHEMA.ex
 > 
 > set schema 'flatfile_schema';
 > 
+> create server ff_lenient
+> foreign data wrapper sys_file_wrapper
+> options (
+>     directory 'unitsql/med/flatfiles/',
+>     file_extension 'csv');
+> 
 > create foreign table buggy(
 >     author varchar(30),
 >     title varchar(45) not null,
 >     cost decimal(10,2))
-> server flatfile_server
+> server ff_lenient
 > options (filename 'buggy');
 > 
 > -- errors are usually returned immediately
 > select * from buggy order by 1;
-Error: Could not calculate result column 3 of Read.LOCALDB.FLATFILE_SCHEMA.BUGGY for input:
+Error: Could not calculate result column 3 for the following row:
 [Caroll & Graf, The Diary of a Country Priest, -]
 Messages: Cannot assign '-' to a NUMERIC value: NumberFormatException (state=,code=0)
 > 
@@ -728,9 +758,10 @@ Messages: Cannot assign '-' to a NUMERIC value: NumberFormatException (state=,co
 +--------------------------------+------------------------------------------------+--------+
 |             AUTHOR             |                     TITLE                      |  COST  |
 +--------------------------------+------------------------------------------------+--------+
+| Henry Gray F.R.S.              | Gray's Anatomy, 1901 ed.                       | 8.95   |
 | Robert M. Pirsig               | (too long) Zen and the Art of Motorcycle Main  | 0.30   |
 | Rusmore, Spangle, and Crowder  | Peninsula Trails                               | 14.95  |
-| Steve Jones                    |   (leading spaces) Darwin's Ghost              | 15.00  |
+| Steve Jones                    | (leading spaces) Darwin's Ghost                | 15.00  |
 +--------------------------------+------------------------------------------------+--------+
 > 
 > -- we can select the errors from the log directory
@@ -740,18 +771,16 @@ Messages: Cannot assign '-' to a NUMERIC value: NumberFormatException (state=,co
 >     directory 'testlog',
 >     file_extension 'log');
 > 
-> select le_exception, le_target_column 
-> from log_server.bcp."101_SelectBuggy_Read.LOCALDB.FLATFILE_SCHEMA.BUGGY";
-+--------------------------------------------------------------------------------------------------------------------------------+-------------------+
-|                                                          LE_EXCEPTION                                                          | LE_TARGET_COLUMN  |
-+--------------------------------------------------------------------------------------------------------------------------------+-------------------+
-| Cannot assign '-' to a NUMERIC value: NumberFormatException                                                                    | 3                 |
-| Target CAST($t1):VARCHAR(45) CHARACTER SET ISO-8859-1 COLLATE ISO-8859-1$en_US$primary NOT NULL cannot be assigned null value  | 2                 |
-+--------------------------------------------------------------------------------------------------------------------------------+-------------------+
+> -- log files now exclude schema name and include timestamp
+> -- select le_exception, le_target_column 
+> -- from log_server.bcp."101_SelectBuggy_Read.LOCALDB.FLATFILE_SCHEMA.BUGGY";
 > 
 > -- we can also view the error log summaries
+> -- (filter by process_id since other tests such as mergeUniqIndex.sql pollute)
 > select process_id, action_id, error_count, "SQL"
-> from log_server.bcp."Summary";
+> from log_server.bcp."Summary"
+> where cast(process_id as varchar(100))='101'
+> order by error_count;
 +-------------+--------------+--------------+---------------------------------+
 | PROCESS_ID  |  ACTION_ID   | ERROR_COUNT  |               SQL               |
 +-------------+--------------+--------------+---------------------------------+
@@ -759,12 +788,74 @@ Messages: Cannot assign '-' to a NUMERIC value: NumberFormatException (state=,co
 | 101         | SelectBuggy  | 2            | select * from buggy order by 1  |
 +-------------+--------------+--------------+---------------------------------+
 > 
+> -- make sure we receive a warning for DML
+> create table surrey(
+>     author varchar(30),
+>     title varchar(45) not null,
+>     cost decimal(10,2));
+> insert into surrey select * from buggy;
+Warning: Statement execution encountered recoverable exceptions; errors: 2; warnings: 0; see testlog/Summary.log for details (state=,code=0)
+> 
 > -- we can limit the number of errors
 > alter session set "errorMax" = 1;
 > select * from buggy order by 1;
 Error: Exceeded limit of 1 errors. Last error was:
-Could not calculate result column 2 of Read.LOCALDB.FLATFILE_SCHEMA.BUGGY for input:
+Could not calculate result column 2 for the following row:
 [Gary Larsen, null, 5.00]
 Messages: Target CAST($t1):VARCHAR(45) CHARACTER SET "ISO-8859-1" COLLATE "ISO-8859-1$en_US$primary" NOT NULL cannot be assigned null value (state=,code=0)
+> 
+> -- another case of bad options
+> create server mapped_server
+> foreign data wrapper sys_file_wrapper
+> options (
+>     directory 'testlog',
+>     file_extension 'log',
+>     with_header 'no',
+>     mapped 'yes');
+Error: Mapping source columns in data files to target columns specified by control files requires column names to be provided by data file headers. (state=,code=0)
+> 
+> -- test decimals from long values and overflows
+> alter session set "errorMax" = 25;
+> select * from flatfile_server.bcp."decimal";
++-----+-----------------------+------------------------+-------------------+--------------------+----------------+
+| F1  |          F2           |           F3           |        F4         |         F5         |       F6       |
++-----+-----------------------+------------------------+-------------------+--------------------+----------------+
+| 0   | 15                    | 25.00                  | 35                | 45.00              | typical data   |
+| 1   | 9223372036854775807   | 0.00                   | 0                 | 0.00               | max dec(19.0)  |
+| 3   | -9223372036854775808  | 0.00                   | 0                 | 0.00               | min dec(19.0)  |
+| 5   | 0                     | 92233720368547758.00   | 0                 | 0.00               | max dec(19.2)  |
+| 7   | 0                     | -92233720368547758.00  | 0                 | 0.00               | min dec(19.2)  |
+| 9   | 0                     | 92233720368547758.07   | 0                 | 0.00               | max dec(19.2)  |
+| 11  | 0                     | -92233720368547758.08  | 0                 | 0.00               | min dec(19.2)  |
+| 13  | 0                     | 0.00                   | 999999999999999   | 0.00               | max dec(15.0)  |
+| 15  | 0                     | 0.00                   | -999999999999999  | 0.00               | min dec(15.0)  |
+| 17  | 0                     | 0.00                   | 0                 | 9999999999999.00   | max dec(15.2)  |
+| 19  | 0                     | 0.00                   | 0                 | -9999999999999.00  | min dec(15.2)  |
+| 21  | 0                     | 0.00                   | 0                 | 9999999999999.99   | max dec(15.2)  |
+| 23  | 0                     | 0.00                   | 0                 | -9999999999999.99  | min dec(15.2)  |
++-----+-----------------------+------------------------+-------------------+--------------------+----------------+
+> 
+> -- test "DEFAULT" schema name
+> select count(*) from flatfile_server."DEFAULT"."example";
++---------+
+| EXPR$0  |
++---------+
+| 6       |
++---------+
+> 
+> create schema test_schema;
+> import foreign schema "DEFAULT" from server flatfile_server into test_schema;
+> select count(*) from test_schema."example";
++---------+
+| EXPR$0  |
++---------+
+| 6       |
++---------+
+> 
+> -- this should fail
+> select * from flatfile_server.""."example";
+Error: From line 1, column 15 to line 1, column 42: Table 'FLATFILE_SERVER..example' not found (state=,code=0)
+> 
+> drop schema test_schema cascade;
 > 
 > !quit

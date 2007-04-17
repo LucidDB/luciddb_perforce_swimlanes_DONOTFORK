@@ -84,14 +84,14 @@ Error: Sequence generator limit exceeded for LOCALDB.SEQUENCE_DDL_TEST.T (state=
 > 
 > -- 350, 100, 300
 > insert into t (j) values (1), (2), (3);
-> -- 500, 100 (fail), ...
+> -- 500, 100 (fail), 300 (fail)
 > insert into t (j) values (4), (5), (6);
 Error: Duplicate key detected:  [ 100 ] (state=,code=0)
-> -- 300 (fail)
-> insert into t (j) values (7);
-Error: Duplicate key detected:  [ 300 ] (state=,code=0)
 > -- 500
+> insert into t (j) values (7);
+> -- 100 (fail)
 > insert into t (j) values (8);
+Error: Duplicate key detected:  [ 100 ] (state=,code=0)
 > 
 > select * from t;
 +------+----+
@@ -100,7 +100,7 @@ Error: Duplicate key detected:  [ 300 ] (state=,code=0)
 | 100  | 2  |
 | 300  | 3  |
 | 350  | 1  |
-| 500  | 8  |
+| 500  | 7  |
 +------+----+
 > drop table t;
 > 
