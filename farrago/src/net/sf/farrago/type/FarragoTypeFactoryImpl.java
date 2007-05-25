@@ -829,6 +829,21 @@ public class FarragoTypeFactoryImpl
                 EncodedSqlInterval.GET_START_UNIT_METHOD_NAME,
                 lookupTimeUnit(qualifier.getStartUnit())));
 
+        if (qualifier.getEndUnit() != null) {
+            memberDecls.add(
+                generateGetter(
+                    timeUnitType,
+                    EncodedSqlInterval.GET_END_UNIT_METHOD_NAME,
+                    lookupTimeUnit(qualifier.getEndUnit())));
+        } else {
+            memberDecls.add(
+                generateGetter(
+                    timeUnitType,
+                    EncodedSqlInterval.GET_END_UNIT_METHOD_NAME,
+                    Literal.constantNull()));
+        }
+
+
         return
             newHolderOJClass(
                 superclass,
@@ -837,6 +852,9 @@ public class FarragoTypeFactoryImpl
                 type);
     }
 
+    /**
+     * Generate an expression to return 
+     */
     /**
      * Generates an expression for a TimeUnit
      */
