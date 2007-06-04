@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.sql.type.*;
 public abstract class ValuesRelBase
     extends AbstractRelNode
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final List<List<RexLiteral>> tuples;
@@ -98,8 +97,8 @@ public abstract class ValuesRelBase
                 // been dealt with.
                 if (!RexLiteral.isNullLiteral(literal)) {
                     assert (SqlTypeUtil.canAssignFrom(
-                                fieldType,
-                                literal.getType()));
+                        fieldType,
+                        literal.getType()));
                 }
             }
         }

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -21,29 +21,36 @@
 */
 package net.sf.farrago.util;
 
-import net.sf.farrago.trace.*;
+import java.sql.*;
 
 import java.util.logging.*;
 
-import java.sql.*;
+import net.sf.farrago.trace.*;
+
 
 /**
- * FarragoWarningQueue provides an implementation for objects such as
- * {@link Connection} which store a queue of warnings.
+ * FarragoWarningQueue provides an implementation for objects such as {@link
+ * Connection} which store a queue of warnings.
  *
  * @author John Sichi
  * @version $Id$
  */
 public class FarragoWarningQueue
 {
-    private SQLWarning warnings;
+    //~ Static fields/initializers ---------------------------------------------
 
     private static final Logger tracer =
         FarragoTrace.getFarragoJdbcEngineDriverTracer();
 
+    //~ Instance fields --------------------------------------------------------
+
+    private SQLWarning warnings;
+
+    //~ Methods ----------------------------------------------------------------
+
     /**
-     * Retrieves warnings which have accumulated on this queue.
-     * See {@link Connection#getWarnings}.
+     * Retrieves warnings which have accumulated on this queue. See {@link
+     * Connection#getWarnings}.
      *
      * @return warnings which have accumulated
      */
@@ -51,15 +58,15 @@ public class FarragoWarningQueue
     {
         return warnings;
     }
-    
+
     /**
-     * Clears accumulated warnings.  See {@link Connection#clearWarnings}.
+     * Clears accumulated warnings. See {@link Connection#clearWarnings}.
      */
     public void clearWarnings()
     {
         warnings = null;
     }
-    
+
     /**
      * Posts a warning to this queue.
      *
@@ -68,10 +75,10 @@ public class FarragoWarningQueue
      */
     public synchronized void postWarning(SQLWarning warning)
     {
-        assert(warning.getNextWarning() == null);
+        assert (warning.getNextWarning() == null);
 
         tracer.warning(warning.getMessage());
-        
+
         if (warnings == null) {
             warnings = warning;
         } else {

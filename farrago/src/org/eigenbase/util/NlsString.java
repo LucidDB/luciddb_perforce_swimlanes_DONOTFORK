@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.sql.*;
 public class NlsString
     implements Comparable<NlsString>
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final String charsetName;
@@ -100,8 +99,7 @@ public class NlsString
             return false;
         }
         NlsString that = (NlsString) obj;
-        return
-            Util.equal(value, that.value)
+        return Util.equal(value, that.value)
             && Util.equal(charsetName, that.charsetName)
             && Util.equal(collation, that.collation);
     }
@@ -196,16 +194,14 @@ public class NlsString
         // sum string lengths and validate
         for (int i = 1; i < args.length; i++) {
             length += args[i].value.length();
-            if (!(
-                    (args[i].charsetName == null)
-                    || args[i].charsetName.equals(charSetName)
-                 )) {
+            if (!((args[i].charsetName == null)
+                    || args[i].charsetName.equals(charSetName)))
+            {
                 throw new IllegalArgumentException("mismatched charsets");
             }
-            if (!(
-                    (args[i].collation == null)
-                    || args[i].collation.equals(collation)
-                 )) {
+            if (!((args[i].collation == null)
+                    || args[i].collation.equals(collation)))
+            {
                 throw new IllegalArgumentException("mismatched collations");
             }
         }
@@ -215,9 +211,9 @@ public class NlsString
             sb.append(args[i].value);
         }
         return new NlsString(
-                sb.toString(),
-                charSetName,
-                collation);
+            sb.toString(),
+            charSetName,
+            collation);
     }
 }
 

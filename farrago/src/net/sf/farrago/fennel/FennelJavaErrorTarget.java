@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -24,32 +24,32 @@ package net.sf.farrago.fennel;
 
 import java.nio.*;
 
+
 /**
- * FennelJavaErrorTarget represents a class of java objects that can 
- * handle row errors arising from Fennel streams.
+ * FennelJavaErrorTarget represents a class of java objects that can handle row
+ * errors arising from Fennel streams.
  *
  * @author John Pham
  * @version $Id$
  */
 public interface FennelJavaErrorTarget
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
      * Handles a Fennel row exception
-     * 
+     *
      * @param source the unique Fennel stream name
      * @param isWarning true if the exception is only a warning
      * @param msg the exception string
-     * @param byteBuffer the Fennel format byte buffer containing an error 
-     *   record for the row that failed. The error record must conform to 
-     *   the row type specified for the source with 
-     *   {@link net.sf.farrago.query.FennelRelImplementor#setErrorRecordType}
-     * @param index position of the column whose processing caused the 
-     *   exception to occur. -1 indicates that no column was culpable. 
-     *   0 indicates that a filter condition was being processed. Otherwise 
-     *   this parameter should be a 1-indexed column position.
+     * @param byteBuffer the Fennel format byte buffer containing an error
+     * record for the row that failed. The error record must conform to the row
+     * type specified for the source with {@link
+     * net.sf.farrago.query.FennelRelImplementor#setErrorRecordType}
+     * @param index position of the column whose processing caused the exception
+     * to occur. -1 indicates that no column was culpable. 0 indicates that a
+     * filter condition was being processed. Otherwise this parameter should be
+     * a 1-indexed column position.
      */
     public Object handleRowError(
         String source,

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -51,7 +51,6 @@ import org.eigenbase.util14.*;
 public class FarragoServerTest
     extends TestCase
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private FarragoAbstractServer server;
@@ -103,7 +102,8 @@ public class FarragoServerTest
         // Properties object rather than on the URL, but this is a convenient
         // test of the client driver's connect string processing.
         String uri = clientDriver.getUrlPrefix() + "localhost;user=sa";
-        Connection connection = clientDriver.connect(
+        Connection connection =
+            clientDriver.connect(
                 uri,
                 new Properties());
         boolean stopped;
@@ -131,7 +131,8 @@ public class FarragoServerTest
         // Properties object rather than on the URL, but this is a convenient
         // test of the client driver's connect string processing.
         String uri = clientDriver.getUrlPrefix() + "localhost;user=sa";
-        Connection connection = clientDriver.connect(
+        Connection connection =
+            clientDriver.connect(
                 uri,
                 new Properties());
         connection.createStatement().execute("set schema 'sales'");
@@ -140,11 +141,10 @@ public class FarragoServerTest
 
     /**
      * Tests client driver connection URI parameters. The underlying
-     * connect-string processing is tested by
-     * {@link net.sf.farrago.test.jdbc.FarragoEngineDriverTest#testConnectStrings}
-     * using the engine driver. This
-     * method adds tests of client connections and parameter precedence with the
-     * client driver.
+     * connect-string processing is tested by {@link
+     * net.sf.farrago.test.jdbc.FarragoEngineDriverTest#testConnectStrings}
+     * using the engine driver. This method adds tests of client connections and
+     * parameter precedence with the client driver.
      */
     public void testConnectionParams()
         throws Throwable

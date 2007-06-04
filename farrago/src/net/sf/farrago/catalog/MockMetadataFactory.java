@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -44,11 +44,11 @@ import org.eigenbase.xom.*;
  *
  * <p>The name of the class is misleading; it is not itself a metadata factory.
  * MockMetadataFactory uses dynamic proxies (see {@link Proxy}) to generate the
- * necessary interfaces on the fly. Inside every proxy is an instance of
- * {@link org.eigenbase.jmi.mem.JmiMemFactory.ElementImpl}, which stores
- * attributes in a {@link HashMap} and implements the
- * {@link InvocationHandler} interface required by the proxy. There are
- * specialized subtypes of <code>ElementImpl</code> for packages and classes.
+ * necessary interfaces on the fly. Inside every proxy is an instance of {@link
+ * org.eigenbase.jmi.mem.JmiMemFactory.ElementImpl}, which stores attributes in
+ * a {@link HashMap} and implements the {@link InvocationHandler} interface
+ * required by the proxy. There are specialized subtypes of <code>
+ * ElementImpl</code> for packages and classes.
  *
  * <p>Since there is no repository to provide metadata, the factory infers the
  * object model from the Java interfaces:
@@ -69,7 +69,6 @@ import org.eigenbase.xom.*;
 public abstract class MockMetadataFactory
     extends JmiMemFactory
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public MockMetadataFactory()
@@ -164,7 +163,8 @@ public abstract class MockMetadataFactory
                 String methodName = method.getName();
                 if (methodName.startsWith("get")
                     && (method.getParameterTypes().length == 0)
-                    && (method.getDeclaringClass() != Object.class)) {
+                    && (method.getDeclaringClass() != Object.class))
+                {
                     String attrName =
                         methodName.substring(3, 4).toLowerCase()
                         + methodName.substring(4);
@@ -180,8 +180,10 @@ public abstract class MockMetadataFactory
                     if (Collection.class.isAssignableFrom(attrClass)) {
                         collectionNames.add(attrName);
                         collectionValues.add((Collection) attrValue);
-                    } else if (RefBaseObject.class.isAssignableFrom(
-                            attrClass)) {
+                    } else if (
+                        RefBaseObject.class.isAssignableFrom(
+                            attrClass))
+                    {
                         refNames.add(attrName);
                         refValues.add((RefBaseObject) attrValue);
                     } else {

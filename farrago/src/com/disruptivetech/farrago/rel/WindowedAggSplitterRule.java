@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.util.*;
 public class WindowedAggSplitterRule
     extends RelOptRule
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -90,90 +89,91 @@ public class WindowedAggSplitterRule
         {
             super(
                 calc,
-                new RelType[] { new CalcRelSplitter.RelType("CalcRelType") {
-                    protected boolean canImplement(RexFieldAccess field)
-                    {
-                        return true;
-                    }
+                new RelType[] {
+                    new CalcRelSplitter.RelType("CalcRelType") {
+                        protected boolean canImplement(RexFieldAccess field)
+                        {
+                            return true;
+                        }
 
-                    protected boolean canImplement(RexDynamicParam param)
-                    {
-                        return true;
-                    }
+                        protected boolean canImplement(RexDynamicParam param)
+                        {
+                            return true;
+                        }
 
-                    protected boolean canImplement(RexLiteral literal)
-                    {
-                        return true;
-                    }
+                        protected boolean canImplement(RexLiteral literal)
+                        {
+                            return true;
+                        }
 
-                    protected boolean canImplement(RexCall call)
-                    {
-                        return !(call instanceof RexOver);
-                    }
+                        protected boolean canImplement(RexCall call)
+                        {
+                            return !(call instanceof RexOver);
+                        }
 
-                    protected RelNode makeRel(
+                        protected RelNode makeRel(
                             RelOptCluster cluster,
                             RelTraitSet traits,
                             RelDataType rowType,
                             RelNode child,
                             RexProgram program)
-                    {
-                        assert !program.containsAggs();
-                        return
-                            super.makeRel(cluster,
-                                    traits,
-                                    rowType,
-                                    child,
-                                    program);
+                        {
+                            assert !program.containsAggs();
+                            return super.makeRel(
+                                cluster,
+                                traits,
+                                rowType,
+                                child,
+                                program);
+                        }
                     }
-                }
-                ,
+                    ,
 
-                new CalcRelSplitter.RelType("WinAggRelType") {
-                    protected boolean canImplement(RexFieldAccess field)
-                    {
-                        return false;
-                    }
+                    new CalcRelSplitter.RelType("WinAggRelType") {
+                        protected boolean canImplement(RexFieldAccess field)
+                        {
+                            return false;
+                        }
 
-                    protected boolean canImplement(RexDynamicParam param)
-                    {
-                        return false;
-                    }
+                        protected boolean canImplement(RexDynamicParam param)
+                        {
+                            return false;
+                        }
 
-                    protected boolean canImplement(RexLiteral literal)
-                    {
-                        return false;
-                    }
+                        protected boolean canImplement(RexLiteral literal)
+                        {
+                            return false;
+                        }
 
-                    protected boolean canImplement(RexCall call)
-                    {
-                        return call instanceof RexOver;
-                    }
+                        protected boolean canImplement(RexCall call)
+                        {
+                            return call instanceof RexOver;
+                        }
 
-                    protected boolean supportsCondition()
-                    {
-                        return false;
-                    }
+                        protected boolean supportsCondition()
+                        {
+                            return false;
+                        }
 
-                    protected RelNode makeRel(
+                        protected RelNode makeRel(
                             RelOptCluster cluster,
                             RelTraitSet traits,
                             RelDataType rowType,
                             RelNode child,
                             RexProgram program)
-                    {
-                        Util.permAssert(program.getCondition() == null,
+                        {
+                            Util.permAssert(
+                                program.getCondition() == null,
                                 "WindowedAggregateRel cannot accept a condition");
-                        return
-                            new WindowedAggregateRel(
-                                    cluster,
-                                    traits,
-                                    child,
-                                    program,
-                                    rowType);
+                            return new WindowedAggregateRel(
+                                cluster,
+                                traits,
+                                child,
+                                program,
+                                rowType);
+                        }
                     }
-                }
-                 });
+                });
         }
     }
 }

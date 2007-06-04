@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -34,10 +34,9 @@ import org.eigenbase.sql.validate.*;
  * SqlNode}, so may appear in a parse tree.
  */
 public class SqlNodeList
-extends SqlNode
-implements Iterable<SqlNode>
+    extends SqlNode
+    implements Iterable<SqlNode>
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -45,12 +44,11 @@ implements Iterable<SqlNode>
      */
     public static final SqlNodeList Empty =
         new SqlNodeList(SqlParserPos.ZERO) {
-        public void add(SqlNode node)
-        {
-            throw new UnsupportedOperationException();
-        }
-    };
-
+            public void add(SqlNode node)
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
 
     //~ Instance fields --------------------------------------------------------
 
@@ -126,9 +124,9 @@ implements Iterable<SqlNode>
     {
         final SqlWriter.Frame frame =
             ((leftPrec > 0) || (rightPrec > 0)) ? writer.startList("(", ")")
-                : writer.startList("", "");
-            commaList(writer);
-            writer.endList(frame);
+            : writer.startList("", "");
+        commaList(writer);
+        writer.endList(frame);
     }
 
     void commaList(SqlWriter writer)
@@ -148,13 +146,15 @@ implements Iterable<SqlNode>
             writer.sep(sepKind.getName(), false);
             lprec = rprec = 0;
             if (node instanceof SqlCall) {
-                SqlCall call = (SqlCall)node;
-                if (call.getKind().isA(SqlKind.And)||call.getKind().isA(SqlKind.Or)) {
+                SqlCall call = (SqlCall) node;
+                if (call.getKind().isA(SqlKind.And)
+                    || call.getKind().isA(SqlKind.Or))
+                {
                     lprec = call.getOperator().getLeftPrec();
                     rprec = call.getOperator().getRightPrec();
                 }
             }
-            node.unparse(writer,lprec, rprec);
+            node.unparse(writer, lprec, rprec);
         }
     }
 
@@ -174,12 +174,12 @@ implements Iterable<SqlNode>
     {
         if (!(node instanceof SqlNodeList)) {
             assert !fail : this + "!=" + node;
-        return false;
+            return false;
         }
         SqlNodeList that = (SqlNodeList) node;
         if (this.size() != that.size()) {
             assert !fail : this + "!=" + node;
-        return false;
+            return false;
         }
         for (int i = 0; i < list.size(); i++) {
             SqlNode thisChild = list.get(i);

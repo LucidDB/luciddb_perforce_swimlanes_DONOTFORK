@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,10 +25,11 @@ package org.eigenbase.rel.rules;
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 
+
 /**
  * PushProjectIntoMultiJoinRule implements the rule for pushing projection
- * information from a {@link ProjectRel} into the {@link MultiJoinRel} that
- * is input into the {@link ProjectRel}.
+ * information from a {@link ProjectRel} into the {@link MultiJoinRel} that is
+ * input into the {@link ProjectRel}.
  *
  * @author Zelaine Fong
  * @version $Id$
@@ -36,7 +37,6 @@ import org.eigenbase.relopt.*;
 public class PushProjectIntoMultiJoinRule
     extends RelOptRule
 {
-    
     //~ Constructors -----------------------------------------------------------
 
     public PushProjectIntoMultiJoinRule()
@@ -44,7 +44,7 @@ public class PushProjectIntoMultiJoinRule
         super(
             new RelOptRuleOperand(
                 ProjectRel.class,
-                new RelOptRuleOperand [] {
+                new RelOptRuleOperand[] {
                     new RelOptRuleOperand(MultiJoinRel.class, null)
                 }));
     }
@@ -55,7 +55,7 @@ public class PushProjectIntoMultiJoinRule
     {
         ProjectRel project = (ProjectRel) call.rels[0];
         MultiJoinRel multiJoin = (MultiJoinRel) call.rels[1];
-        
+
         // if all inputs have their projFields set, then projection information
         // has already been pushed into each input
         boolean allSet = true;
@@ -68,7 +68,7 @@ public class PushProjectIntoMultiJoinRule
         if (allSet) {
             return;
         }
-        
+
         // create a new MultiJoinRel that reflects the columns in the projection
         // above the MultiJoinRel
         MultiJoinRel newMultiJoin =

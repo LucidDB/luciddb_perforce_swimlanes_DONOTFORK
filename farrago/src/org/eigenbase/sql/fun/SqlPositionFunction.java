@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -36,12 +36,12 @@ import org.eigenbase.sql.validate.*;
 public class SqlPositionFunction
     extends SqlFunction
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public SqlPositionFunction()
     {
-        super("POSITION",
+        super(
+            "POSITION",
             SqlKind.Function,
             SqlTypeStrategies.rtiNullableInteger,
             null,
@@ -91,10 +91,9 @@ public class SqlPositionFunction
             return false;
         }
 
-        return
-            getOperandTypeChecker().checkOperandTypes(
-                callBinding,
-                throwOnFailure);
+        return getOperandTypeChecker().checkOperandTypes(
+            callBinding,
+            throwOnFailure);
     }
 }
 

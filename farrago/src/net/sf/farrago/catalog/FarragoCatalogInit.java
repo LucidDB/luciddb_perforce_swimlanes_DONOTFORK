@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -21,9 +21,8 @@
 */
 package net.sf.farrago.catalog;
 
-import net.sf.farrago.fem.security.FemRole;
-import net.sf.farrago.fem.security.FemUser;
-import net.sf.farrago.fem.sql2003.FemLocalCatalog;
+import net.sf.farrago.fem.security.*;
+import net.sf.farrago.fem.sql2003.*;
 
 
 /**
@@ -33,9 +32,9 @@ import net.sf.farrago.fem.sql2003.FemLocalCatalog;
  * @author John V. Sichi
  * @version $Id$
  */
-public class FarragoCatalogInit extends FarragoAbstractCatalogInit
+public class FarragoCatalogInit
+    extends FarragoAbstractCatalogInit
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -99,6 +98,7 @@ public class FarragoCatalogInit extends FarragoAbstractCatalogInit
     {
         createSystemCatalogs();
         createSystemAuth();
+
         // NOTE jvs 3-Jan-2007:  system types are created by the UDR
         // sys_boot.sys_boot.update_system_objects(), but we do it
         // here redundantly to support Farrago extension projects

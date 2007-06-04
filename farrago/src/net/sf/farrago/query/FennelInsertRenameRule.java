@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,6 +25,7 @@ package net.sf.farrago.query;
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 
+
 /**
  * FennelInsertRenameRule is a rule for converting a rename-only Project
  * underneath an insert TableModificationRel into FennelRename.
@@ -35,7 +36,6 @@ import org.eigenbase.relopt.*;
 public class FennelInsertRenameRule
     extends FennelRenameRule
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -46,7 +46,7 @@ public class FennelInsertRenameRule
         super(
             new RelOptRuleOperand(
                 TableModificationRel.class,
-                new RelOptRuleOperand [] {
+                new RelOptRuleOperand[] {
                     new RelOptRuleOperand(ProjectRel.class, null)
                 }));
     }
@@ -57,8 +57,8 @@ public class FennelInsertRenameRule
     public void onMatch(RelOptRuleCall call)
     {
         TableModificationRel origTableMod = (TableModificationRel) call.rels[0];
-        if (origTableMod.getOperation() !=
-            TableModificationRel.Operation.INSERT)
+        if (origTableMod.getOperation()
+            != TableModificationRel.Operation.INSERT)
         {
             return;
         }

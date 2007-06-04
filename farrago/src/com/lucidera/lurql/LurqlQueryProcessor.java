@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,11 +28,11 @@ import java.sql.*;
 
 import java.util.*;
 
+import javax.jmi.reflect.*;
+
 import org.eigenbase.jmi.*;
 
 import org.netbeans.api.mdr.*;
-
-import javax.jmi.reflect.RefObject;
 
 
 /**
@@ -51,7 +51,6 @@ import javax.jmi.reflect.RefObject;
 public class LurqlQueryProcessor
     implements JmiQueryProcessor
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final MDRepository repos;
@@ -79,7 +78,8 @@ public class LurqlQueryProcessor
         } catch (Throwable ex) {
             throw new JmiQueryException("LURQL parse failed", ex);
         }
-        LurqlPlan plan = new LurqlPlan(
+        LurqlPlan plan =
+            new LurqlPlan(
                 modelView,
                 query);
         return new PreparedQuery(plan);
@@ -116,7 +116,7 @@ public class LurqlQueryProcessor
         // implement JmiPreparedQuery
         public Collection<RefObject> execute(
             Connection connection,
-            Map<String,?> args)
+            Map<String, ?> args)
             throws JmiQueryException
         {
             LurqlReflectiveExecutor executor =

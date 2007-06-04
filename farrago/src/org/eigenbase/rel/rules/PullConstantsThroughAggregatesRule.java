@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -54,7 +54,6 @@ import org.eigenbase.util.mapping.*;
 public class PullConstantsThroughAggregatesRule
     extends RelOptRule
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -137,8 +136,11 @@ public class PullConstantsThroughAggregatesRule
 
             // Ensure that the first positions in the mapping are for the new
             // group columns.
-            for (int i = 0, groupOrdinal = 0, constOrdinal = newGroupCount;
-                i < groupCount; ++i) {
+            for (
+                int i = 0, groupOrdinal = 0, constOrdinal = newGroupCount;
+                i < groupCount;
+                ++i)
+            {
                 if (i >= groupCount) {
                     mapping.set(i, i);
                 } else if (constants.containsKey(i)) {

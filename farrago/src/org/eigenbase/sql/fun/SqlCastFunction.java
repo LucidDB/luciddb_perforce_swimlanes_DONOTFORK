@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,12 +41,12 @@ import org.eigenbase.sql.type.*;
 public class SqlCastFunction
     extends SqlFunction
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public SqlCastFunction()
     {
-        super("CAST",
+        super(
+            "CAST",
             SqlKind.Cast,
             null,
             SqlTypeStrategies.otiFirstKnown,
@@ -69,14 +69,16 @@ public class SqlCastFunction
         if (opBinding instanceof SqlCallBinding) {
             SqlCallBinding callBinding = (SqlCallBinding) opBinding;
             SqlNode operand0 = callBinding.getCall().operands[0];
+
             // dynamic parameters and null constants need their types asssigned
             // to them using the type they are casted to.
-            if ((operand0 instanceof SqlLiteral &&
-                 ((SqlLiteral)operand0).getValue() == null) ||
-                operand0 instanceof SqlDynamicParam) {
-            	callBinding.getValidator().setValidatedNodeType(
-            			operand0,
-            			ret);
+            if (((operand0 instanceof SqlLiteral)
+                    && (((SqlLiteral) operand0).getValue() == null))
+                || (operand0 instanceof SqlDynamicParam))
+            {
+                callBinding.getValidator().setValidatedNodeType(
+                    operand0,
+                    ret);
             }
         }
         return ret;

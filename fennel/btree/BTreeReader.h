@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 1999-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 1999-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -235,6 +235,14 @@ public:
 
     /**
      * Searches for a tuple in the tree based on the given key.
+     *
+     *<p>
+     *
+     * NOTE jvs 27-May-2007:  This method's interface has some problems;
+     * resolving http://issues.eigenbase.org/browse/FNL-65 will
+     * involve coming up with a more rational interface.  In particular,
+     * note that the return value is unreliable in the case of
+     * DUP_SEEK_END, and should be ignored by callers.
      *
      * @param key the key to search for
      *

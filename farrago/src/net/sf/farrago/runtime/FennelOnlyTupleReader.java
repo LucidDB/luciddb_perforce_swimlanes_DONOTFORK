@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@ import java.nio.*;
 
 import net.sf.farrago.fennel.tuple.*;
 
+
 /**
  * FennelOnlyTupleReader implements the FennelTupleReader interface for reading
  * tuples from a query plan that can be executed exclusively in Fennel.
@@ -33,13 +34,16 @@ import net.sf.farrago.fennel.tuple.*;
  * @author Zelaine Fong
  * @version $Id$
  */
-public class FennelOnlyTupleReader implements FennelTupleReader
+public class FennelOnlyTupleReader
+    implements FennelTupleReader
 {
     //~ Instance fields --------------------------------------------------------
+
     private final FennelTupleAccessor tupleAccessor;
     private final FennelTupleData tupleData;
-    
-    //~ Constructor ------------------------------------------------------------
+
+    //~ Constructors -----------------------------------------------------------
+
     /**
      * @param tupleDesc tuple descriptor of the tuples to be read
      * @param tupleData tuple data that the tuples read will be unmarshalled
@@ -53,7 +57,7 @@ public class FennelOnlyTupleReader implements FennelTupleReader
         tupleAccessor.compute(tupleDesc);
         this.tupleData = tupleData;
     }
-        
+
     //~ Methods ----------------------------------------------------------------
 
     // implement FennelTupleReader

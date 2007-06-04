@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,7 @@ package net.sf.farrago.util;
 
 import java.util.*;
 
+
 /**
  * FarragoLruVictimPolicy implements an LRU caching policy for the
  * FarragoObjectCache.
@@ -36,15 +37,15 @@ import java.util.*;
 public class FarragoLruVictimPolicy
     implements FarragoCacheVictimPolicy
 {
-    //~ Static fields/initializers --------------------------------------------
+    //~ Instance fields --------------------------------------------------------
 
     /**
-     * LRU ordering of objects in the cache.  The linked list provides the LRU
+     * LRU ordering of objects in the cache. The linked list provides the LRU
      * ordering.
      */
     private final LinkedHashSet<FarragoCacheEntry> lruCacheOrder;
 
-    //~ Constructor -----------------------------------------------------------
+    //~ Constructors -----------------------------------------------------------
 
     public FarragoLruVictimPolicy()
     {
@@ -75,7 +76,7 @@ public class FarragoLruVictimPolicy
     public void unregisterEntry(FarragoCacheEntry entry)
     {
         boolean rc = lruCacheOrder.remove(entry);
-        assert(rc);
+        assert (rc);
     }
 
     // implement FarragoCacheVictimPolicy
@@ -83,7 +84,7 @@ public class FarragoLruVictimPolicy
     {
         // remove the object from the list and add it to the end of the list
         boolean rc = lruCacheOrder.remove(entry);
-        assert(rc);
+        assert (rc);
         lruCacheOrder.add(entry);
     }
 

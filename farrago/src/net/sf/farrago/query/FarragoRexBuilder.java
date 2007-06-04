@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -34,7 +34,7 @@ import org.eigenbase.oj.util.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.*;
-import org.eigenbase.sql.fun.SqlStdOperatorTable;
+import org.eigenbase.sql.fun.*;
 import org.eigenbase.sql.parser.*;
 import org.eigenbase.util.*;
 
@@ -48,7 +48,6 @@ import org.eigenbase.util.*;
 public class FarragoRexBuilder
     extends JavaRexBuilder
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final FarragoPreparingStmt preparingStmt;
@@ -78,7 +77,7 @@ public class FarragoRexBuilder
     // override RexBuilder
     public RexNode makeCall(
         SqlOperator op,
-        RexNode... exprs)
+        RexNode ... exprs)
     {
         if (op.getKind().isA(SqlKind.Comparison)) {
             return makeComparison(op, exprs);
@@ -113,7 +112,8 @@ public class FarragoRexBuilder
             try {
                 sqlExpr = parser.parseExpression();
             } catch (SqlParseException e) {
-                throw Util.newInternal(e,
+                throw Util.newInternal(
+                    e,
                     "Error while parsing routine definition:  " + bodyString);
             }
             returnNode =
@@ -122,15 +122,17 @@ public class FarragoRexBuilder
                     invocation);
         } else {
             // leave calls to external functions alone
-            returnNode = super.makeCall(
-                routine.getReturnType(),
-                op,
-                invocation.getArgCastExprs());
+            returnNode =
+                super.makeCall(
+                    routine.getReturnType(),
+                    op,
+                    invocation.getArgCastExprs());
         }
 
         RelDataType [] paramTypes = routine.getParamTypes();
         if (!femRoutine.isCalledOnNullInput()
-            && (paramTypes.length > 0)) {
+            && (paramTypes.length > 0))
+        {
             // To honor RETURNS NULL ON NULL INPUT,  we build up
             // CASE WHEN arg1 IS NULL THEN NULL
             // WHEN arg2 IS NULL THEN NULL
@@ -151,13 +153,15 @@ public class FarragoRexBuilder
                         constantNull()));
             }
             caseOperandList.add(returnNode);
-            RexNode nullCase = makeCall(
-                SqlStdOperatorTable.caseOperator,
-                caseOperandList);
+            RexNode nullCase =
+                makeCall(
+                    SqlStdOperatorTable.caseOperator,
+                    caseOperandList);
             returnNode = nullCase;
         }
 
-        RexNode returnCast = makeCast(
+        RexNode returnCast =
+            makeCast(
                 routine.getReturnType(),
                 returnNode);
         return returnCast;
@@ -202,11 +206,10 @@ public class FarragoRexBuilder
     {
         FarragoUserDefinedRoutine routine = getRoutine(udo);
         RexNode routineInvocation = makeUdfInvocation(routine, exprs);
-        return
-            super.makeCall(
-                op,
-                routineInvocation,
-                makeExactLiteral(new BigDecimal(BigInteger.ZERO)));
+        return super.makeCall(
+            op,
+            routineInvocation,
+            makeExactLiteral(new BigDecimal(BigInteger.ZERO)));
     }
 
     private RexNode makeMapComparison(

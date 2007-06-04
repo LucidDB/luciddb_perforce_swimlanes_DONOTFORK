@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,6 @@ import net.sf.farrago.util.*;
 public class FarragoPluginClassLoader
     extends URLClassLoader
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -125,8 +124,8 @@ public class FarragoPluginClassLoader
                 String className =
                     manifest.getMainAttributes().getValue(jarAttributeName);
                 return loadClassFromJarUrl(
-                        "file:" + libraryName,
-                        className);
+                    "file:" + libraryName,
+                    className);
             }
         } catch (Throwable ex) {
             throw FarragoResource.instance().PluginJarLoadFailed.ex(
@@ -231,8 +230,7 @@ public class FarragoPluginClassLoader
      */
     public static boolean isLibraryClass(String libraryName)
     {
-        return
-            libraryName.startsWith(LIBRARY_CLASS_PREFIX1)
+        return libraryName.startsWith(LIBRARY_CLASS_PREFIX1)
             || libraryName.startsWith(LIBRARY_CLASS_PREFIX2);
     }
 

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -54,7 +54,6 @@ import org.eigenbase.util.*;
 public class SqlBetweenOperator
     extends SqlInfixOperator
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final String [] betweenNames =
@@ -92,6 +91,17 @@ public class SqlBetweenOperator
     private static final SqlWriter.FrameType BetweenFrameType =
         SqlWriter.FrameTypeEnum.create("BETWEEN");
 
+    //~ Enums ------------------------------------------------------------------
+
+    /**
+     * Defines the "SYMMETRIC" and "ASYMMETRIC" keywords.
+     */
+    public enum Flag
+        implements SqlLiteral.SqlSymbol
+    {
+        ASYMMETRIC, SYMMETRIC;
+    }
+
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -113,7 +123,8 @@ public class SqlBetweenOperator
         Flag flag,
         boolean negated)
     {
-        super(negated ? notBetweenNames : betweenNames,
+        super(
+            negated ? notBetweenNames : betweenNames,
             SqlKind.Between,
             30,
             null,
@@ -141,11 +152,11 @@ public class SqlBetweenOperator
                 scope,
                 call.operands);
         RelDataType [] newArgTypes =
-            {
-                argTypes[VALUE_OPERAND],
-                argTypes[LOWER_OPERAND],
-                argTypes[UPPER_OPERAND]
-            };
+        {
+            argTypes[VALUE_OPERAND],
+            argTypes[LOWER_OPERAND],
+            argTypes[UPPER_OPERAND]
+        };
         return newArgTypes;
     }
 
@@ -160,9 +171,8 @@ public class SqlBetweenOperator
                     callBinding.getValidator(),
                     callBinding.getScope(),
                     callBinding.getCall()));
-        return
-            SqlTypeStrategies.rtiNullableBoolean.inferReturnType(
-                newOpBinding);
+        return SqlTypeStrategies.rtiNullableBoolean.inferReturnType(
+            newOpBinding);
     }
 
     public String getSignatureTemplate(final int operandsCount)
@@ -255,7 +265,8 @@ public class SqlBetweenOperator
                 EigenbaseResource.instance().BetweenWithoutAnd.ex());
         }
         if (((SqlParserUtil.ToTreeListItem) o).getOperator().getKind()
-            != SqlKind.And) {
+            != SqlKind.And)
+        {
             SqlParserPos errPos = ((SqlParserUtil.ToTreeListItem) o).getPos();
             throw SqlUtil.newContextException(
                 errPos,
@@ -299,15 +310,6 @@ public class SqlBetweenOperator
     }
 
     //~ Inner Classes ----------------------------------------------------------
-
-    /**
-     * Defines the "SYMMETRIC" and "ASYMMETRIC" keywords.
-     */
-    public enum Flag implements SqlLiteral.SqlSymbol
-    {
-        ASYMMETRIC,
-        SYMMETRIC;
-    }
 
     /**
      * Finds an AND operator in an expression.

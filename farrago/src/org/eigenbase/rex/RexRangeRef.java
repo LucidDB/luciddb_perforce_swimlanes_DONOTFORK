@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -34,8 +34,8 @@ import org.eigenbase.reltype.*;
  * contain this construct.</em></p>
  *
  * <p>While translating a join of EMP(EMPNO, ENAME, DEPTNO) to DEPT(DEPTNO2,
- * DNAME) we create <code>RexRangeRef(DeptType,3)</code> to represent the pair of
- * columns (DEPTNO2, DNAME) which came from DEPT. The type has 2 columns, and
+ * DNAME) we create <code>RexRangeRef(DeptType,3)</code> to represent the pair
+ * of columns (DEPTNO2, DNAME) which came from DEPT. The type has 2 columns, and
  * therefore the range represents columns {3, 4} of the input.</p>
  *
  * <p>Suppose we later create a reference to the DNAME field of this
@@ -49,7 +49,6 @@ import org.eigenbase.reltype.*;
 public class RexRangeRef
     extends RexNode
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final RelDataType type;

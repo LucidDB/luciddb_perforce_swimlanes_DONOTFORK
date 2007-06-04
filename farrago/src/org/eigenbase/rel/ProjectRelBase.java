@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -29,7 +29,7 @@ import org.eigenbase.rel.metadata.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
-import org.eigenbase.sql.SqlExplainLevel;
+import org.eigenbase.sql.*;
 
 
 /**
@@ -39,7 +39,6 @@ import org.eigenbase.sql.SqlExplainLevel;
 public abstract class ProjectRelBase
     extends SingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected RexNode [] exps;
@@ -56,7 +55,7 @@ public abstract class ProjectRelBase
     /**
      * Creates a Project.
      *
-     * @param cluster {@link RelOptCluster} this relational expression belongs
+     * @param cluster {@link RelOptCluster}  this relational expression belongs
      * to
      * @param traits traits of this rel
      * @param child input relational expression
@@ -124,11 +123,13 @@ public abstract class ProjectRelBase
         if (!RexUtil.compatibleTypes(
                 exps,
                 getRowType(),
-                true)) {
+                true))
+        {
             assert !fail;
             return false;
         }
-        Checker checker = new Checker(
+        Checker checker =
+            new Checker(
                 fail,
                 getChild());
         for (RexNode exp : exps) {
@@ -176,7 +177,9 @@ public abstract class ProjectRelBase
         // differ in return type, we don't want to regard them as equivalent,
         // otherwise we will try to put rels of different types into the same
         // planner equivalence set.
-        if (pw.getDetailLevel() == SqlExplainLevel.DIGEST_ATTRIBUTES && false) {
+        if ((pw.getDetailLevel() == SqlExplainLevel.DIGEST_ATTRIBUTES)
+            && false)
+        {
             terms.add("type");
             values.add(rowType);
         }
@@ -193,9 +196,9 @@ public abstract class ProjectRelBase
         String fieldName)
     {
         if (!isBoxed()) {
-            return
-                implementor.implementFieldAccess((JavaRel) getChild(),
-                    fieldName);
+            return implementor.implementFieldAccess(
+                (JavaRel) getChild(),
+                fieldName);
         }
         RelDataType type = getRowType();
         int field = type.getFieldOrdinal(fieldName);
@@ -251,7 +254,8 @@ public abstract class ProjectRelBase
                     inputRef.getType(),
                     "underlying field",
                     fields[index].getType(),
-                    fail)) {
+                    fail))
+            {
                 assert !fail;
                 ++failCount;
                 return false;
@@ -285,7 +289,8 @@ public abstract class ProjectRelBase
                     typeField.getType(),
                     "type2",
                     fieldAccess.getType(),
-                    fail)) {
+                    fail))
+            {
                 assert !fail;
                 ++failCount;
                 return false;

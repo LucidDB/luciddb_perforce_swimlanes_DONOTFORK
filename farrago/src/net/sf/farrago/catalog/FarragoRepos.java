@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,6 @@
 package net.sf.farrago.catalog;
 
 import java.util.*;
-import java.nio.charset.Charset;
 
 import javax.jmi.reflect.*;
 
@@ -35,7 +34,6 @@ import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.util.*;
 
 import org.eigenbase.jmi.*;
-import org.eigenbase.sql.parser.SqlParserUtil;
 
 import org.netbeans.api.mdr.*;
 
@@ -50,7 +48,6 @@ public interface FarragoRepos
     extends FarragoAllocation,
         FarragoMetadataFactory
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -89,15 +86,16 @@ public interface FarragoRepos
     public FemFarragoConfig getCurrentConfig();
 
     /**
-     * @return the name of the default {@link Charset} for this repository
+     * @return the name of the default {@link java.nio.charset.Charset} for
+     * this repository
      */
     public String getDefaultCharsetName();
 
     /**
      * @return the name of the default collation name for this repository. The
-     * value is of the form <i>charset$locale$strength</i>, as per
-     * {@link SqlParserUtil#parseCollation(String)}.
-     * The default is "ISO-8859-1$en_US".
+     * value is of the form <i>charset$locale$strength</i>, as per {@link
+     * org.eigenbase.sql.parser.SqlParserUtil#parseCollation(String)}. The
+     * default is "ISO-8859-1$en_US".
      */
     public String getDefaultCollationName();
 
@@ -259,18 +257,19 @@ public interface FarragoRepos
     /**
      * Defines localization for this repository.
      *
-     * @param bundles list of {@link java.util.ResourceBundle} instances to add for
+     * @param bundles list of {@link java.util.ResourceBundle} instances to add
+     * for
      */
     public void addResourceBundles(List<ResourceBundle> bundles);
 
     /**
-     * @return an instance of FarragoReposTxnContext for use in
-     * executing transactions against this repository
+     * @return an instance of FarragoReposTxnContext for use in executing
+     * transactions against this repository
      */
     public FarragoReposTxnContext newTxnContext();
 
     /**
-     * Begins a metadata transaction on the repository.  In most cases, this
+     * Begins a metadata transaction on the repository. In most cases, this
      * should be done by creating and manipulating an instance of {@link
      * FarragoReposTxnContext} instead.
      *
@@ -331,11 +330,10 @@ public interface FarragoRepos
     /**
      * Verifies the integrity of the repository.
      *
-     * @param refObj a single object to check (independent of related
-     * objects) or null to check the entire repository
+     * @param refObj a single object to check (independent of related objects)
+     * or null to check the entire repository
      *
-     * @return list of violations (empty list indicates integrity check
-     * passed)
+     * @return list of violations (empty list indicates integrity check passed)
      */
     public List<FarragoReposIntegrityErr> verifyIntegrity(
         RefObject refObj);

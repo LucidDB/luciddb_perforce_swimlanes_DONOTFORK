@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,6 +25,7 @@ package org.eigenbase.rel.rules;
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 import org.eigenbase.rex.*;
+
 
 /**
  * MergeFilterRule implements the rule for combining two {@link FilterRel}s
@@ -71,21 +72,21 @@ public class MergeFilterRule
         RexNode newCondition =
             mergedProgram.expandLocalRef(
                 mergedProgram.getCondition());
-        
+
         FilterRel newFilterRel =
             new FilterRel(
                 topFilter.getCluster(),
                 bottomFilter.getChild(),
                 newCondition);
-               
-        call.transformTo(newFilterRel); 
+
+        call.transformTo(newFilterRel);
     }
-    
+
     /**
      * Creates a RexProgram corresponding to a FilterRel
-     * 
+     *
      * @param filterRel the FilterRel
-     * 
+     *
      * @return created RexProgram
      */
     private RexProgram createProgram(FilterRel filterRel)

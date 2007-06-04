@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -57,7 +57,6 @@ class MedMdrClassExtentRel
     extends TableAccessRelBase
     implements JavaRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -152,12 +151,11 @@ class MedMdrClassExtentRel
             nameList.add(Literal.makeLiteral(runtimeName[i]));
         }
 
-        return
-            mdrClassExtent.directory.server.generateRuntimeSupportCall(
-                new ArrayAllocationExpression(
-                    TypeName.forOJClass(OJSystem.STRING),
-                    new ExpressionList(null),
-                    new ArrayInitializer(nameList)));
+        return mdrClassExtent.directory.server.generateRuntimeSupportCall(
+            new ArrayAllocationExpression(
+                TypeName.forOJClass(OJSystem.STRING),
+                new ExpressionList(null),
+                new ArrayInitializer(nameList)));
     }
 
     public Expression getCollectionExpression()
@@ -199,16 +197,15 @@ class MedMdrClassExtentRel
                 OJUtil.typeNameForClass(RestartableCollectionTupleIter.class),
                 new ExpressionList(
                     collectionExpression));
-        return
-            IterCalcRel.implementAbstractTupleIter(
-                implementor,
-                this,
-                adapterExp,
-                varInputRow,
-                inputRowType,
-                outputRowType,
-                program,
-                null);
+        return IterCalcRel.implementAbstractTupleIter(
+            implementor,
+            this,
+            adapterExp,
+            varInputRow,
+            inputRowType,
+            outputRowType,
+            program,
+            null);
     }
 
     RexNode [] implementProjection(Expression inputRow)

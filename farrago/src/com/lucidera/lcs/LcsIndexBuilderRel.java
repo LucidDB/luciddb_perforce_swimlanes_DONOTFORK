@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.reltype.*;
 class LcsIndexBuilderRel
     extends FennelSingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -95,13 +94,13 @@ class LcsIndexBuilderRel
         FarragoTypeFactory typeFactory = getFarragoTypeFactory();
 
         FemLocalTable table = FarragoCatalogUtil.getIndexTable(index);
-        LcsIndexGuide indexGuide =
-            new LcsIndexGuide(typeFactory, table, index);
+        LcsIndexGuide indexGuide = new LcsIndexGuide(typeFactory, table, index);
         FennelRelParamId paramId = implementor.allocateRelParamId();
         FarragoRepos repos = FennelRelUtil.getRepos(this);
         FemLocalIndex deletionIndex =
-            FarragoCatalogUtil.isIndexUnique(index) ?
-                FarragoCatalogUtil.getDeletionIndex(repos, table) : null;
+            FarragoCatalogUtil.isIndexUnique(index)
+            ? FarragoCatalogUtil.getDeletionIndex(repos, table)
+            : null;
         LcsCompositeStreamDef bitmapSet =
             indexGuide.newBitmapAppend(
                 this,

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,12 +37,11 @@ import java.util.*;
  */
 public abstract class ReflectUtil
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
-    private static Map<Class,Class> primitiveToBoxingMap;
-    private static Map<Class,Method> primitiveToByteBufferReadMethod;
-    private static Map<Class,Method> primitiveToByteBufferWriteMethod;
+    private static Map<Class, Class> primitiveToBoxingMap;
+    private static Map<Class, Method> primitiveToByteBufferReadMethod;
+    private static Map<Class, Method> primitiveToByteBufferWriteMethod;
 
     static {
         primitiveToBoxingMap = new HashMap<Class, Class>();
@@ -196,11 +195,10 @@ public abstract class ReflectUtil
     public static String getUnmangledMethodName(
         Method method)
     {
-        return
-            getUnmangledMethodName(
-                method.getDeclaringClass(),
-                method.getName(),
-                method.getParameterTypes());
+        return getUnmangledMethodName(
+            method.getDeclaringClass(),
+            method.getName(),
+            method.getParameterTypes());
     }
 
     /**
@@ -283,12 +281,11 @@ public abstract class ReflectUtil
         Class visiteeClass,
         String visitMethodName)
     {
-        return
-            lookupVisitMethod(
-                visitorClass,
-                visiteeClass,
-                visitMethodName,
-                Collections.EMPTY_LIST);
+        return lookupVisitMethod(
+            visitorClass,
+            visiteeClass,
+            visitMethodName,
+            Collections.EMPTY_LIST);
     }
 
     /**
@@ -320,8 +317,8 @@ public abstract class ReflectUtil
 
         try {
             return visitorClass.getMethod(
-                    visitMethodName,
-                    paramTypes);
+                visitMethodName,
+                paramTypes);
         } catch (NoSuchMethodException ex) {
             // not found:  carry on with lookup
         }

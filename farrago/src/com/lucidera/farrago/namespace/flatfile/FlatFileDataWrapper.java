@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import net.sf.farrago.resource.*;
 public class FlatFileDataWrapper
     extends MedAbstractDataWrapper
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -155,19 +154,16 @@ public class FlatFileDataWrapper
                 FlatFileParams.PROP_MAPPED,
                 true,
                 BOOLEAN_CHOICES_DEFAULT_FALSE);
-        }        
+        }
         infoMap.addPropInfo(
             FlatFileParams.PROP_DATE_FORMAT,
-            false
-            );
+            false);
         infoMap.addPropInfo(
             FlatFileParams.PROP_TIME_FORMAT,
-            false
-            );
+            false);
         infoMap.addPropInfo(
             FlatFileParams.PROP_TIMESTAMP_FORMAT,
-            false
-            );
+            false);
         return infoMap.toArray();
     }
 

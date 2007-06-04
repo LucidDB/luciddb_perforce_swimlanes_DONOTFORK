@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,8 @@ package net.sf.farrago.runtime;
 
 import java.nio.*;
 
+import net.sf.farrago.fennel.tuple.*;
+
 
 /**
  * FennelTupleWriter defines an interface for marshalling tuples to be sent to
@@ -35,13 +37,17 @@ import java.nio.*;
  */
 public abstract class FennelTupleWriter
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
      * Matches fennel/tuple/TupleAccessor.cpp.
      */
     private static long MAGIC_NUMBER = 0x9897ab509de7dcf5L;
+
+    /**
+     * Singleton helper for aligning tuple buffers correctly.
+     */
+    private static FennelTupleAccessor tupleAligner = new FennelTupleAccessor();
 
     //~ Methods ----------------------------------------------------------------
 
@@ -89,9 +95,8 @@ public abstract class FennelTupleWriter
             int newPosition = byteBuffer.position() + sliceBuffer.position();
 
             // add final alignment padding
-            while ((newPosition & 3) != 0) {
-                ++newPosition;
-            }
+            newPosition = tupleAligner.alignRoundUp(newPosition);
+
             byteBuffer.position(newPosition);
         } catch (BufferOverflowException ex) {
             return false;

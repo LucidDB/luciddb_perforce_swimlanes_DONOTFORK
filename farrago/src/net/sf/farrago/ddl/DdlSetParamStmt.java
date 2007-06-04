@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.sql.*;
 public abstract class DdlSetParamStmt
     extends DdlStmt
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final String paramName;
@@ -85,23 +84,23 @@ public abstract class DdlSetParamStmt
     /**
      * Prevalidates an "ALTER ... SET "param" = 'value' statement.
      *
-     * <p>First examines <code>primaryConfig</code> to see if the
-     * {@link #paramName} is a valid name. If not, and if
-     * <code>alternateConfig</code> is not null, tests
-     * <code>alternateConfig</code>. If either succeeds, converts
-     * {@link #paramValue} to the appropriate type and calls the
-     * {@link javax.jmi.reflect.RefFeatured#refSetValue}
-     * mutator is called on the the {@link RefObject}.
+     * <p>First examines <code>primaryConfig</code> to see if the {@link
+     * #paramName} is a valid name. If not, and if <code>alternateConfig</code>
+     * is not null, tests <code>alternateConfig</code>. If either succeeds,
+     * converts {@link #paramValue} to the appropriate type and calls the {@link
+     * javax.jmi.reflect.RefFeatured#refSetValue} mutator is called on the the
+     * {@link RefObject}.
      *
      * <p>Calls the following functions in the event of errors:
      *
      * <ul>
-     * <li>{@link #handleInvalidName(FarragoSessionDdlValidator, InvalidNameException)}
-     * - if <code>paramName</code> is not a member of either RefObject.</li>
+     * <li>{@link #handleInvalidName(FarragoSessionDdlValidator,
+     * InvalidNameException)}- if <code>paramName</code> is not a member of
+     * either RefObject.</li>
      * <li>{@link #handleReflectionException( FarragoSessionDdlValidator,
      * Exception)} - if there's an error converting {@link #paramValue}.</li>
-     * <li>{@link #handleImmutableParameter(FarragoSessionDdlValidator, InvalidNameException)}
-     *  - if it turns out the parameter is immutable.</li>
+     * <li>{@link #handleImmutableParameter(FarragoSessionDdlValidator,
+     * InvalidNameException)}- if it turns out the parameter is immutable.</li>
      * <li>{@link #handleTypeMismatch( FarragoSessionDdlValidator,
      * TypeMismatchException)} - if the <code>paramValue</code> is successfully
      * converted but does not match the expected type for the parameter.</li>
@@ -109,8 +108,8 @@ public abstract class DdlSetParamStmt
      *
      * @param ddlValidator the DDL validator performing validation
      * @param primaryConfig the primary RefObject to check for param names
-     * @param alternateConfig an alternate RefObject to use if
-     * <code>primaryConfig</code> doesn't contain the parameter.
+     * @param alternateConfig an alternate RefObject to use if <code>
+     * primaryConfig</code> doesn't contain the parameter.
      */
     protected void preValidate(
         FarragoSessionDdlValidator ddlValidator,
@@ -159,8 +158,7 @@ public abstract class DdlSetParamStmt
                 Constructor constructor =
                     oldValue.getClass().getConstructor(
                         String.class);
-                newValue =
-                    constructor.newInstance(newValueAsString);
+                newValue = constructor.newInstance(newValueAsString);
             }
         } catch (Exception ex) {
             handleReflectionException(ddlValidator, ex);

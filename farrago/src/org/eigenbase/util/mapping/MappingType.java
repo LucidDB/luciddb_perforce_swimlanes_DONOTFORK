@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -171,8 +171,7 @@ public enum MappingType
      */
     public boolean isSurjection()
     {
-        return
-            (ordinal() & (OptionalTarget | MultipleTarget | OptionalSource))
+        return (ordinal() & (OptionalTarget | MultipleTarget | OptionalSource))
             == 0;
     }
 
@@ -182,8 +181,7 @@ public enum MappingType
      */
     public boolean isInjection()
     {
-        return
-            (ordinal() & (OptionalTarget | MultipleTarget | MultipleSource))
+        return (ordinal() & (OptionalTarget | MultipleTarget | MultipleSource))
             == 0;
     }
 
@@ -193,14 +191,9 @@ public enum MappingType
      */
     public boolean isBijection()
     {
-        return
-            (
-                ordinal()
-                & (
-                    OptionalTarget | MultipleTarget | OptionalSource
-                    | MultipleSource
-                  )
-            ) == 0;
+        return (ordinal()
+            & (OptionalTarget | MultipleTarget | OptionalSource
+                | MultipleSource)) == 0;
     }
 
     /**

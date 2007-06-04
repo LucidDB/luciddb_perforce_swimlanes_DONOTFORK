@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.rel.*;
  */
 public class LoptJoinTree
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private BinaryTree factorTree;
@@ -48,7 +47,7 @@ public class LoptJoinTree
 
     /**
      * Creates a jointree consisting of a single node
-     * 
+     *
      * @param joinTree RelNode corresponding to the single node
      * @param factorId factor id of the node
      */
@@ -60,7 +59,7 @@ public class LoptJoinTree
 
     /**
      * Associates the factor ids with a jointree
-     * 
+     *
      * @param joinTree RelNodes corresponding to the join tree
      * @param factorTree tree of the factor ids
      */
@@ -73,7 +72,7 @@ public class LoptJoinTree
     /**
      * Associates the factor ids with a jointree given the factors corresponding
      * to the left and right subtrees of the join
-     * 
+     *
      * @param joinTree RelNodes corresponding to the join tree
      * @param leftFactorTree tree of the factor ids for left subtree
      * @param rightFactorTree tree of the factor ids for the right subtree
@@ -96,18 +95,16 @@ public class LoptJoinTree
 
     public LoptJoinTree getLeft()
     {
-        return
-            new LoptJoinTree(
-                ((JoinRel) joinTree).getLeft(),
-                factorTree.getLeft());
+        return new LoptJoinTree(
+            ((JoinRel) joinTree).getLeft(),
+            factorTree.getLeft());
     }
 
     public LoptJoinTree getRight()
     {
-        return
-            new LoptJoinTree(
-                ((JoinRel) joinTree).getRight(),
-                factorTree.getRight());
+        return new LoptJoinTree(
+            ((JoinRel) joinTree).getRight(),
+            factorTree.getRight());
     }
 
     public BinaryTree getFactorTree()
@@ -156,7 +153,7 @@ public class LoptJoinTree
 
         public void getTreeOrder(List<Integer> treeOrder)
         {
-            if ((left == null) && (right == null)) {
+            if ((left == null) || (right == null)) {
                 treeOrder.add(id);
             } else {
                 left.getTreeOrder(treeOrder);

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.sql.validate.*;
 public class SqlFunction
     extends SqlOperator
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final SqlFunctionCategory functionType;
@@ -68,7 +67,8 @@ public class SqlFunction
         SqlOperandTypeChecker operandTypeChecker,
         SqlFunctionCategory funcType)
     {
-        super(name,
+        super(
+            name,
             kind,
             100,
             100,
@@ -76,10 +76,8 @@ public class SqlFunction
             operandTypeInference,
             operandTypeChecker);
 
-        assert !(
-                (funcType == SqlFunctionCategory.UserDefinedConstructor)
-                && (returnTypeInference == null)
-                );
+        assert !((funcType == SqlFunctionCategory.UserDefinedConstructor)
+            && (returnTypeInference == null));
 
         this.functionType = funcType;
 
@@ -118,7 +116,7 @@ public class SqlFunction
             operandTypeInference,
             operandTypeChecker);
 
-        //       assert !(funcType == SqlFunctionCategory.UserDefinedConstructor
+        // assert !(funcType == SqlFunctionCategory.UserDefinedConstructor
         // &&           returnTypeInference == null);
 
         this.sqlIdentifier = sqlIdentifier;
@@ -150,8 +148,8 @@ public class SqlFunction
             return sqlIdentifier;
         }
         return new SqlIdentifier(
-                getName(),
-                SqlParserPos.ZERO);
+            getName(),
+            SqlParserPos.ZERO);
     }
 
     /**
@@ -252,8 +250,8 @@ public class SqlFunction
             // set the nodeType to a ColumnList type but defer validating the
             // arguments of the row constructor until we know for sure that the
             // row argument maps to a ColumnList type
-            if (operands[i].getKind() == SqlKind.Row &&
-                convertRowArgToColumnList)
+            if ((operands[i].getKind() == SqlKind.Row)
+                && convertRowArgToColumnList)
             {
                 containsRowArg = true;
                 RelDataTypeFactory typeFactory = validator.getTypeFactory();
@@ -279,8 +277,8 @@ public class SqlFunction
         // column references), now that we can set the scope to that of the
         // source cursor referenced by that ColumnList type
         if (containsRowArg) {
-            if (function == null &&
-                SqlUtil.matchRoutinesByParameterCount(
+            if ((function == null)
+                && SqlUtil.matchRoutinesByParameterCount(
                     validator.getOperatorTable(),
                     getNameAsId(),
                     argTypes,
@@ -303,18 +301,17 @@ public class SqlFunction
             }
         }
 
-        // we've finished validating cursor parameters, so we can pop the
-        // cursor map corresponding to the current call off the cursor map stack
+        // we've finished validating cursor parameters, so we can pop the cursor
+        // map corresponding to the current call off the cursor map stack
         validator.popCursorMap();
 
         if (getFunctionType() == SqlFunctionCategory.UserDefinedConstructor) {
-            return
-                validator.deriveConstructorType(
-                    scope,
-                    call,
-                    this,
-                    function,
-                    argTypes);
+            return validator.deriveConstructorType(
+                scope,
+                call,
+                this,
+                function,
+                argTypes);
         }
         if (function == null) {
             validator.handleUnresolvedFunction(
@@ -329,9 +326,9 @@ public class SqlFunction
         // choke on the unresolved function.
         call.setOperator(function);
         return function.validateOperands(
-                validator,
-                operandScope,
-                call);
+            validator,
+            operandScope,
+            call);
     }
 }
 

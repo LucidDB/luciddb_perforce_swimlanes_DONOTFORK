@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -43,7 +43,6 @@ import org.eigenbase.util14.*;
 public abstract class AbstractIterResultSet
     extends AbstractResultSet
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final ColumnGetter columnGetter;
@@ -198,10 +197,12 @@ public abstract class AbstractIterResultSet
             try {
                 return fields[columnIndex - 1].get(o);
             } catch (IllegalArgumentException e) {
-                throw Util.newInternal(e,
+                throw Util.newInternal(
+                    e,
                     "Error while retrieving field " + fields[columnIndex - 1]);
             } catch (IllegalAccessException e) {
-                throw Util.newInternal(e,
+                throw Util.newInternal(
+                    e,
                     "Error while retrieving field " + fields[columnIndex - 1]);
             }
         }
@@ -213,7 +214,8 @@ public abstract class AbstractIterResultSet
             for (int i = 0; i < fields.length; i++) {
                 Field field = fields[i];
                 if (Modifier.isPublic(field.getModifiers())
-                    && !Modifier.isStatic(field.getModifiers())) {
+                    && !Modifier.isStatic(field.getModifiers()))
+                {
                     list.add(field);
                 }
             }

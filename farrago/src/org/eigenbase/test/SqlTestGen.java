@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -45,7 +45,6 @@ import org.eigenbase.util.*;
  */
 public class SqlTestGen
 {
-
     //~ Methods ----------------------------------------------------------------
 
     public static void main(String [] args)
@@ -68,7 +67,8 @@ public class SqlTestGen
                     new SqlValidatorSpooler(
                         method.getName(),
                         pw);
-                final Object result = method.invoke(
+                final Object result =
+                    method.invoke(
                         test,
                         new Object[0]);
                 assert result == null;
@@ -107,7 +107,8 @@ public class SqlTestGen
                 && Modifier.isPublic(method.getModifiers())
                 && !Modifier.isStatic(method.getModifiers())
                 && (method.getParameterTypes().length == 0)
-                && (method.getReturnType() == Void.TYPE)) {
+                && (method.getReturnType() == Void.TYPE))
+            {
                 list.add(method);
             }
         }
@@ -135,58 +136,59 @@ public class SqlTestGen
         public SqlValidatorTestCase.Tester getTester()
         {
             return new TesterImpl() {
-                    public SqlValidator getValidator()
-                    {
-                        throw new UnsupportedOperationException();
-                    }
+                public SqlValidator getValidator()
+                {
+                    throw new UnsupportedOperationException();
+                }
 
-                    public void assertExceptionIsThrown(String sql,
-                        String expectedMsgPattern)
-                    {
-                        if (expectedMsgPattern == null) {
-                            // This SQL statement is supposed to succeed.
-                            // Generate it to the file, so we can see what
-                            // output it produces.
-                            pw.println("-- " + getName());
-                            pw.println(sql);
-                            pw.println(";");
-                        } else {
-                            // Do nothing. We know that this fails the validator
-                            // test, so we don't learn anything by having it
-                            // fail from SQL.
-                        }
+                public void assertExceptionIsThrown(
+                    String sql,
+                    String expectedMsgPattern)
+                {
+                    if (expectedMsgPattern == null) {
+                        // This SQL statement is supposed to succeed.
+                        // Generate it to the file, so we can see what
+                        // output it produces.
+                        pw.println("-- " + getName());
+                        pw.println(sql);
+                        pw.println(";");
+                    } else {
+                        // Do nothing. We know that this fails the validator
+                        // test, so we don't learn anything by having it fail
+                        // from SQL.
                     }
+                }
 
-                    public RelDataType getColumnType(String sql)
-                    {
-                        return null;
-                    }
+                public RelDataType getColumnType(String sql)
+                {
+                    return null;
+                }
 
-                    public void checkType(
-                        String sql,
-                        String expected)
-                    {
-                        // We could generate the SQL -- or maybe describe -- but
-                        // ignore it for now.
-                    }
+                public void checkType(
+                    String sql,
+                    String expected)
+                {
+                    // We could generate the SQL -- or maybe describe -- but
+                    // ignore it for now.
+                }
 
-                    public void checkCollation(
-                        String sql,
-                        String expectedCollationName,
-                        SqlCollation.Coercibility expectedCoercibility)
-                    {
-                        // We could generate the SQL -- or maybe describe -- but
-                        // ignore it for now.
-                    }
+                public void checkCollation(
+                    String sql,
+                    String expectedCollationName,
+                    SqlCollation.Coercibility expectedCoercibility)
+                {
+                    // We could generate the SQL -- or maybe describe -- but
+                    // ignore it for now.
+                }
 
-                    public void checkCharset(
-                        String sql,
-                        Charset expectedCharset)
-                    {
-                        // We could generate the SQL -- or maybe describe -- but
-                        // ignore it for now.
-                    }
-                };
+                public void checkCharset(
+                    String sql,
+                    Charset expectedCharset)
+                {
+                    // We could generate the SQL -- or maybe describe -- but
+                    // ignore it for now.
+                }
+            };
         }
     }
 }

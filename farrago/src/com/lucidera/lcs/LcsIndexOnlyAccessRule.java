@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.relopt.*;
 public class LcsIndexOnlyAccessRule
     extends RelOptRule
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -98,8 +97,9 @@ public class LcsIndexOnlyAccessRule
         LcsIndexSearchRel origIndexSearch = null;
         if (call.rels[1] instanceof LcsIndexSearchRel) {
             origIndexSearch = (LcsIndexSearchRel) call.rels[1];
-        } else if (call.rels[2] instanceof LcsIndexSearchRel) {
+        } else {
             assert (call.rels[1] instanceof LcsIndexMergeRel);
+            assert (call.rels[2] instanceof LcsIndexSearchRel);
             origIndexSearch = (LcsIndexSearchRel) call.rels[2];
         }
 
@@ -147,8 +147,7 @@ public class LcsIndexOnlyAccessRule
         for (FemLocalIndex index : indexSet) {
             // Starting from the "thinnest" indexes
             if (samePrefix(origIndex, index, nInputKeys)) {
-
-                Integer[] proj =
+                Integer [] proj =
                     LcsIndexOptimizer.findIndexOnlyProjection(rowScan, index);
 
                 if (proj != null) {

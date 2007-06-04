@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import org.eigenbase.util.*;
 public class RelOptPlanWriter
     extends java.io.PrintWriter
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private boolean withIdPrefix = true;
@@ -160,11 +159,11 @@ public class RelOptPlanWriter
         List<String> termList,
         List<Object> valueList)
     {
-        String[] terms = termList.toArray(new String[termList.size()]);
-        Object[] values = valueList.toArray(new Object[valueList.size()]);
+        String [] terms = termList.toArray(new String[termList.size()]);
+        Object [] values = valueList.toArray(new Object[valueList.size()]);
         explain(rel, terms, values);
     }
-    
+
     /**
      * Special form used by {@link
      * com.disruptivetech.farrago.volcano.RelSubset}.

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,8 +26,8 @@ import org.eigenbase.sql.type.*;
 
 
 /**
- * SqlColumnListConstructor defines the non-standard constructor used to
- * pass a COLUMN_LIST parameter to a UDX.
+ * SqlColumnListConstructor defines the non-standard constructor used to pass a
+ * COLUMN_LIST parameter to a UDX.
  *
  * @author Zelaine Fong
  * @version $Id$
@@ -35,12 +35,12 @@ import org.eigenbase.sql.type.*;
 public class SqlColumnListConstructor
     extends SqlSpecialOperator
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public SqlColumnListConstructor()
     {
-        super("COLUMN_LIST",
+        super(
+            "COLUMN_LIST",
             SqlKind.ColumnListConstructor,
             MaxPrec,
             false,

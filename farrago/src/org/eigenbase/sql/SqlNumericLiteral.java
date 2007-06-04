@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.util.*;
 public class SqlNumericLiteral
     extends SqlLiteral
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private Integer prec;
@@ -81,13 +80,12 @@ public class SqlNumericLiteral
 
     public SqlNode clone(SqlParserPos pos)
     {
-        return
-            new SqlNumericLiteral(
-                (BigDecimal) value,
-                getPrec(),
-                getScale(),
-                isExact,
-                pos);
+        return new SqlNumericLiteral(
+            (BigDecimal) value,
+            getPrec(),
+            getScale(),
+            isExact,
+            pos);
     }
 
     public void unparse(
@@ -124,11 +122,10 @@ public class SqlNumericLiteral
             }
 
             //else we have a decimal
-            return
-                typeFactory.createSqlType(
-                    SqlTypeName.DECIMAL,
-                    prec.intValue(),
-                    scaleValue);
+            return typeFactory.createSqlType(
+                SqlTypeName.DECIMAL,
+                prec.intValue(),
+                scaleValue);
         }
 
         // else we have a a float, real or double.  make them all double for

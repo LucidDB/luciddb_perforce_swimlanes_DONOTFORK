@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,9 +26,9 @@ import java.util.*;
 
 import javax.jmi.model.*;
 
-import org.jgrapht.*;
-
 import org.eigenbase.jmi.*;
+
+import org.jgrapht.*;
 
 
 /**
@@ -41,7 +41,6 @@ import org.eigenbase.jmi.*;
 public class LurqlPlanExistsEdge
     extends LurqlPlanEdge
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final LurqlPlanExistsEdge [] EMPTY_ARRAY =
@@ -53,22 +52,30 @@ public class LurqlPlanExistsEdge
 
     private final Set projectSet;
 
+    private final boolean isNegated;
+
     //~ Constructors -----------------------------------------------------------
 
     LurqlPlanExistsEdge(
         LurqlPlanVertex source,
         LurqlPlanVertex target,
         DirectedGraph subgraph,
-        Set projectSet)
+        Set projectSet,
+        boolean isNegated)
     {
         super(source, target);
 
         this.subgraph = subgraph;
         this.projectSet = projectSet;
+        this.isNegated = isNegated;
 
         StringBuffer sb = new StringBuffer();
         sb.append(getPlanSource().getName());
-        sb.append("->exists");
+        if (isNegated) {
+            sb.append("->notexists");
+        } else {
+            sb.append("->exists");
+        }
         if (projectSet != null) {
             sb.append(projectSet.toString());
         }
@@ -87,6 +94,11 @@ public class LurqlPlanExistsEdge
     Set getProjectSet()
     {
         return projectSet;
+    }
+
+    boolean isNegated()
+    {
+        return isNegated;
     }
 }
 

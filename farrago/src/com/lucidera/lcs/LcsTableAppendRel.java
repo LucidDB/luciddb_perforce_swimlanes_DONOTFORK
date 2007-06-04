@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.relopt.*;
 public class LcsTableAppendRel
     extends MedAbstractFennelTableModRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -163,18 +162,17 @@ public class LcsTableAppendRel
                 input,
                 this,
                 RelMetadataQuery.getRowCount(getChild()));
-        
+
         // create the top half of the insertion stream
         FemBarrierStreamDef clusterAppendBarrier =
-            appendStreamDef.createClusterAppendStreams(implementor);      
-        
+            appendStreamDef.createClusterAppendStreams(implementor);
+
         // if there are clustered indexes, create the bottom half of the
         // insertion stream; otherwise, just return the cluster append barrier
-        return
-            appendStreamDef.createBitmapAppendStreams(
-                implementor,
-                clusterAppendBarrier,
-                0);
+        return appendStreamDef.createBitmapAppendStreams(
+            implementor,
+            clusterAppendBarrier,
+            0);
     }
 }
 

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,9 +23,11 @@
 package org.eigenbase.sql.type;
 
 import java.sql.*;
+
 import java.util.*;
 
 import org.eigenbase.reltype.*;
+
 
 /**
  * SqlTypeFamily provides SQL type categorization.
@@ -47,77 +49,249 @@ import org.eigenbase.reltype.*;
 public enum SqlTypeFamily
     implements RelDataTypeFamily
 {
-
     // Primary families.
 
-    CHARACTER(
-        SqlTypeName.charTypes),
+    CHARACTER(SqlTypeName.charTypes, 0),
 
-    BINARY(
-        SqlTypeName.binaryTypes),
+    BINARY(SqlTypeName.binaryTypes, 1),
 
-    NUMERIC(
-        SqlTypeName.numericTypes),
+    NUMERIC(SqlTypeName.numericTypes, 2),
 
-    DATE(
-        new SqlTypeName[] { SqlTypeName.DATE}),
+    DATE(new SqlTypeName[] { SqlTypeName.DATE }, 3),
 
-    TIME(
-        new SqlTypeName[] { SqlTypeName.TIME}),
+    TIME(new SqlTypeName[] { SqlTypeName.TIME }, 4),
 
-    TIMESTAMP(
-        new SqlTypeName[] { SqlTypeName.TIMESTAMP}),
+    TIMESTAMP(new SqlTypeName[] { SqlTypeName.TIMESTAMP }, 5),
 
-    BOOLEAN(
-        SqlTypeName.booleanTypes),
+    BOOLEAN(SqlTypeName.booleanTypes, 6),
 
     INTERVAL_YEAR_MONTH(
-        new SqlTypeName[] { SqlTypeName.INTERVAL_YEAR_MONTH}),
+        new SqlTypeName[] { SqlTypeName.INTERVAL_YEAR_MONTH },
+        7),
 
-    INTERVAL_DAY_TIME(
-        new SqlTypeName[] { SqlTypeName.INTERVAL_DAY_TIME}),
+    INTERVAL_DAY_TIME(new SqlTypeName[] { SqlTypeName.INTERVAL_DAY_TIME }, 8),
 
     // Secondary families.
 
-    STRING(
-        SqlTypeName.stringTypes),
+    STRING(SqlTypeName.stringTypes, 9),
 
-    APPROXIMATE_NUMERIC(
-        SqlTypeName.approxTypes),
+    APPROXIMATE_NUMERIC(SqlTypeName.approxTypes, 10),
 
-    EXACT_NUMERIC(
-        SqlTypeName.exactTypes),
+    EXACT_NUMERIC(SqlTypeName.exactTypes, 11),
 
-    INTEGER(
-        SqlTypeName.intTypes),
+    INTEGER(SqlTypeName.intTypes, 12),
 
-    DATETIME(
-        SqlTypeName.datetimeTypes),
+    DATETIME(SqlTypeName.datetimeTypes, 13),
 
-    DATETIME_INTERVAL(
-        SqlTypeName.timeIntervalTypes),
+    DATETIME_INTERVAL(SqlTypeName.timeIntervalTypes, 14),
 
-    MULTISET(
-        SqlTypeName.multisetTypes),
+    MULTISET(SqlTypeName.multisetTypes, 15),
 
-    ANY(
-        SqlTypeName.values()),
+    ANY(SqlTypeName.allTypes, 16),
 
-    CURSOR(
-        SqlTypeName.cursorTypes),
+    CURSOR(SqlTypeName.cursorTypes, 17),
 
-    COLUMN_LIST(
-        SqlTypeName.columnListTypes);
+    COLUMN_LIST(SqlTypeName.columnListTypes, 18);
 
     private static SqlTypeFamily [] jdbcTypeToFamily;
 
     private static SqlTypeFamily [] sqlTypeToFamily;
 
+    /**
+     * @deprecated
+     */
+    public static final int Character_ordinal = 0;
+
+    /**
+     * @deprecated
+     */
+    public static final int Binary_ordinal = 1;
+
+    /**
+     * @deprecated
+     */
+    public static final int Numeric_ordinal = 2;
+
+    /**
+     * @deprecated
+     */
+    public static final int Date_ordinal = 3;
+
+    /**
+     * @deprecated
+     */
+    public static final int Time_ordinal = 4;
+
+    /**
+     * @deprecated
+     */
+    public static final int Timestamp_ordinal = 5;
+
+    /**
+     * @deprecated
+     */
+    public static final int Boolean_ordinal = 6;
+
+    /**
+     * @deprecated
+     */
+    public static final int IntervalYearMonth_ordinal = 7;
+
+    /**
+     * @deprecated
+     */
+    public static final int IntervalDayTime_ordinal = 8;
+
+    /**
+     * @deprecated
+     */
+    public static final int String_ordinal = 9;
+
+    /**
+     * @deprecated
+     */
+    public static final int ApproximateNumeric_ordinal = 10;
+
+    /**
+     * @deprecated
+     */
+    public static final int ExactNumeric_ordinal = 11;
+
+    /**
+     * @deprecated
+     */
+    public static final int Integer_ordinal = 12;
+
+    /**
+     * @deprecated
+     */
+    public static final int Datetime_ordinal = 13;
+
+    /**
+     * @deprecated
+     */
+    public static final int DatetimeInterval_ordinal = 14;
+
+    /**
+     * @deprecated
+     */
+    public static final int Multiset_ordinal = 15;
+
+    /**
+     * @deprecated
+     */
+    public static final int Any_ordinal = 16;
+
+    /**
+     * @deprecated
+     */
+    public static final int Cursor_ordinal = 17;
+
+    /**
+     * @deprecated
+     */
+    public static final int ColumnList_ordinal = 18;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Character = CHARACTER;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Binary = BINARY;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Numeric = NUMERIC;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Date = DATE;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Time = TIME;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Timestamp = TIMESTAMP;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Boolean = BOOLEAN;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily IntervalYearMonth = INTERVAL_YEAR_MONTH;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily IntervalDayTime = INTERVAL_DAY_TIME;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily String = STRING;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily ApproximateNumeric = APPROXIMATE_NUMERIC;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily ExactNumeric = EXACT_NUMERIC;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Integer = INTEGER;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Datetime = DATETIME;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily DatetimeInterval = DATETIME_INTERVAL;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Multiset = MULTISET;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Any = ANY;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily Cursor = CURSOR;
+
+    /**
+     * @deprecated
+     */
+    public static final SqlTypeFamily ColumnList = COLUMN_LIST;
+
     static {
         // This squanders some memory since MAX_JDBC_TYPE == 2006!
         jdbcTypeToFamily =
             new SqlTypeFamily[(1 + SqlTypeName.MAX_JDBC_TYPE)
-            - SqlTypeName.MIN_JDBC_TYPE];
+                - SqlTypeName.MIN_JDBC_TYPE];
 
         setFamilyForJdbcType(Types.BIT, NUMERIC);
         setFamilyForJdbcType(Types.TINYINT, NUMERIC);
@@ -154,8 +328,7 @@ public enum SqlTypeFamily
             SqlTypeName.COLUMN_LIST.getJdbcOrdinal(),
             COLUMN_LIST);
 
-        sqlTypeToFamily =
-            new SqlTypeFamily[SqlTypeName.values().length];
+        sqlTypeToFamily = new SqlTypeFamily[SqlTypeName.values().length];
         sqlTypeToFamily[SqlTypeName.BOOLEAN.ordinal()] = BOOLEAN;
         sqlTypeToFamily[SqlTypeName.CHAR.ordinal()] = CHARACTER;
         sqlTypeToFamily[SqlTypeName.VARCHAR.ordinal()] = CHARACTER;
@@ -176,27 +349,26 @@ public enum SqlTypeFamily
             INTERVAL_YEAR_MONTH;
         sqlTypeToFamily[SqlTypeName.NULL.ordinal()] = ANY;
         sqlTypeToFamily[SqlTypeName.ANY.ordinal()] = ANY;
-        sqlTypeToFamily[SqlTypeName.INTERVAL_DAY_TIME.ordinal()] = INTERVAL_DAY_TIME;
+        sqlTypeToFamily[SqlTypeName.INTERVAL_DAY_TIME.ordinal()] =
+            INTERVAL_DAY_TIME;
         sqlTypeToFamily[SqlTypeName.CURSOR.ordinal()] = CURSOR;
         sqlTypeToFamily[SqlTypeName.COLUMN_LIST.ordinal()] = COLUMN_LIST;
     }
-
-    //~ Instance fields --------------------------------------------------------
 
     /**
      * List of {@link SqlTypeName}s included in this family.
      */
     private List<SqlTypeName> typeNames;
 
-    //~ Constructors -----------------------------------------------------------
+    private int ordinal;
 
-    private SqlTypeFamily(SqlTypeName[] typeNames)
+    private SqlTypeFamily(SqlTypeName [] typeNames, int ordinal)
     {
-        this.typeNames = Collections.unmodifiableList(
+        this.typeNames =
+            Collections.unmodifiableList(
                 Arrays.asList(typeNames));
+        this.ordinal = ordinal;
     }
-
-    //~ Methods ----------------------------------------------------------------
 
     private static void setFamilyForJdbcType(
         int jdbcType,
@@ -235,6 +407,14 @@ public enum SqlTypeFamily
     public Collection<SqlTypeName> getTypeNames()
     {
         return typeNames;
+    }
+
+    /**
+     * @deprecated
+     */
+    public int getOrdinal()
+    {
+        return ordinal;
     }
 }
 

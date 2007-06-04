@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.rex.*;
 class FtrsIndexSearchRel
     extends FennelSingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -129,8 +128,8 @@ class FtrsIndexSearchRel
     {
         // TODO:  refined costing
         return scanRel.computeCost(
-                planner,
-                RelMetadataQuery.getRowCount(this));
+            planner,
+            RelMetadataQuery.getRowCount(this));
     }
 
     // implement RelNode
@@ -166,13 +165,13 @@ class FtrsIndexSearchRel
             // for outer join, have to make left side nullable
             if (isOuter) {
                 rightType =
-                    getFarragoTypeFactory().createTypeWithNullability(rightType,
+                    getFarragoTypeFactory().createTypeWithNullability(
+                        rightType,
                         true);
             }
 
-            return
-                getCluster().getTypeFactory().createJoinType(
-                    new RelDataType[] { leftType, rightType });
+            return getCluster().getTypeFactory().createJoinType(
+                new RelDataType[] { leftType, rightType });
         } else {
             assert (!isOuter);
             return scanRel.getRowType();
@@ -214,15 +213,15 @@ class FtrsIndexSearchRel
             this,
             new String[] {
                 "child", "table", "projection", "index", "uniqueKey",
-            "preserveOrder", "outer", "inputKeyProj", "inputJoinProj",
-            "inputDirectiveProj"
+                "preserveOrder", "outer", "inputKeyProj", "inputJoinProj",
+                "inputDirectiveProj"
             },
             new Object[] {
                 Arrays.asList(scanRel.ftrsTable.getQualifiedName()), projection,
-            scanRel.index.getName(), Boolean.valueOf(isUniqueKey),
-            Boolean.valueOf(scanRel.isOrderPreserving),
-            Boolean.valueOf(isOuter), inputKeyProjObj, inputJoinProjObj,
-            inputDirectiveProjObj
+                scanRel.index.getName(), Boolean.valueOf(isUniqueKey),
+                Boolean.valueOf(scanRel.isOrderPreserving),
+                Boolean.valueOf(isOuter), inputKeyProjObj, inputJoinProjObj,
+                inputDirectiveProjObj
             });
     }
 

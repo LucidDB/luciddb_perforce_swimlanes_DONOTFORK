@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.util.*;
 public class SqlCharStringLiteral
     extends SqlAbstractStringLiteral
 {
-
     //~ Constructors -----------------------------------------------------------
 
     protected SqlCharStringLiteral(
@@ -92,10 +91,9 @@ public class SqlCharStringLiteral
         for (int i = 0; i < lits.length; i++) {
             args[i] = ((SqlCharStringLiteral) lits[i]).getNlsString();
         }
-        return
-            new SqlCharStringLiteral(
-                NlsString.concat(args),
-                lits[0].getParserPosition());
+        return new SqlCharStringLiteral(
+            NlsString.concat(args),
+            lits[0].getParserPosition());
     }
 }
 

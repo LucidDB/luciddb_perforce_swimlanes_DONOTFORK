@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.util.*;
 public class MockCatalogReader
     implements SqlValidatorCatalogReader
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final RelDataTypeFactory typeFactory;
@@ -81,9 +80,9 @@ public class MockCatalogReader
                 false,
                 new RelDataTypeField[] {
                     new RelDataTypeFieldImpl("STREET", 0, varchar20Type),
-                new RelDataTypeFieldImpl("CITY", 1, varchar20Type),
-                new RelDataTypeFieldImpl("ZIP", 1, intType),
-                new RelDataTypeFieldImpl("STATE", 1, varchar20Type)
+                    new RelDataTypeFieldImpl("CITY", 1, varchar20Type),
+                    new RelDataTypeFieldImpl("ZIP", 1, intType),
+                    new RelDataTypeFieldImpl("STATE", 1, varchar20Type)
                 },
                 RelDataTypeComparability.None);
 
@@ -176,9 +175,8 @@ public class MockCatalogReader
             // if it's not supplied, because SqlValidatorTest is effectively
             // using SALES as its default schema.
             String [] qualifiedName = { "SALES", names[0] };
-            return
-                tables.get(
-                    convertToVector(qualifiedName));
+            return tables.get(
+                convertToVector(qualifiedName));
         } else if (names.length == 2) {
             return tables.get(convertToVector(names));
         }
@@ -189,7 +187,8 @@ public class MockCatalogReader
     {
         if (typeName.equalsDeep(
                 addressType.getSqlIdentifier(),
-                false)) {
+                false))
+        {
             return addressType;
         } else {
             return null;
@@ -223,8 +222,7 @@ public class MockCatalogReader
             }
             ArrayList<SqlMonikerImpl> result = new ArrayList<SqlMonikerImpl>();
             for (String tableName : schema.tableNames) {
-                result.add(
-                    new SqlMonikerImpl(
+                result.add(new SqlMonikerImpl(
                         tableName,
                         SqlMonikerType.Table));
             }

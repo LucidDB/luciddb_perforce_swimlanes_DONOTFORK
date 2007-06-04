@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -43,7 +43,6 @@ public abstract class FennelDoubleRel
     extends AbstractRelNode
     implements FennelRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected RelNode left;
@@ -107,11 +106,10 @@ public abstract class FennelDoubleRel
         Expression expr1 = (Expression) implementor.visitChild(this, 0, left);
         Expression expr2 = (Expression) implementor.visitChild(this, 1, right);
         FarragoPreparingStmt stmt = FennelRelUtil.getPreparingStmt(this);
-        return
-            new MethodCall(
-                stmt.getConnectionVariable(),
-                "dummyPair",
-                new ExpressionList(expr1, expr2));
+        return new MethodCall(
+            stmt.getConnectionVariable(),
+            "dummyPair",
+            new ExpressionList(expr1, expr2));
     }
 
     // implement RelNode
@@ -119,9 +117,8 @@ public abstract class FennelDoubleRel
     {
         RelDataType leftType = left.getRowType();
         RelDataType rightType = right.getRowType();
-        return
-            getCluster().getTypeFactory().createJoinType(
-                new RelDataType[] { leftType, rightType });
+        return getCluster().getTypeFactory().createJoinType(
+            new RelDataType[] { leftType, rightType });
     }
 
     /**

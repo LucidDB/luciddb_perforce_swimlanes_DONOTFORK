@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,6 @@ import java.util.*;
 public class RexShuttle
     implements RexVisitor<RexNode>
 {
-
     //~ Methods ----------------------------------------------------------------
 
     public RexNode visitOver(RexOver over)
@@ -54,12 +53,11 @@ public class RexShuttle
             // To do that, we would need to take a RexBuilder and
             // watch out for special operators like CAST and NEW where
             // the type is embedded in the original call.
-            return
-                new RexOver(
-                    over.getType(),
-                    over.getAggOperator(),
-                    clonedOperands,
-                    window);
+            return new RexOver(
+                over.getType(),
+                over.getAggOperator(),
+                clonedOperands,
+                window);
         } else {
             return over;
         }
@@ -72,13 +70,12 @@ public class RexShuttle
         RexNode [] clonedPartitionKeys =
             visitArray(window.partitionKeys, update);
         if (update[0]) {
-            return
-                new RexWindow(
-                    clonedPartitionKeys,
-                    clonedOrderKeys,
-                    window.getLowerBound(),
-                    window.getUpperBound(),
-                    window.isRows());
+            return new RexWindow(
+                clonedPartitionKeys,
+                clonedOrderKeys,
+                window.getLowerBound(),
+                window.getUpperBound(),
+                window.isRows());
         } else {
             return window;
         }
@@ -94,11 +91,10 @@ public class RexShuttle
             // To do that, we would need to take a RexBuilder and
             // watch out for special operators like CAST and NEW where
             // the type is embedded in the original call.
-            return
-                new RexCall(
-                    call.getType(),
-                    call.getOperator(),
-                    clonedOperands);
+            return new RexCall(
+                call.getType(),
+                call.getOperator(),
+                clonedOperands);
         } else {
             return call;
         }
@@ -132,8 +128,8 @@ public class RexShuttle
             return fieldAccess;
         } else {
             return new RexFieldAccess(
-                    after,
-                    fieldAccess.getField());
+                after,
+                fieldAccess.getField());
         }
     }
 

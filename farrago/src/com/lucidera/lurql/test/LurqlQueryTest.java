@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -52,7 +52,6 @@ import org.eigenbase.jmi.*;
 public class LurqlQueryTest
     extends FarragoSqlTest
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private JmiModelView modelView;
@@ -75,16 +74,15 @@ public class LurqlQueryTest
     public static Test suite()
         throws Exception
     {
-        return
-            gatherSuite(
-                FarragoProperties.instance().testFilesetUnitlurql.get(true),
-                new FarragoSqlTestFactory() {
-                    public FarragoTestCase createSqlTest(String testName)
-                        throws Exception
-                    {
-                        return new LurqlQueryTest(testName);
-                    }
-                });
+        return gatherSuite(
+            FarragoProperties.instance().testFilesetUnitlurql.get(true),
+            new FarragoSqlTestFactory() {
+                public FarragoTestCase createSqlTest(String testName)
+                    throws Exception
+                {
+                    return new LurqlQueryTest(testName);
+                }
+            });
     }
 
     // override FarragoSqlTest
@@ -223,7 +221,8 @@ public class LurqlQueryTest
         if (explain || execute) {
             LurqlPlan plan;
             try {
-                plan = new LurqlPlan(
+                plan =
+                    new LurqlPlan(
                         modelView,
                         query);
             } catch (Throwable ex) {
@@ -235,8 +234,9 @@ public class LurqlQueryTest
 
             if (explain) {
                 pw.println("EXPLANATION:");
-                for (Map.Entry<String,Class> entry :
-                    new TreeMap<String,Class>(plan.getParamMap()).entrySet())
+                for (
+                    Map.Entry<String, Class> entry
+                    : new TreeMap<String, Class>(plan.getParamMap()).entrySet())
                 {
                     pw.print("param ?");
                     pw.print(entry.getKey());

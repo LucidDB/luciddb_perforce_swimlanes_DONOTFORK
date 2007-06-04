@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,15 +30,13 @@ import org.eigenbase.sql.type.*;
 
 
 /**
- * <code>SINGLE_VALUE</code> aggregate function
- * returns the input value if there is only one value in the input; Otherwise
- * it triggers a run-time error.
+ * <code>SINGLE_VALUE</code> aggregate function returns the input value if there
+ * is only one value in the input; Otherwise it triggers a run-time error.
  */
 public class SqlSingleValueAggFunction
     extends SqlAggFunction
 {
-
-    //~ Static fields/initializers ---------------------------------------------
+    //~ Instance fields --------------------------------------------------------
 
     private final RelDataType type;
 

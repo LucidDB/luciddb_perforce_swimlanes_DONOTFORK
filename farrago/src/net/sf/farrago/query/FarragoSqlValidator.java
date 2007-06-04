@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
 package net.sf.farrago.query;
 
 import java.math.*;
+
 import java.util.*;
 
 import net.sf.farrago.cwm.behavioral.*;
@@ -37,7 +38,6 @@ import org.eigenbase.sql.parser.*;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.sql.validate.*;
 import org.eigenbase.util.*;
-import org.eigenbase.reltype.RelDataTypeFactory;
 
 
 /**
@@ -49,15 +49,16 @@ import org.eigenbase.reltype.RelDataTypeFactory;
 public class FarragoSqlValidator
     extends SqlValidatorImpl
 {
+    //~ Instance fields --------------------------------------------------------
 
     final FarragoPreparingStmt preparingStmt;
 
     //~ Constructors -----------------------------------------------------------
 
     /**
-     * Constructor that allows caller to specify dependant objects rather
-     * than relying on the preparingStmt to supply them.  This constructor is
-     * is friendlier to class extension as well as providing more control during
+     * Constructor that allows caller to specify dependant objects rather than
+     * relying on the preparingStmt to supply them. This constructor is is
+     * friendlier to class extension as well as providing more control during
      * test setup.
      */
     public FarragoSqlValidator(
@@ -208,8 +209,9 @@ public class FarragoSqlValidator
                     (FemColumnListRoutineParameter) params.get(i);
                 String sourceCursor = clParam.getSourceCursorName();
                 int cursorPosition = -1;
-                for (FemRoutineParameter p :
-                    Util.cast(params, FemRoutineParameter.class))
+                for (
+                    FemRoutineParameter p
+                    : Util.cast(params, FemRoutineParameter.class))
                 {
                     if (p.getType().getName().equals("CURSOR")) {
                         cursorPosition++;
@@ -218,6 +220,7 @@ public class FarragoSqlValidator
                                 cursorMap.get(cursorPosition);
                             SqlValidatorScope cursorScope =
                                 getCursorScope(sourceSelect);
+
                             // save the original node type so we can reset it
                             // after we've validated the column references
                             RelDataType origNodeType =

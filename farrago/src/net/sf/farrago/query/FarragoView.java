@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.util.*;
 class FarragoView
     extends FarragoQueryNamedColumnSet
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final String datasetName;
@@ -83,11 +82,9 @@ class FarragoView
         String queryString = getFemView().getQueryExpression().getBody();
         if (datasetName != null) {
             queryString =
-                (
-                    (modality == ModalityTypeEnum.MODALITYTYPE_STREAM)
+                ((modality == ModalityTypeEnum.MODALITYTYPE_STREAM)
                     ? "SELECT STREAM"
-                    : "SELECT"
-                )
+                    : "SELECT")
                 + " * FROM ("
                 + queryString
                 + ") TABLESAMPLE SUBSTITUTE ("
@@ -115,12 +112,13 @@ class FarragoView
             // explicit CREATE FOREIGN TABLE or IMPORT FOREIGN SCHEMA,
             // since there the external system can change at
             // any time.
-            
+
             rel = RelOptUtil.createCastRel(rel, rowType, true);
             rel = getPreparingStmt().flattenTypes(rel, false);
             return rel;
         } catch (Throwable e) {
-            throw Util.newInternal(e,
+            throw Util.newInternal(
+                e,
                 "Error while parsing view definition:  " + queryString);
         }
     }

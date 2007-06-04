@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -44,7 +44,6 @@ import org.eigenbase.rex.*;
 public final class CorrelatorRel
     extends JoinRelBase
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final List<Correlation> correlations;
@@ -54,7 +53,7 @@ public final class CorrelatorRel
     /**
      * Creates a Correlator.
      *
-     * @param cluster {@link RelOptCluster} this relational expression belongs
+     * @param cluster {@link RelOptCluster}  this relational expression belongs
      * to
      * @param left left input relational expression
      * @param right right input relational expression
@@ -98,7 +97,7 @@ public final class CorrelatorRel
             correlations,
             joinType);
     }
-    
+
     //~ Methods ----------------------------------------------------------------
 
     public CorrelatorRel clone()
@@ -128,7 +127,7 @@ public final class CorrelatorRel
             },
             new Object[] {
                 joinType.name().toLowerCase(),
-            correlations
+                correlations
             });
     }
 
@@ -149,7 +148,8 @@ public final class CorrelatorRel
      * identify and set dynamic variables
      */
     public static class Correlation
-        implements Cloneable, Comparable<Correlation>
+        implements Cloneable,
+            Comparable<Correlation>
     {
         private final int id;
         private final int offset;
@@ -174,12 +174,11 @@ public final class CorrelatorRel
         {
             return "var" + id + "=offset" + offset;
         }
-        
+
         public int compareTo(Correlation other)
         {
             return (id - other.id);
         }
-        
     }
 }
 

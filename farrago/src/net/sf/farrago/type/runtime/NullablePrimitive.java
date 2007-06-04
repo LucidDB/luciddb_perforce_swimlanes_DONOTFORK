@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,6 @@
 package net.sf.farrago.type.runtime;
 
 import java.math.*;
-import java.util.Date;
 
 import net.sf.farrago.resource.*;
 
@@ -44,7 +43,6 @@ public abstract class NullablePrimitive
     implements NullableValue,
         AssignableValue
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -349,7 +347,7 @@ public abstract class NullablePrimitive
         {
             value = (byte) NumberUtil.round(number.doubleValue());
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {
@@ -373,7 +371,7 @@ public abstract class NullablePrimitive
         {
             value = number.doubleValue();
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {
@@ -397,7 +395,7 @@ public abstract class NullablePrimitive
         {
             value = number.floatValue();
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {
@@ -421,7 +419,7 @@ public abstract class NullablePrimitive
         {
             value = (int) NumberUtil.round(number.doubleValue());
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {
@@ -445,13 +443,13 @@ public abstract class NullablePrimitive
         {
             value = NumberUtil.round(number.doubleValue());
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {
             value = (long) n;
         }
-        
+
         // override NullablePrimitive
         public void assignFrom(Object o)
         {
@@ -495,7 +493,7 @@ public abstract class NullablePrimitive
         {
             value = (short) NumberUtil.round(number.doubleValue());
         }
-        
+
         // implement NullablePrimitive
         protected void setLong(long n)
         {

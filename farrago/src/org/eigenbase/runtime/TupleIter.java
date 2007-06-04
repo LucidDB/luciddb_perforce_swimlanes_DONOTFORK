@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.util.*;
 public interface TupleIter
     extends ClosableAllocation
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final TupleIter EMPTY_ITERATOR =
@@ -60,14 +59,14 @@ public interface TupleIter
             }
         };
 
-
     //~ Enums ------------------------------------------------------------------
 
     /**
      * NoDataReason provides a reason why no data was returned by a call to
      * {@link #fetchNext()}.
      */
-    public enum NoDataReason {
+    public enum NoDataReason
+    {
         /**
          * End of data.  No more data will be returned unless the
          * iterator is reset by a call to {@link TupleIter#restart()}.

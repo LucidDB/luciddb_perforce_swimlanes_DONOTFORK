@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,21 +39,21 @@ import org.eigenbase.reltype.*;
 import org.eigenbase.runtime.*;
 import org.eigenbase.util.*;
 
+
 /**
  * FarragoExecutableFennelStmt implements FarragoSessionExecutableStmt by
  * executing a pure Fennel statement that requires no compiled Java classes.
  *
  * <p>NOTE: be sure to read superclass warnings before modifying this class.
- * 
+ *
  * @author Zelaine Fong
  * @version $Id$
  */
 class FarragoExecutableFennelStmt
     extends FarragoExecutableStmtImpl
 {
-    
     //~ Instance fields --------------------------------------------------------
-    
+
     protected final RelDataType rowType;
     protected final String xmiFennelPlan;
     private final Map<String, String> referencedObjectTimestampMap;
@@ -108,7 +108,7 @@ class FarragoExecutableFennelStmt
     {
         try {
             runtimeContext.loadFennelPlan(xmiFennelPlan);
-         
+
             FennelTupleDescriptor tupleDesc =
                 FennelRelUtil.convertRowTypeToFennelTupleDesc(
                     rowType);
@@ -120,8 +120,8 @@ class FarragoExecutableFennelStmt
                     tupleReader,
                     runtimeContext.getFennelStreamGraph(),
                     runtimeContext.getStreamHandle(streamName, true),
-                    runtimeContext.getRepos().getCurrentConfig().
-                        getFennelConfig().getCachePageSize());
+                    runtimeContext.getRepos().getCurrentConfig()
+                                  .getFennelConfig().getCachePageSize());
             ResultSet resultSet =
                 new FennelOnlyResultSet(
                     tupleIter,
@@ -147,10 +147,10 @@ class FarragoExecutableFennelStmt
     public long getMemoryUsage()
     {
         int xmiSize = FarragoUtil.getStringMemoryUsage(xmiFennelPlan);
-        if (tracer.isLoggable(Level.FINE)) {            
+        if (tracer.isLoggable(Level.FINE)) {
             tracer.fine("XMI Fennel plan size = " + xmiSize + " bytes");
         }
-        
+
         // Account for half of the XMI plan here since this cache entry holds
         // a pointer to that plan.  The other half will be accounted for in the
         // object associated with the Fennel XMI entry itself.  That entry may

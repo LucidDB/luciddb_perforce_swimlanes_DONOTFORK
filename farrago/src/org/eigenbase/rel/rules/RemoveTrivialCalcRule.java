@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Portions Copyright (C) 2006-2006 John V. Sichi
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Portions Copyright (C) 2006-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -22,12 +22,10 @@
 */
 package org.eigenbase.rel.rules;
 
-import org.eigenbase.rel.CalcRel;
-import org.eigenbase.rel.RelNode;
-import org.eigenbase.relopt.RelOptRule;
-import org.eigenbase.relopt.RelOptRuleCall;
-import org.eigenbase.relopt.RelOptRuleOperand;
-import org.eigenbase.rex.RexProgram;
+import org.eigenbase.rel.*;
+import org.eigenbase.relopt.*;
+import org.eigenbase.rex.*;
+
 
 /**
  * Rule which removes a trivial {@link CalcRel}.
@@ -35,23 +33,23 @@ import org.eigenbase.rex.RexProgram;
  * <p>A {@link CalcRel} is trivial if it projects its input fields in their
  * original order, and it does not filter.
  *
- * @see org.eigenbase.rel.RemoveTrivialProjectRule
- *
  * @author Julian Hyde
  * @version $Id$
+ * @see org.eigenbase.rel.RemoveTrivialProjectRule
  */
 public class RemoveTrivialCalcRule
     extends RelOptRule
 {
+    //~ Static fields/initializers ---------------------------------------------
+
     public static final RemoveTrivialCalcRule instance =
         new RemoveTrivialCalcRule();
-    
+
     //~ Constructors -----------------------------------------------------------
 
     private RemoveTrivialCalcRule()
     {
-        super(
-            new RelOptRuleOperand(
+        super(new RelOptRuleOperand(
                 CalcRel.class,
                 null));
     }
@@ -68,7 +66,8 @@ public class RemoveTrivialCalcRule
         }
         RelNode child = calc.getInput(0);
         child = call.getPlanner().register(child, calc);
-        child = convert(
+        child =
+            convert(
                 child,
                 calc.getTraits());
         if (child != null) {

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -58,7 +58,7 @@ public class DdlTruncateStmt
     }
 
     //~ Methods ----------------------------------------------------------------
-    
+
     // implement DdlStmt
     public void preValidate(FarragoSessionDdlValidator ddlValidator)
     {
@@ -76,21 +76,22 @@ public class DdlTruncateStmt
     {
         visitor.visit(this);
     }
-    
+
     private void execute(
         FarragoSessionDdlValidator ddlValidator,
         FarragoSession session)
     {
         FarragoRepos repos = session.getRepos();
         FarragoSessionIndexMap baseIndexMap = ddlValidator.getIndexMap();
-        FarragoDataWrapperCache wrapperCache = 
+        FarragoDataWrapperCache wrapperCache =
             ddlValidator.getDataWrapperCache();
-        for (FemLocalIndex index :
-            FarragoCatalogUtil.getTableIndexes(repos, table))
+        for (
+            FemLocalIndex index
+            : FarragoCatalogUtil.getTableIndexes(repos, table))
         {
             baseIndexMap.dropIndexStorage(wrapperCache, index, true);
         }
-        
+
         FarragoReposTxnContext txn = repos.newTxnContext();
         try {
             txn.beginWriteTxn();

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,10 +26,10 @@ package net.sf.farrago.query;
 // underneath.
 
 /**
- * FennelRelParamId is an opaque type representing the reservation of a
- * {@link net.sf.farrago.fennel.FennelDynamicParamId} during query planning.
- * See <a href="http://wiki.eigenbase.org/InternalDynamicParamScoping">the
- * design docs</a> for why this logical ID is needed in addition to
+ * FennelRelParamId is an opaque type representing the reservation of a {@link
+ * net.sf.farrago.fennel.FennelDynamicParamId} during query planning. See <a
+ * href="http://wiki.eigenbase.org/InternalDynamicParamScoping">the design
+ * docs</a> for why this logical ID is needed in addition to
  * FennelDynamicParamId, which is the physical ID. A 64-bit integer is used
  * since a large number of these may be generated and then discarded during
  * query planning. (I hate to think about the impliciations of a planner that
@@ -40,7 +40,6 @@ package net.sf.farrago.query;
  */
 public class FennelRelParamId
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final long id;
@@ -65,11 +64,8 @@ public class FennelRelParamId
     // implement Object
     public boolean equals(Object other)
     {
-        return
-            (
-                (other instanceof FennelRelParamId)
-                && (((FennelRelParamId) other).longValue() == id)
-            );
+        return ((other instanceof FennelRelParamId)
+            && (((FennelRelParamId) other).longValue() == id));
     }
 
     // implement Object

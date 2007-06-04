@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -54,7 +54,6 @@ import org.eigenbase.util.*;
 class MedMockColumnSet
     extends MedAbstractColumnSet
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final MedMockDataServer server;
@@ -103,7 +102,7 @@ class MedMockColumnSet
         long nRowsActual = nRows;
         if (nRowsActual < 0) {
             nRowsActual = 0;
-            FarragoWarningQueue warningQueue = 
+            FarragoWarningQueue warningQueue =
                 getPreparingStmt().getStmtValidator().getWarningQueue();
             warningQueue.postWarning(
                 new SQLWarning("slow down:  mock turtle crossing"));
@@ -120,13 +119,12 @@ class MedMockColumnSet
         RexNode arg = rexBuilder.makeExactLiteral(new BigDecimal(nRows));
 
         // Call to super handles the rest.
-        return
-            toUdxRel(
-                cluster,
-                connection,
-                udxSpecificName,
-                server.getServerMofId(),
-                new RexNode[] { arg });
+        return toUdxRel(
+            cluster,
+            connection,
+            udxSpecificName,
+            server.getServerMofId(),
+            new RexNode[] { arg });
     }
 }
 

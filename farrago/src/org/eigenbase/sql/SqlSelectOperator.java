@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -22,11 +22,12 @@
  */
 package org.eigenbase.sql;
 
+import java.util.*;
+
 import org.eigenbase.sql.fun.*;
 import org.eigenbase.sql.parser.*;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.sql.util.*;
-import java.util.ArrayList;
 
 
 /**
@@ -47,14 +48,14 @@ import java.util.ArrayList;
  * </p>
  */
 public class SqlSelectOperator
-extends SqlOperator
+    extends SqlOperator
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public SqlSelectOperator()
     {
-        super("SELECT",
+        super(
+            "SELECT",
             SqlKind.Select,
             2,
             true,
@@ -71,7 +72,9 @@ extends SqlOperator
     }
 
     public SqlCall createCall(
-        SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands)
+        SqlLiteral functionQualifier,
+        SqlParserPos pos,
+        SqlNode ... operands)
     {
         assert functionQualifier == null;
         return new SqlSelect(this, operands, pos);
@@ -110,13 +113,20 @@ extends SqlOperator
         if (windowDecls == null) {
             windowDecls = new SqlNodeList(pos);
         }
-        return
-        (SqlSelect) createCall(
-            pos, keywordList, selectList, fromClause, whereClause, groupBy,
-            having, windowDecls, orderBy);
+        return (SqlSelect) createCall(
+            pos,
+            keywordList,
+            selectList,
+            fromClause,
+            whereClause,
+            groupBy,
+            having,
+            windowDecls,
+            orderBy);
     }
 
-    public <R> void acceptCall(SqlVisitor<R> visitor,
+    public <R> void acceptCall(
+        SqlVisitor<R> visitor,
         SqlCall call,
         boolean onlyExpressions,
         SqlBasicVisitor.ArgHandler<R> argHandler)
@@ -164,7 +174,8 @@ extends SqlOperator
         // parenthesized
         final SqlWriter.Frame fromFrame =
             writer.startList(SqlWriter.FrameTypeEnum.FromList);
-        fromClause.unparse(writer,
+        fromClause.unparse(
+            writer,
             SqlStdOperatorTable.joinOperator.getLeftPrec() - 1,
             SqlStdOperatorTable.joinOperator.getRightPrec() - 1);
         writer.endList(fromFrame);
@@ -179,27 +190,32 @@ extends SqlOperator
 
                 // decide whether to split on ORs or ANDs
                 SqlKind whereSepKind = SqlKind.And;
-                if (node instanceof SqlCall
-                    && ((SqlCall)node).getKind().isA(SqlKind.Or))
+                if ((node instanceof SqlCall)
+                    && ((SqlCall) node).getKind().isA(SqlKind.Or))
+                {
                     whereSepKind = SqlKind.Or;
+                }
 
                 // unroll whereClause
                 ArrayList<SqlNode> list = new ArrayList<SqlNode>(0);
-                while (node instanceof SqlCall && (
-                    ((SqlCall)node).getKind().isA(whereSepKind))) {
+                while (
+                    (node instanceof SqlCall)
+                    && (((SqlCall) node).getKind().isA(whereSepKind)))
+                {
                     list.add(0, ((SqlCall) node).getOperands()[1]);
-                    node = ((SqlCall)node).getOperands()[0];
+                    node = ((SqlCall) node).getOperands()[0];
                 }
                 list.add(0, node);
 
                 // unparse in a WhereList frame
                 final SqlWriter.Frame whereFrame =
                     writer.startList(SqlWriter.FrameTypeEnum.WhereList);
-                unparseListClause(writer,
+                unparseListClause(
+                    writer,
                     new SqlNodeList(
                         list,
                         whereClause.getParserPosition()),
-                        whereSepKind);
+                    whereSepKind);
                 writer.endList(whereFrame);
             } else {
                 whereClause.unparse(writer, 0, 0);

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -33,28 +33,15 @@ package org.eigenbase.sql;
  */
 public enum SqlStateCodes
 {
-    CardinalityViolation(
-        "cardinality violation",
-        "21",
-        "000"),
+    CardinalityViolation("cardinality violation", "21", "000"),
 
-    NullValueNotAllowed(
-        "null value not allowed",
-        "22",
-        "004"),
+    NullValueNotAllowed("null value not allowed", "22", "004"),
 
-    NumericValueOutOfRange(
-        "numeric value out of range",
-        "22",
-        "003");
-
-    //~ Instance fields --------------------------------------------------------
+    NumericValueOutOfRange("numeric value out of range", "22", "003");
 
     private final String msg;
     private final String stateClass;
     private final String stateSubClass;
-
-    //~ Constructors -----------------------------------------------------------
 
     SqlStateCodes(
         String msg,
@@ -65,8 +52,6 @@ public enum SqlStateCodes
         this.stateClass = stateClass;
         this.stateSubClass = stateSubClass;
     }
-
-    //~ Methods ----------------------------------------------------------------
 
     public String getStateClass()
     {

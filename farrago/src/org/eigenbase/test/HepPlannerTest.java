@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.relopt.hep.*;
 public class HepPlannerTest
     extends RelOptTestBase
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final String unionTree =
@@ -60,7 +59,8 @@ public class HepPlannerTest
         HepProgramBuilder programBuilder = new HepProgramBuilder();
         programBuilder.addRuleClass(CoerceInputsRule.class);
 
-        HepPlanner planner = new HepPlanner(
+        HepPlanner planner =
+            new HepPlanner(
                 programBuilder.createProgram());
 
         planner.addRule(new CoerceInputsRule(UnionRel.class, false));
@@ -80,7 +80,8 @@ public class HepPlannerTest
         HepProgramBuilder programBuilder = new HepProgramBuilder();
         programBuilder.addRuleByDescription("FilterToCalcRule");
 
-        HepPlanner planner = new HepPlanner(
+        HepPlanner planner =
+            new HepPlanner(
                 programBuilder.createProgram());
 
         planner.addRule(FilterToCalcRule.instance);

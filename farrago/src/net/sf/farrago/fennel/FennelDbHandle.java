@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -49,7 +49,6 @@ import org.eigenbase.util.*;
 public class FennelDbHandle
     implements FarragoAllocation
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final Logger tracer = FarragoTrace.getFennelDbHandleTracer();
@@ -201,7 +200,8 @@ public class FennelDbHandle
             AssociationEnd assocEnd = (AssociationEnd) assocIter.next();
             if (!cmd.refIsInstanceOf(
                     assocEnd.getType(),
-                    true)) {
+                    true))
+            {
                 continue;
             }
             if (assocEnd.otherEnd().getName().equals("ResultHandle")) {
@@ -302,7 +302,7 @@ public class FennelDbHandle
         if (dbHandle == 0) {
             return;
         }
-        
+
         FemCmdCloseDatabase cmd = metadataFactory.newFemCmdCloseDatabase();
         cmd.setDbHandle(getFemDbHandle(metadataFactory));
         dbHandle = 0;
@@ -311,9 +311,8 @@ public class FennelDbHandle
 
     public EigenbaseException handleNativeException(SQLException ex)
     {
-        return
-            FarragoResource.instance().FennelUntranslated.ex(
-                ex.getMessage());
+        return FarragoResource.instance().FennelUntranslated.ex(
+            ex.getMessage());
     }
 }
 

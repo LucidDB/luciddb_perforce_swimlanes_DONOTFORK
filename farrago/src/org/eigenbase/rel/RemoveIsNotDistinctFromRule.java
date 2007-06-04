@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -50,60 +50,66 @@ public final class RemoveIsNotDistinctFromRule
     {
         super(new RelOptRuleOperand(FilterRel.class, null));
     }
-    
+
     //~ Methods ----------------------------------------------------------------
 
     public void onMatch(RelOptRuleCall call)
     {
         FilterRel oldFilterRel = (FilterRel) call.rels[0];
         RexNode oldFilterCond = oldFilterRel.getCondition();
-        
+
         if (RexUtil.findOperatorCall(
                 SqlStdOperatorTable.isNotDistinctFromOperator,
-                oldFilterCond) == null) {
+                oldFilterCond)
+            == null)
+        {
             // no longer contains isNotDistinctFromOperator
             return;
         }
-        
+
         // Now replace all the "a isNotDistinctFrom b"
         // with the RexNode given by RelOptUtil.isDistinctFrom() method
-        
+
         RemoveIsNotDistinctFromRexShuttle rewriteShuttle =
-            new RemoveIsNotDistinctFromRexShuttle(oldFilterRel.getCluster().getRexBuilder());
-     
-        RelNode newFilterRel = 
+            new RemoveIsNotDistinctFromRexShuttle(
+                oldFilterRel.getCluster().getRexBuilder());
+
+        RelNode newFilterRel =
             CalcRel.createFilter(
                 oldFilterRel.getChild(),
                 oldFilterCond.accept(rewriteShuttle));
 
         call.transformTo(newFilterRel);
     }
-    
-    //~ Inner Classes ----------------------------------------------------------------
-    
+
+    //~ Inner Classes ----------------------------------------------------------
+
     private class RemoveIsNotDistinctFromRexShuttle
         extends RexShuttle
     {
         RexBuilder rexBuilder;
-        
+
         public RemoveIsNotDistinctFromRexShuttle(
             RexBuilder rexBuilder)
         {
             this.rexBuilder = rexBuilder;
         }
-        
+
         // override RexShuttle
         public RexNode visitCall(RexCall call)
         {
             RexNode newCall = super.visitCall(call);
-            
-            if (call.getOperator() == SqlStdOperatorTable.isNotDistinctFromOperator) {
-                RexCall tmpCall = (RexCall)newCall;
-                newCall = RelOptUtil.isDistinctFrom(
-                    rexBuilder,
-                    tmpCall.getOperands()[0],
-                    tmpCall.getOperands()[1],
-                    true);
+
+            if (call.getOperator()
+                == SqlStdOperatorTable.isNotDistinctFromOperator)
+            {
+                RexCall tmpCall = (RexCall) newCall;
+                newCall =
+                    RelOptUtil.isDistinctFrom(
+                        rexBuilder,
+                        tmpCall.getOperands()[0],
+                        tmpCall.getOperands()[1],
+                        true);
             }
             return newCall;
         }

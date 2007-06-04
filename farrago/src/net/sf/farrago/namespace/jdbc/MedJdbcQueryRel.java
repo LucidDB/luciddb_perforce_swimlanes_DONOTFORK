@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -46,7 +46,6 @@ import org.eigenbase.util.*;
 class MedJdbcQueryRel
     extends JdbcQuery
 {
-
     //~ Instance fields --------------------------------------------------------
 
     MedJdbcColumnSet columnSet;
@@ -95,11 +94,10 @@ class MedJdbcQueryRel
                         Literal.makeLiteral(
                             columnSet.directory.server.getServerMofId()),
                         Literal.makeLiteral(sql))));
-        return
-            new MethodCall(
-                allocExpression,
-                "getResultSet",
-                new ExpressionList());
+        return new MethodCall(
+            allocExpression,
+            "getResultSet",
+            new ExpressionList());
     }
 }
 

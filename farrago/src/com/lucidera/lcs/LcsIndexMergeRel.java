@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.relopt.*;
 class LcsIndexMergeRel
     extends FennelSingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final LcsTable lcsTable;
@@ -81,13 +80,12 @@ class LcsIndexMergeRel
     // implement Cloneable
     public LcsIndexMergeRel clone()
     {
-        return
-            new LcsIndexMergeRel(
-                lcsTable,
-                (LcsIndexSearchRel) getChild().clone(),
-                consumerSridParamId,
-                segmentLimitParamId,
-                ridLimitParamId);
+        return new LcsIndexMergeRel(
+            lcsTable,
+            (LcsIndexSearchRel) getChild().clone(),
+            consumerSridParamId,
+            segmentLimitParamId,
+            ridLimitParamId);
     }
 
     // implement RelNode
@@ -154,7 +152,7 @@ class LcsIndexMergeRel
             names,
             new Object[] {
                 print(consumerSridParamId), print(segmentLimitParamId),
-            print(ridLimitParamId)
+                print(ridLimitParamId)
             });
     }
 

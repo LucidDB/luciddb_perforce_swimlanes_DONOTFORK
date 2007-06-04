@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,6 @@ import org.eigenbase.runtime.*;
 public abstract class EigenbaseTestCase
     extends TestCase
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     protected static final String nl = System.getProperty("line.separator");
@@ -62,8 +61,11 @@ public abstract class EigenbaseTestCase
             }
             return;
         }
-        if ((o != null) && (o2 != null) && o.getClass().isArray()
-            && (o.getClass() == o2.getClass())) {
+        if ((o != null)
+            && (o2 != null)
+            && o.getClass().isArray()
+            && (o.getClass() == o2.getClass()))
+        {
             boolean eq;
             if (o instanceof boolean []) {
                 eq = Arrays.equals((boolean []) o, (boolean []) o2);
@@ -129,29 +131,29 @@ public abstract class EigenbaseTestCase
     public static TupleIter makeTupleIter(final Object [] a)
     {
         return new TupleIter() {
-                private List data = Arrays.asList(a);
-                private Iterator iter = data.iterator();
+            private List data = Arrays.asList(a);
+            private Iterator iter = data.iterator();
 
-                public Object fetchNext()
-                {
-                    if (iter.hasNext()) {
-                        return iter.next();
-                    }
-
-                    return NoDataReason.END_OF_DATA;
+            public Object fetchNext()
+            {
+                if (iter.hasNext()) {
+                    return iter.next();
                 }
 
-                public void restart()
-                {
-                    iter = data.iterator();
-                }
+                return NoDataReason.END_OF_DATA;
+            }
 
-                public void closeAllocation()
-                {
-                    iter = null;
-                    data = null;
-                }
-            };
+            public void restart()
+            {
+                iter = data.iterator();
+            }
+
+            public void closeAllocation()
+            {
+                iter = null;
+                data = null;
+            }
+        };
     }
 
     /**

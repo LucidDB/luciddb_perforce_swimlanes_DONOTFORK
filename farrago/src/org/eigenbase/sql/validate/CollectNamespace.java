@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2004-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2004-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.sql.type.*;
 public class CollectNamespace
     extends AbstractNamespace
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final SqlCall child;
@@ -89,10 +88,9 @@ public class CollectNamespace
                         new String[] { validator.deriveAlias(child, 0) });
                 final RelDataType multisetType =
                     typeFactory.createMultisetType(structType, -1);
-                return
-                    typeFactory.createTypeWithNullability(
-                        multisetType,
-                        isNullable);
+                return typeFactory.createTypeWithNullability(
+                    multisetType,
+                    isNullable);
             }
 
         case SqlKind.MultisetQueryConstructorORDINAL:

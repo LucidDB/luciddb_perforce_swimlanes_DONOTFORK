@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,8 @@ import org.eigenbase.util.*;
  * <li><code>EXISTS (path-spec)</code>
  * </ul>
  *
- * TODO jvs 6-July-2006: refactor into LurqlExistsFilter, LurqlComparisonFilter
+ * or negations, e.g. NOT ATTRIBUTE = 'VALUE' TODO jvs 6-July-2006: refactor
+ * into LurqlExistsFilter, LurqlComparisonFilter
  *
  * @author John V. Sichi
  * @version $Id$
@@ -50,7 +51,6 @@ import org.eigenbase.util.*;
 public class LurqlFilter
     extends LurqlQueryNode
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final LurqlFilter [] EMPTY_ARRAY = new LurqlFilter[0];
@@ -76,6 +76,8 @@ public class LurqlFilter
 
     private boolean hasDynamicParams;
 
+    private boolean isNegated;
+
     private Matcher matcher;
 
     //~ Constructors -----------------------------------------------------------
@@ -84,9 +86,11 @@ public class LurqlFilter
     {
         this(attributeName, values, false);
     }
-    
+
     public LurqlFilter(
-        String attributeName, Set<Object> values, boolean isPattern)
+        String attributeName,
+        Set<Object> values,
+        boolean isPattern)
     {
         this.attributeName = attributeName;
         this.values = Collections.unmodifiableSet(values);
@@ -95,7 +99,7 @@ public class LurqlFilter
         this.exists = null;
         this.isPattern = isPattern;
         if (isPattern) {
-            assert(values.size() == 1);
+            assert (values.size() == 1);
         }
         for (Object obj : values) {
             if (obj instanceof LurqlDynamicParam) {
@@ -184,14 +188,28 @@ public class LurqlFilter
         return hasDynamicParams;
     }
 
+    public boolean isNegated()
+    {
+        return isNegated;
+    }
+
     public LurqlDynamicParam getSetParam()
     {
         return setParam;
     }
 
+    public void setNegated()
+    {
+        isNegated = true;
+    }
+
     // implement LurqlQueryNode
     public void unparse(PrintWriter pw)
     {
+        if (isNegated) {
+            pw.print("not ");
+        }
+
         if (exists != null) {
             exists.unparse(pw);
             return;

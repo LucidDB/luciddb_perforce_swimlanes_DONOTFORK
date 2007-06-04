@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,8 @@ package org.eigenbase.relopt.hep;
  * @author John V. Sichi
  * @version $Id$
  */
-public enum HepMatchOrder {
+public enum HepMatchOrder
+{
     /**
      * Match in arbitrary order.  This is the default because it is the most
      * efficient, and most rules don't care about order.

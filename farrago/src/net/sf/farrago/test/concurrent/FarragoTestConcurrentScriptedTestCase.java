@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@ import java.io.*;
 
 import java.util.*;
 
+
 /**
  * FarragoTestConcurrentScriptedTestCase is a base class for multi-threaded,
  * scripted tests. Subclasses must implement the suite() method in order to get
@@ -37,7 +38,6 @@ import java.util.*;
 public abstract class FarragoTestConcurrentScriptedTestCase
     extends FarragoTestConcurrentTestCase
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -61,7 +61,6 @@ public abstract class FarragoTestConcurrentScriptedTestCase
     protected void runScript(String mtsqlFile, String jdbcUrl)
         throws Exception
     {
-
         File mtsqlFileSansExt =
             new File(mtsqlFile.substring(0, mtsqlFile.length() - 6));
 
@@ -92,7 +91,8 @@ public abstract class FarragoTestConcurrentScriptedTestCase
             String threadName = "thread " + threadResult[0];
             if (FarragoTestConcurrentScriptedCommandGenerator.SETUP_THREAD_ID
                 .equals(
-                    threadId)) {
+                    threadId))
+            {
                 threadName = "setup";
             }
 

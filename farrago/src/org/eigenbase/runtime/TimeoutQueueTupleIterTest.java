@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -35,7 +35,6 @@ import org.eigenbase.util.*;
 public class TimeoutQueueTupleIterTest
     extends TestCase
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -155,11 +154,10 @@ public class TimeoutQueueTupleIterTest
     /**
      * Iterator which returns an element from an array on a regular basis.
      *
-     * <p>Every clock tick until the array is exhausted,
-     * {@link Iterator#hasNext} returns true, then the following clock tick,
-     * {@link Iterator#next} returns an
-     * object. If you call a method too early, the method waits until the
-     * appropriate time.
+     * <p>Every clock tick until the array is exhausted, {@link
+     * Iterator#hasNext} returns true, then the following clock tick, {@link
+     * Iterator#next} returns an object. If you call a method too early, the
+     * method waits until the appropriate time.
      */
     private static class TickIterator
         implements TupleIter

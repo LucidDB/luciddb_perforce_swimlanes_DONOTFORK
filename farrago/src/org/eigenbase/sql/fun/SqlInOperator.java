@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,6 +42,8 @@ import org.eigenbase.sql.validate.*;
 public class SqlInOperator
     extends SqlBinaryOperator
 {
+    //~ Instance fields --------------------------------------------------------
+
     /**
      * If true the call represents 'NOT IN'.
      */
@@ -51,7 +53,8 @@ public class SqlInOperator
 
     SqlInOperator(boolean isNotIn)
     {
-        super(isNotIn ? "NOT IN" : "IN",
+        super(
+            isNotIn ? "NOT IN" : "IN",
             SqlKind.In,
             30,
             true,
@@ -135,7 +138,8 @@ public class SqlInOperator
                 new ExplicitOperatorBinding(
                     typeFactory,
                     this,
-                    new RelDataType[] { leftRowType, rightRowType }))) {
+                    new RelDataType[] { leftRowType, rightRowType })))
+        {
             throw validator.newValidationError(
                 call,
                 EigenbaseResource.instance().IncompatibleValueType.ex(

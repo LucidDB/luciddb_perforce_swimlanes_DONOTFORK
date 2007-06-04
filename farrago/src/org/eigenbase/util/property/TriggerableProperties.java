@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This library is free software; you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published by the
@@ -38,7 +38,6 @@ import java.util.*;
 public class TriggerableProperties
     extends Properties
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final Map triggers = new HashMap();
@@ -79,7 +78,8 @@ public class TriggerableProperties
         // back the change.
         Property property = (Property) properties.get(key);
         if ((property != null)
-            && triggersAreEnabled()) {
+            && triggersAreEnabled())
+        {
             try {
                 property.onChange(oldValue, value);
             } catch (Trigger.VetoRT vex) {
@@ -143,9 +143,8 @@ public class TriggerableProperties
     public Property [] getProperties()
     {
         final Collection propertyList = properties.values();
-        return
-            (Property []) propertyList.toArray(
-                new Property[propertyList.size()]);
+        return (Property []) propertyList.toArray(
+            new Property[propertyList.size()]);
     }
 }
 

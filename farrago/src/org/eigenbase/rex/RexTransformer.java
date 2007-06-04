@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,9 +25,9 @@ package org.eigenbase.rex;
 import java.util.*;
 
 import org.eigenbase.reltype.*;
+import org.eigenbase.sql.*;
 import org.eigenbase.sql.fun.*;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.sql.SqlOperator;
 
 
 /**
@@ -43,7 +43,6 @@ import org.eigenbase.sql.SqlOperator;
  */
 public class RexTransformer
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private RexNode root;
@@ -96,9 +95,8 @@ public class RexTransformer
 
         if (node instanceof RexCall) {
             RexCall call = (RexCall) node;
-            return
-                !transformableOperators.contains(
-                    call.getOperator())
+            return !transformableOperators.contains(
+                call.getOperator())
                 && isNullable(node);
         }
         return isNullable(node);
@@ -135,7 +133,8 @@ public class RexTransformer
             RexNode operand = call.operands[0];
             if (((operand instanceof RexLiteral)
                     || (operand instanceof RexInputRef)
-                    || (operand instanceof RexDynamicParam))) {
+                    || (operand instanceof RexDynamicParam)))
+            {
                 if (isNullable(node)) {
                     RexNode notNullNode =
                         rexBuilder.makeCall(

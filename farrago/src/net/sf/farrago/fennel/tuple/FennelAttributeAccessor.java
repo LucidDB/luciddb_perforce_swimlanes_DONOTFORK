@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -35,13 +35,11 @@ import java.nio.*;
  * non-polymorphic access code in cases where the entire tuple is being
  * processed, but polymorphic access code in cases where only a small subset of
  * the attributes are being processed. In theory, this hybrid should yield the
- * highest efficiency, but it needs to be benchmarked and tuned.
- *
- * This class is JDK 1.4 compatible.
+ * highest efficiency, but it needs to be benchmarked and tuned. This class is
+ * JDK 1.4 compatible.
  */
 public abstract class FennelAttributeAccessor
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**

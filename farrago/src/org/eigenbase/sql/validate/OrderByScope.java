@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2004-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2004-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.sql.validate.*;
 public class OrderByScope
     extends DelegatingScope
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final SqlNodeList orderList;
@@ -84,7 +83,8 @@ public class OrderByScope
     {
         // If it's a simple identifier, look for an alias.
         if (identifier.isSimple()
-            && validator.getCompatible().isSortByAlias()) {
+            && validator.getCompatible().isSortByAlias())
+        {
             String name = identifier.names[0];
             final SqlValidatorNamespace selectNs =
                 validator.getNamespace(select);

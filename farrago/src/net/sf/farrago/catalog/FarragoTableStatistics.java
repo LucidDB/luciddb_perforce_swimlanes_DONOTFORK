@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,7 @@ package net.sf.farrago.catalog;
 
 import java.util.*;
 
-import net.sf.farrago.cwm.core.CwmFeature;
+import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.fem.sql2003.*;
 
 import org.eigenbase.sarg.*;
@@ -40,7 +40,6 @@ import org.eigenbase.stat.*;
 public class FarragoTableStatistics
     implements RelStatSource
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private FarragoRepos repos;

@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -20,11 +20,11 @@
 */
 package com.lucidera.farrago;
 
+import com.lucidera.jdbc.*;
+
 import java.io.*;
 
 import net.sf.farrago.server.*;
-
-import com.lucidera.jdbc.*;
 
 
 /**
@@ -37,7 +37,6 @@ import com.lucidera.jdbc.*;
 public class LucidDbServer
     extends FarragoVjdbcServer
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public LucidDbServer()
@@ -51,6 +50,8 @@ public class LucidDbServer
     {
         super(pw);
     }
+
+    //~ Methods ----------------------------------------------------------------
 
     // override FarragoVjdbcServer
     public static void main(String [] args)

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,6 @@ import org.netbeans.mdr.persistence.jdbcimpl.*;
  */
 public class FarragoModelLoader
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     // NOTE jvs 15-Dec-2005:  Do it this way to avoid dependency on
@@ -153,9 +152,11 @@ public class FarragoModelLoader
         setStorageProperty(JdbcStorageFactory.STORAGE_URL, "jdbc:farrago:");
         setStorageProperty(JdbcStorageFactory.STORAGE_USER_NAME, "MDR");
         setStorageProperty(JdbcStorageFactory.STORAGE_SCHEMA_NAME, "MDR");
-        setStorageProperty(JdbcStorageFactory.STORAGE_DRIVER_CLASS_NAME,
+        setStorageProperty(
+            JdbcStorageFactory.STORAGE_DRIVER_CLASS_NAME,
             "net.sf.farrago.jdbc.engine.FarragoJdbcEngineDriver");
-        setStorageProperty(JdbcStorageFactory.STORAGE_DATATYPE_STREAMABLE,
+        setStorageProperty(
+            JdbcStorageFactory.STORAGE_DATATYPE_STREAMABLE,
             "VARBINARY(10000)");
     }
 

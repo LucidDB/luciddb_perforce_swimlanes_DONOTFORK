@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2004-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2004-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import junit.framework.*;
 public class ReflectVisitorTest
     extends TestCase
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public ReflectVisitorTest(String name)
@@ -57,8 +56,7 @@ public class ReflectVisitorTest
 
         // verify that negater is capable of handling integers
         result = negater.negate(new Integer(5));
-        assertEquals(
-            -5,
+        assertEquals(-5,
             result.intValue());
     }
 
@@ -73,8 +71,7 @@ public class ReflectVisitorTest
         // verify that negater is capable of handling integers,
         // and that result comes back with same type
         result = negater.negate(new Integer(5));
-        assertEquals(
-            -5,
+        assertEquals(-5,
             result.intValue());
         assertTrue(result instanceof Integer);
 
@@ -82,8 +79,7 @@ public class ReflectVisitorTest
         // even though it doesn't provide an explicit implementation,
         // it should inherit the one from CarelessNumberNegater
         result = negater.negate(new Long(5));
-        assertEquals(
-            -5,
+        assertEquals(-5,
             result.longValue());
     }
 
@@ -98,8 +94,7 @@ public class ReflectVisitorTest
         // verify that negater is capable of handling shorts,
         // and that result comes back with same type
         result = negater.negate(new Short((short) 5));
-        assertEquals(
-            -5,
+        assertEquals(-5,
             result.shortValue());
         assertTrue(result instanceof Short);
 

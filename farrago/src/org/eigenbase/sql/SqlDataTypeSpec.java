@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -58,7 +58,6 @@ import org.eigenbase.util.*;
 public class SqlDataTypeSpec
     extends SqlNode
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final SqlIdentifier collectionsTypeName;
@@ -114,8 +113,7 @@ public class SqlDataTypeSpec
 
     public SqlNode clone(SqlParserPos pos)
     {
-        return
-            (collectionsTypeName == null)
+        return (collectionsTypeName == null)
             ? new SqlDataTypeSpec(
                 collectionsTypeName,
                 typeName,
@@ -174,14 +172,13 @@ public class SqlDataTypeSpec
         Util.pre(
             null != getCollectionsTypeName(),
             "null != getCollectionsTypeName()");
-        return
-            new SqlDataTypeSpec(
-                typeName,
-                precision,
-                scale,
-                charSetName,
-                timeZone,
-                getParserPosition());
+        return new SqlDataTypeSpec(
+            typeName,
+            precision,
+            scale,
+            charSetName,
+            timeZone,
+            getParserPosition());
     }
 
     public void unparse(
@@ -241,7 +238,8 @@ public class SqlDataTypeSpec
         if (!SqlNode.equalDeep(
                 this.collectionsTypeName,
                 that.collectionsTypeName,
-                fail)) {
+                fail))
+        {
             return false;
         }
         if (!this.typeName.equalsDeep(that.typeName, fail)) {
@@ -334,7 +332,8 @@ public class SqlDataTypeSpec
                 charset = Charset.forName(charSetName);
             }
             type =
-                typeFactory.createTypeWithCharsetAndCollation(type,
+                typeFactory.createTypeWithCharsetAndCollation(
+                    type,
                     charset,
                     collation);
         }

@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -20,37 +20,38 @@
 */
 package com.disruptivetech.farrago.volcano;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+
 
 /**
  * VolcanoPlannerPhaseRuleMappingInitializer describes an inteface for
- * initializing the mapping of {@link VolcanoPlannerPhase}s to 
- * sets of rule descriptions.
- * 
- * <p><b>Note:</b> Rule descriptions are obtained via 
- * {@link org.eigenbase.relopt.RelOptRule#toString()}.  By default they are the
- * class's simple name (e.g. class name sans package), unless the class is an 
- * inner class, in which case the default is the inner class's simple name.  
- * Some rules explicitly provide alternate descriptions by setting 
- * {@link org.eigenbase.relopt.RelOptRule#description} directly.
- * 
+ * initializing the mapping of {@link VolcanoPlannerPhase}s to sets of rule
+ * descriptions.
+ *
+ * <p><b>Note:</b> Rule descriptions are obtained via {@link
+ * org.eigenbase.relopt.RelOptRule#toString()}. By default they are the class's
+ * simple name (e.g. class name sans package), unless the class is an inner
+ * class, in which case the default is the inner class's simple name. Some rules
+ * explicitly provide alternate descriptions by setting {@link
+ * org.eigenbase.relopt.RelOptRule#description} directly.
+ *
  * @author Stephan Zuercher
  */
 public interface VolcanoPlannerPhaseRuleMappingInitializer
 {
+    //~ Methods ----------------------------------------------------------------
+
     /**
-     * Initializes a {@link VolcanoPlannerPhase}-to-rule map.  Rules are
-     * specified by description (see above).  When this method is called, the 
-     * map will already be pre-initialized with empty sets for each 
-     * VolcanoPlannerPhase.  Implementations must not return having added
-     * or removed keys from the map, although it is safe to temporarily 
-     * add or remove keys.
-     * 
+     * Initializes a {@link VolcanoPlannerPhase}-to-rule map. Rules are
+     * specified by description (see above). When this method is called, the map
+     * will already be pre-initialized with empty sets for each
+     * VolcanoPlannerPhase. Implementations must not return having added or
+     * removed keys from the map, although it is safe to temporarily add or
+     * remove keys.
+     *
      * @param phaseRuleMap a {@link VolcanoPlannerPhase}-to-rule map
      */
     public void initialize(Map<VolcanoPlannerPhase, Set<String>> phaseRuleMap);
 }
 
 // End VolcanoPlannerPhaseRuleMappingInitializer.java
-

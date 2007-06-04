@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -48,12 +48,11 @@ import org.eigenbase.sql.type.*;
 class MedJdbcNameDirectory
     extends MedAbstractNameDirectory
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final MedJdbcDataServer server;
 
-    final String schemaName;
+    String schemaName;
 
     final boolean shouldSubstituteTypes;
 
@@ -78,12 +77,12 @@ class MedJdbcNameDirectory
         this.typeMapping = new Properties();
         String mappingsString =
             server.getProperties().getProperty(
-                MedJdbcDataServer.PROP_TYPE_MAPPING, "");
-        String[] mappingsArray = mappingsString.split(";");
+                MedJdbcDataServer.PROP_TYPE_MAPPING,
+                "");
+        String [] mappingsArray = mappingsString.split(";");
         for (int i = 0; i < mappingsArray.length; i++) {
             addTypeMapping(mappingsArray[i]);
         }
-
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -95,12 +94,11 @@ class MedJdbcNameDirectory
         String [] localName)
         throws SQLException
     {
-        return
-            lookupColumnSetAndImposeType(
-                typeFactory,
-                foreignName,
-                localName,
-                null);
+        return lookupColumnSetAndImposeType(
+            typeFactory,
+            foreignName,
+            localName,
+            null);
     }
 
     FarragoMedColumnSet lookupColumnSetAndImposeType(
@@ -115,15 +113,26 @@ class MedJdbcNameDirectory
         }
 
         String [] foreignQualifiedName;
-        if (server.schemaName != null &&
-            !server.useSchemaNameAsForeignQualifier) {
+        if ((server.schemaName != null)
+            && !server.useSchemaNameAsForeignQualifier)
+        {
             foreignQualifiedName = new String[] { foreignName };
-        } else if (server.catalogName != null) {
-            foreignQualifiedName = new String[] {
-                server.catalogName, schemaName, foreignName
-            };
         } else {
-            foreignQualifiedName = new String[] { schemaName, foreignName };
+            // schema mapping
+            HashMap map = (HashMap) server.schemaMaps.get(schemaName);
+            if (map != null) {
+                schemaName = (String) map.get(foreignName);
+            }
+            if (server.catalogName != null) {
+                foreignQualifiedName =
+                    new String[] {
+                        server.catalogName, schemaName, foreignName
+                    };
+            } else {
+                foreignQualifiedName = new String[] {
+                        schemaName, foreignName
+                    };
+            }
         }
         RelDataType origRowType = null;
         RelDataType mdRowType = null;
@@ -189,19 +198,22 @@ class MedJdbcNameDirectory
                         md,
                         true,
                         typeMapping);
+
                 // if LENIENT, map names
                 if (server.lenient) {
-                    rowType = updateRowType(
-                        typeFactory,
-                        rowType,
-                        mdRowType);
+                    rowType =
+                        updateRowType(
+                            typeFactory,
+                            rowType,
+                            mdRowType);
 
                     List<SqlIdentifier> projList =
                         new ArrayList<SqlIdentifier>();
                     for (RelDataTypeField field : rowType.getFieldList()) {
                         projList.add(
                             new SqlIdentifier(
-                                field.getName(), SqlParserPos.ZERO));
+                                field.getName(),
+                                SqlParserPos.ZERO));
                     }
 
                     // push down projections, if any
@@ -214,7 +226,8 @@ class MedJdbcNameDirectory
                                         projList),
                                     SqlParserPos.ZERO),
                                 new SqlIdentifier(
-                                    foreignQualifiedName, SqlParserPos.ZERO),
+                                    foreignQualifiedName,
+                                    SqlParserPos.ZERO),
                                 null,
                                 null,
                                 null,
@@ -245,16 +258,15 @@ class MedJdbcNameDirectory
             }
         }
 
-        return
-            new MedJdbcColumnSet(
-                this,
-                foreignQualifiedName,
-                localName,
-                select,
-                dialect,
-                rowType,
-                origRowType,
-                mdRowType);
+        return new MedJdbcColumnSet(
+            this,
+            foreignQualifiedName,
+            localName,
+            select,
+            dialect,
+            rowType,
+            origRowType,
+            mdRowType);
     }
 
     String normalizeQueryString(String sql)
@@ -308,7 +320,8 @@ class MedJdbcNameDirectory
                         query,
                         sink,
                         tableListActual,
-                        tableListOptimized)) {
+                        tableListOptimized))
+                {
                     return false;
                 }
             }
@@ -317,7 +330,8 @@ class MedJdbcNameDirectory
                         query,
                         sink,
                         tableListActual,
-                        tableListOptimized)) {
+                        tableListOptimized))
+                {
                     return false;
                 }
             }
@@ -381,54 +395,65 @@ class MedJdbcNameDirectory
         // to let the optimizer handle this, but KISS for now.
         int nTablesReturned = 0;
 
-        String schemaPattern = getSchemaPattern();
+        String [] schemaPatterns = getSchemaPattern();
         String tablePattern =
             getFilterPattern(
                 query,
                 FarragoMedMetadataQuery.OTN_TABLE);
 
         ResultSet resultSet;
-        try {
-            resultSet =
-                server.databaseMetaData.getTables(
-                    server.catalogName,
-                    schemaPattern,
-                    tablePattern,
-                    server.tableTypes);
-            if (resultSet == null) {
-                return false;
-            }
-        } catch (Throwable ex) {
-            // assume unsupported
-            return false;
-        }
-
-        Properties props = new Properties();
-        try {
-            while (resultSet.next()) {
-                ++nTablesReturned;
-                String schemaName = resultSet.getString(2);
-                if (!matchSchema(schemaPattern, schemaName)) {
+        boolean noResults = true;
+        for (int i = 0; i < schemaPatterns.length; i++) {
+            String schemaPattern = schemaPatterns[i];
+            try {
+                resultSet =
+                    server.databaseMetaData.getTables(
+                        server.catalogName,
+                        schemaPattern,
+                        tablePattern,
+                        server.tableTypes);
+                if (resultSet == null) {
+                    if (noResults && ((i + 1) == schemaPatterns.length)) {
+                        return false;
+                    }
                     continue;
                 }
-                String tableName = resultSet.getString(3);
-                String remarks = resultSet.getString(5);
-                if (schemaName != null) {
-                    props.put(MedJdbcDataServer.PROP_SCHEMA_NAME, schemaName);
-                }
-                props.put(MedJdbcDataServer.PROP_TABLE_NAME, tableName);
-                boolean include =
-                    sink.writeObjectDescriptor(
-                        tableName,
-                        FarragoMedMetadataQuery.OTN_TABLE,
-                        remarks,
-                        props);
-                if (include) {
-                    tableListActual.add(tableName);
-                }
+                noResults = false;
+            } catch (Throwable ex) {
+                // assume unsupported
+                return false;
             }
-        } finally {
-            resultSet.close();
+
+            Properties props = new Properties();
+            try {
+                while (resultSet.next()) {
+                    ++nTablesReturned;
+                    String schemaName = resultSet.getString(2);
+                    if (!matchSchema(schemaPattern, schemaName)) {
+                        continue;
+                    }
+                    String tableName = resultSet.getString(3);
+                    String remarks = resultSet.getString(5);
+                    if (schemaName != null) {
+                        props.put(
+                            MedJdbcDataServer.PROP_SCHEMA_NAME,
+                            schemaName);
+                    }
+                    props.put(MedJdbcDataServer.PROP_TABLE_NAME,
+                        tableName);
+                    boolean include =
+                        sink.writeObjectDescriptor(
+                            tableName,
+                            FarragoMedMetadataQuery.OTN_TABLE,
+                            remarks,
+                            props);
+                    if (include) {
+                        tableListActual.add(tableName);
+                    }
+                }
+            } finally {
+                resultSet.close();
+            }
         }
 
         // decide on column retrieval plan
@@ -456,12 +481,11 @@ class MedJdbcNameDirectory
         throws SQLException
     {
         if (tableListOptimized.equals(Collections.singletonList("*"))) {
-            return
-                queryColumnsImpl(
-                    query,
-                    sink,
-                    null,
-                    new HashSet(tableListActual));
+            return queryColumnsImpl(
+                query,
+                sink,
+                null,
+                new HashSet(tableListActual));
         } else {
             Iterator iter = tableListOptimized.iterator();
             while (iter.hasNext()) {
@@ -481,7 +505,7 @@ class MedJdbcNameDirectory
         Set tableSet)
         throws SQLException
     {
-        String schemaPattern = getSchemaPattern();
+        String [] schemaPatterns = getSchemaPattern();
         String tablePattern;
         if (tableName != null) {
             tablePattern = tableName;
@@ -497,68 +521,98 @@ class MedJdbcNameDirectory
                 FarragoMedMetadataQuery.OTN_COLUMN);
 
         ResultSet resultSet;
-        try {
-            resultSet =
-                server.databaseMetaData.getColumns(
-                    server.catalogName,
-                    schemaPattern,
-                    tablePattern,
-                    columnPattern);
-            if (resultSet == null) {
-                return false;
-            }
-        } catch (Throwable ex) {
-            // assume unsupported
-            return false;
-        }
-
-        try {
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString(2);
-                if (!matchSchema(schemaPattern, schemaName)) {
+        boolean noResults = true;
+        for (int i = 0; i < schemaPatterns.length; i++) {
+            String schemaPattern = schemaPatterns[i];
+            try {
+                resultSet =
+                    server.databaseMetaData.getColumns(
+                        server.catalogName,
+                        schemaPattern,
+                        tablePattern,
+                        columnPattern);
+                if (resultSet == null) {
+                    if (noResults && ((i + 1) == schemaPatterns.length)) {
+                        return false;
+                    }
                     continue;
                 }
-                String returnedTableName = resultSet.getString(3);
-                if (tableSet != null) {
-                    if (!tableSet.contains(returnedTableName)) {
+                noResults = false;
+            } catch (Throwable ex) {
+                // assume unsupported
+                return false;
+            }
+
+            try {
+                while (resultSet.next()) {
+                    String schemaName = resultSet.getString(2);
+                    if (!matchSchema(schemaPattern, schemaName)) {
                         continue;
                     }
+                    String returnedTableName = resultSet.getString(3);
+                    if (tableSet != null) {
+                        if (!tableSet.contains(returnedTableName)) {
+                            continue;
+                        }
+                    }
+                    String columnName = resultSet.getString(4);
+                    boolean isNullable =
+                        resultSet.getInt(11) != DatabaseMetaData.columnNoNulls;
+                    RelDataType type =
+                        sink.getTypeFactory().createJdbcColumnType(
+                            resultSet,
+                            shouldSubstituteTypes,
+                            typeMapping);
+                    String remarks = resultSet.getString(12);
+                    String defaultValue = resultSet.getString(13);
+                    int ordinalZeroBased = resultSet.getInt(17) - 1;
+                    sink.writeColumnDescriptor(
+                        returnedTableName,
+                        columnName,
+                        ordinalZeroBased,
+                        type,
+                        remarks,
+                        defaultValue,
+                        new Properties());
                 }
-                String columnName = resultSet.getString(4);
-                boolean isNullable =
-                    resultSet.getInt(11) != DatabaseMetaData.columnNoNulls;
-                RelDataType type =
-                    sink.getTypeFactory().createJdbcColumnType(
-                        resultSet,
-                        shouldSubstituteTypes,
-                        typeMapping);
-                String remarks = resultSet.getString(12);
-                String defaultValue = resultSet.getString(13);
-                int ordinalZeroBased = resultSet.getInt(17) - 1;
-                sink.writeColumnDescriptor(
-                    returnedTableName,
-                    columnName,
-                    ordinalZeroBased,
-                    type,
-                    remarks,
-                    defaultValue,
-                    new Properties());
+            } finally {
+                resultSet.close();
             }
-        } finally {
-            resultSet.close();
         }
-
         return true;
     }
 
-    private String getSchemaPattern()
+    private String [] getSchemaPattern()
     {
-        if (server.schemaName != null &&
-            !server.useSchemaNameAsForeignQualifier) {
+        if ((server.schemaName != null)
+            && !server.useSchemaNameAsForeignQualifier)
+        {
             // schemaName is fake; don't use it
-            return null;
+            return new String[] { null };
+        }
+
+        ArrayList allSchemas = new ArrayList();
+        String mapping =
+            server.getProperties().getProperty(
+                MedJdbcDataServer.PROP_SCHEMA_MAPPING);
+        if (mapping == null) {
+            return new String[] { schemaName };
+        }
+        String [] allMapping = mapping.split(";");
+        for (String map : allMapping) {
+            String [] oneMap = map.split(":");
+            if (oneMap.length != 2) {
+                continue;
+            }
+            if (schemaName.equals(oneMap[1].trim())) {
+                allSchemas.add(oneMap[0]);
+            }
+        }
+        if (allSchemas.size() > 0) {
+            return (String []) allSchemas.toArray(
+                new String[allSchemas.size()]);
         } else {
-            return schemaName;
+            return new String[] { schemaName };
         }
     }
 
@@ -587,15 +641,16 @@ class MedJdbcNameDirectory
 
     private void addTypeMapping(String s)
     {
-        String[] map = s.split(":");
+        String [] map = s.split(":");
         if (map.length != 2) {
             return;
         }
 
         // store in Properties as DATATYPE(P,S);
         // ie. all upper-case and lose whitespace
-        String key = map[0].trim().toUpperCase().replaceAll("\\s","");
-        String value = map[1].trim().toUpperCase().replaceAll("\\s","");;
+        String key = map[0].trim().toUpperCase().replaceAll("\\s", "");
+        String value = map[1].trim().toUpperCase().replaceAll("\\s", "");
+        ;
 
         if (!key.equals("") && !value.equals("")) {
             this.typeMapping.setProperty(key, value);
@@ -618,10 +673,11 @@ class MedJdbcNameDirectory
 
         for (RelDataTypeField currField : currRowType.getFieldList()) {
             RelDataType type;
-            if (((type =
-                     srcMap.get(currField.getName())) != null) &&
-                SqlTypeUtil.canCastFrom(
-                    currField.getType(), type, true))
+            if (((type = srcMap.get(currField.getName())) != null)
+                && SqlTypeUtil.canCastFrom(
+                    currField.getType(),
+                    type,
+                    true))
             {
                 fieldsVector.add(currField.getName());
                 typesVector.add(currField.getType());
@@ -630,10 +686,11 @@ class MedJdbcNameDirectory
 
         typesVector.trimToSize();
         fieldsVector.trimToSize();
-        RelDataType[] types = (RelDataType[])
-            typesVector.toArray(new RelDataType[typesVector.size()]);
-        String[] fields =
-            (String[]) fieldsVector.toArray(new String[fieldsVector.size()]);
+        RelDataType [] types =
+            (RelDataType []) typesVector.toArray(
+                new RelDataType[typesVector.size()]);
+        String [] fields =
+            (String []) fieldsVector.toArray(new String[fieldsVector.size()]);
 
         RelDataType rowType = typeFactory.createStructType(types, fields);
         return rowType;
@@ -641,8 +698,8 @@ class MedJdbcNameDirectory
 
     private void validateRowType(RelDataType rowType, RelDataType srcRowType)
     {
-        RelDataTypeField[] fieldList = rowType.getFields();
-        RelDataTypeField[] srcFieldList = srcRowType.getFields();
+        RelDataTypeField [] fieldList = rowType.getFields();
+        RelDataTypeField [] srcFieldList = srcRowType.getFields();
 
         // check that the number of fields match
         if (fieldList.length != srcFieldList.length) {
@@ -656,7 +713,8 @@ class MedJdbcNameDirectory
             if (!SqlTypeUtil.canCastFrom(
                     fieldList[i].getType(),
                     srcFieldList[i].getType(),
-                    true)) {
+                    true))
+            {
                 throw FarragoResource.instance().TypesOfColumnsMismatch.ex(
                     srcFieldList[i].getName(),
                     srcFieldList[i].getType().toString(),

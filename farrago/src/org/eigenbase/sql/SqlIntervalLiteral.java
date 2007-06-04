@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.util.*;
 public class SqlIntervalLiteral
     extends SqlLiteral
 {
-
     //~ Constructors -----------------------------------------------------------
 
     protected SqlIntervalLiteral(
@@ -78,11 +77,10 @@ public class SqlIntervalLiteral
 
     public SqlNode clone(SqlParserPos pos)
     {
-        return
-            new SqlIntervalLiteral(
-                (IntervalValue) value,
-                getTypeName(),
-                pos);
+        return new SqlIntervalLiteral(
+            (IntervalValue) value,
+            getTypeName(),
+            pos);
     }
 
     public void unparse(
@@ -136,8 +134,7 @@ public class SqlIntervalLiteral
                 return false;
             }
             IntervalValue that = (IntervalValue) obj;
-            return
-                this.intervalStr.equals(that.intervalStr)
+            return this.intervalStr.equals(that.intervalStr)
                 && (this.sign == that.sign)
                 && this.intervalQualifier.equalsDeep(
                     that.intervalQualifier,

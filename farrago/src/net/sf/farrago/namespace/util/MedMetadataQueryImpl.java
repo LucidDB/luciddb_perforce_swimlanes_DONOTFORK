@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -36,7 +36,6 @@ import net.sf.farrago.namespace.*;
 public class MedMetadataQueryImpl
     implements FarragoMedMetadataQuery
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final Map<String, FarragoMedMetadataFilter> filterMap;
@@ -54,7 +53,7 @@ public class MedMetadataQueryImpl
     //~ Methods ----------------------------------------------------------------
 
     // implement FarragoMedMetadataQuery
-    public Map<String,FarragoMedMetadataFilter> getFilterMap()
+    public Map<String, FarragoMedMetadataFilter> getFilterMap()
     {
         return filterMap;
     }

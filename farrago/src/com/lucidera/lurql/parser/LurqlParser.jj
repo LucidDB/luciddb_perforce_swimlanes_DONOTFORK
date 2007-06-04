@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -127,6 +127,22 @@ List WhereClause() :
 }
 
 LurqlFilter Filter() :
+{
+    LurqlFilter filter;
+    boolean negated = false;
+}
+{
+    [ <NOT> { negated = true; } ]
+    filter = LeafFilter()
+    {
+        if (negated) {
+            filter.setNegated();
+        }
+        return filter;
+    }
+}
+
+LurqlFilter LeafFilter() :
 {
     String attributeName;
     Object value;
@@ -522,6 +538,7 @@ TOKEN :
     | < IN: "in" >
     | < MATCHES: "matches" >
     | < NULL: "null" >
+    | < NOT: "not" >
     | < IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>)* >
     | < S_QUOTED_STRING: <SQUOTE> ( (~["'","\n","\r"]) | ("''"))* <SQUOTE> >
     | < D_QUOTED_STRING: <DQUOTE> ( (~["\"","\n","\r"]) | ("\"\""))* <DQUOTE> >

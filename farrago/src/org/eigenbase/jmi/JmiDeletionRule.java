@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,7 +30,6 @@ package org.eigenbase.jmi;
  */
 public class JmiDeletionRule
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final Class superInterface;
@@ -50,7 +49,7 @@ public class JmiDeletionRule
     {
         this(endName, superInterface, action, false);
     }
-    
+
     /**
      * Creates a new JmiDeletionRule.
      *
@@ -59,9 +58,9 @@ public class JmiDeletionRule
      * rule applies; if null, the rule applies to any object; otherwise, the
      * object must be an instance of this class
      * @param action what to do when this rule applies
-     * @param isReversed whether the senses of the ends are reversed
-     * (when false, endName is interpreted as the name of the end from
-     * which a cascade is originating)
+     * @param isReversed whether the senses of the ends are reversed (when
+     * false, endName is interpreted as the name of the end from which a cascade
+     * is originating)
      */
     public JmiDeletionRule(
         String endName,

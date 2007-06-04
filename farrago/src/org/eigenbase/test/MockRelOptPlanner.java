@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import org.eigenbase.relopt.*;
 public class MockRelOptPlanner
     extends AbstractRelOptPlanner
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private RelNode root;
@@ -98,7 +97,8 @@ public class MockRelOptPlanner
         List<RelNode> bindings = new ArrayList<RelNode>();
         if (match(rule.getOperand(),
                 rel,
-                bindings)) {
+                bindings))
+        {
             MockRuleCall call =
                 new MockRuleCall(
                     this,
@@ -146,7 +146,8 @@ public class MockRelOptPlanner
         for (int i = 0; i < n; ++i) {
             if (!match(childOperands[i],
                     childRels[i],
-                    bindings)) {
+                    bindings))
+            {
                 return false;
             }
         }

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -32,7 +32,6 @@ import org.eigenbase.sql.parser.*;
 public class SqlExplain
     extends SqlCall
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     // constants representing operand positions
@@ -47,7 +46,9 @@ public class SqlExplain
     /**
      * The level of abstraction with which to display the plan.
      */
-    public static enum Depth implements SqlLiteral.SqlSymbol {
+    public static enum Depth
+        implements SqlLiteral.SqlSymbol
+    {
         Type, Logical, Physical,
     }
 
@@ -86,9 +87,8 @@ public class SqlExplain
      */
     public SqlExplainLevel getDetailLevel()
     {
-        return
-            (SqlExplainLevel) SqlLiteral.symbolValue(
-                operands[DETAIL_LEVEL_OPERAND]);
+        return (SqlExplainLevel) SqlLiteral.symbolValue(
+            operands[DETAIL_LEVEL_OPERAND]);
     }
 
     /**

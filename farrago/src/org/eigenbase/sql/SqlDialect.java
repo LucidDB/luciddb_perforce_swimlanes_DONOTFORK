@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
 package org.eigenbase.sql;
 
 import java.sql.*;
+
 import java.util.regex.*;
 
 import org.eigenbase.util.*;
@@ -34,12 +35,12 @@ import org.eigenbase.util.*;
  */
 public class SqlDialect
 {
-    //~ Instance fields -------------------------------------------------------
+    //~ Instance fields --------------------------------------------------------
 
     String databaseProductName;
     String identifierQuoteString;
 
-    //~ Constructors ----------------------------------------------------------
+    //~ Constructors -----------------------------------------------------------
 
     /**
      * Creates a <code>SqlDialect</code>
@@ -65,7 +66,7 @@ public class SqlDialect
         }
     }
 
-    //~ Methods ---------------------------------------------------------------
+    //~ Methods ----------------------------------------------------------------
 
     public boolean isAccess()
     {
@@ -101,7 +102,8 @@ public class SqlDialect
             return val; // quoting is not supported
         }
         String val2 =
-            val.replaceAll(identifierQuoteString,
+            val.replaceAll(
+                identifierQuoteString,
                 identifierQuoteString + identifierQuoteString);
         return identifierQuoteString + val2 + identifierQuoteString;
     }
@@ -128,7 +130,8 @@ public class SqlDialect
             return buf;
         }
         String val2 =
-            val.replaceAll(identifierQuoteString,
+            val.replaceAll(
+                identifierQuoteString,
                 identifierQuoteString + identifierQuoteString);
         buf.append(identifierQuoteString);
         buf.append(val2);
@@ -160,8 +163,10 @@ public class SqlDialect
      */
     public String unquoteStringLiteral(String val)
     {
-        if ((val != null) && (val.charAt(0) == '\'')
-                && (val.charAt(val.length() - 1) == '\'')) {
+        if ((val != null)
+            && (val.charAt(0) == '\'')
+            && (val.charAt(val.length() - 1) == '\''))
+        {
             if (val.length() > 2) {
                 val = Util.replace(val, "''", "'");
                 return val.substring(1, val.length() - 1);

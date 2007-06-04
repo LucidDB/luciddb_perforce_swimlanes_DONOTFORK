@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -34,7 +34,6 @@ import junit.framework.*;
  */
 public abstract class TestUtil
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final Pattern LineBreakPattern =
@@ -124,8 +123,8 @@ public abstract class TestUtil
      *  + "across lines")</pre>
      * </code>
      */
-    public static String toJavaString(String s) {
-
+    public static String toJavaString(String s)
+    {
         // Convert [string with "quotes" split
         // across lines]
         // into [fold(
@@ -181,8 +180,8 @@ public abstract class TestUtil
      */
     public static String quotePattern(String s)
     {
-        return
-            s.replaceAll("\\\\", "\\\\").replaceAll("\\.", "\\\\.").replaceAll(
+        return s.replaceAll("\\\\", "\\\\").replaceAll("\\.", "\\\\.")
+            .replaceAll(
                 "\\+",
                 "\\\\+").replaceAll("\\{", "\\\\{").replaceAll("\\}", "\\\\}")
             .replaceAll("\\|", "\\\\||").replaceAll("[$]", "\\\\\\$")

@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.reltype.*;
 public abstract class LcsIndexBitOpRel
     extends FennelMultipleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final LcsTable lcsTable;
@@ -100,7 +99,7 @@ public abstract class LcsIndexBitOpRel
             names,
             new Object[] {
                 (startRidParamId == null) ? (Integer) 0 : startRidParamId,
-            (rowLimitParamId == null) ? (Integer) 0 : rowLimitParamId
+                (rowLimitParamId == null) ? (Integer) 0 : rowLimitParamId
             });
     }
 

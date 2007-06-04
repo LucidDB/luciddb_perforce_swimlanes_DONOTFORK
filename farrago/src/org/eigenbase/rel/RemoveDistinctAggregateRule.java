@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Portions Copyright (C) 2006-2006 John V. Sichi
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Portions Copyright (C) 2006-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.util.*;
 public final class RemoveDistinctAggregateRule
     extends RelOptRule
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -101,7 +100,8 @@ public final class RemoveDistinctAggregateRule
         String [] fieldNames = RelOptUtil.getFieldNames(aggregate.getRowType());
         final int groupCount = aggregate.getGroupCount();
         for (int i = 0; i < groupCount; i++) {
-            refs[i] = new RexInputRef(
+            refs[i] =
+                new RexInputRef(
                     i,
                     aggFields[i].getType());
         }
@@ -292,7 +292,8 @@ public final class RemoveDistinctAggregateRule
             }
             if (!equals(
                     aggCall.getArgs(),
-                    argList)) {
+                    argList))
+            {
                 continue;
             }
 
@@ -334,6 +335,7 @@ public final class RemoveDistinctAggregateRule
         for (int i = 0; i < groupCount; ++i) {
             final int leftOrdinal = i;
             final int rightOrdinal = sourceOf.get(i);
+
             // null values form its own group
             // use "is not distinct from" so that the join condition
             // allows null values to match.
@@ -390,7 +392,8 @@ public final class RemoveDistinctAggregateRule
             }
             if (!equals(
                     aggCall.getArgs(),
-                    argList)) {
+                    argList))
+            {
                 continue;
             }
 

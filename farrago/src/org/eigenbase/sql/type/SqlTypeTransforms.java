@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,7 @@ package org.eigenbase.sql.type;
 
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.*;
-import org.eigenbase.util.Util;
+import org.eigenbase.util.*;
 
 
 /**
@@ -40,7 +40,6 @@ import org.eigenbase.util.Util;
  */
 public abstract class SqlTypeTransforms
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -54,11 +53,10 @@ public abstract class SqlTypeTransforms
                 SqlOperatorBinding opBinding,
                 RelDataType typeToTransform)
             {
-                return
-                    SqlTypeUtil.makeNullableIfOperandsAre(
-                        opBinding.getTypeFactory(),
-                        opBinding.collectOperandTypes(),
-                        typeToTransform);
+                return SqlTypeUtil.makeNullableIfOperandsAre(
+                    opBinding.getTypeFactory(),
+                    opBinding.collectOperandTypes(),
+                    typeToTransform);
             }
         };
 
@@ -72,10 +70,9 @@ public abstract class SqlTypeTransforms
                 SqlOperatorBinding opBinding,
                 RelDataType typeToTransform)
             {
-                return
-                    opBinding.getTypeFactory().createTypeWithNullability(
-                        typeToTransform,
-                        true);
+                return opBinding.getTypeFactory().createTypeWithNullability(
+                    typeToTransform,
+                    true);
             }
         };
 
@@ -111,10 +108,9 @@ public abstract class SqlTypeTransforms
                             typeToTransform.getCharset(),
                             typeToTransform.getCollation());
                 }
-                return
-                    opBinding.getTypeFactory().createTypeWithNullability(
-                        ret,
-                        typeToTransform.isNullable());
+                return opBinding.getTypeFactory().createTypeWithNullability(
+                    ret,
+                    typeToTransform.isNullable());
             }
 
             private SqlTypeName toVar(RelDataType type)

@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -266,7 +266,7 @@ bool LbmUnionExecStream::transfer()
         LbmByteSegment seg = workspace.getSegment();
         assert(seg.len < reverseAreaSize);
         PBuffer reverseStart = reverseArea + seg.len - 1;
-        for (uint i = 0; i < seg.len; i++) {
+        for (int i = 0; i < seg.len; i++) {
             reverseStart[-i] = seg.byteSeg[i];
         }
         LcsRid startRid = seg.getSrid();

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -21,12 +21,13 @@
 */
 package net.sf.farrago.runtime;
 
-import org.eigenbase.reltype.*;
-import org.eigenbase.sql.type.*;
+import java.sql.*;
 
 import net.sf.farrago.jdbc.param.*;
 
-import java.sql.*;
+import org.eigenbase.reltype.*;
+import org.eigenbase.sql.type.*;
+
 
 /**
  * Provides runtime support for implementing JDBC interfaces.
@@ -36,6 +37,8 @@ import java.sql.*;
  */
 public abstract class FarragoRuntimeJdbcUtil
 {
+    //~ Methods ----------------------------------------------------------------
+
     public static FarragoParamFieldMetaData newParamFieldMetaData(
         RelDataType type,
         int mode)

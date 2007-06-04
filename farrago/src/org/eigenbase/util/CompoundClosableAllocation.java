@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -36,7 +36,6 @@ import java.util.*;
 public class CompoundClosableAllocation
     implements ClosableAllocationOwner
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -62,7 +61,7 @@ public class CompoundClosableAllocation
     // implement ClosableAllocation
     public void closeAllocation()
     {
-//        try {
+        //        try {
         // traverse in reverse order
         ListIterator<ClosableAllocation> iter =
             allocations.listIterator(allocations.size());
@@ -76,9 +75,8 @@ public class CompoundClosableAllocation
             allocation.closeAllocation();
         }
         allocations.clear();
-//        } catch (ConcurrentModificationException e) {
-//            throw Util.newInternal(e, "in " + getClass());
-//        }
+        // } catch (ConcurrentModificationException e) { throw
+        // Util.newInternal(e, "in " + getClass()); }
     }
 
     /**

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,6 @@ import org.eigenbase.runtime.*;
 public class FarragoTupleIterResultSet
     extends TupleIterResultSet
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     protected static final Logger tracer =
@@ -164,6 +163,7 @@ public class FarragoTupleIterResultSet
             // NOTE:  this may be called reentrantly for daemon stmts,
             // so need special handling
             runtimeContext = null;
+
             // Lock session before sessionCtxt, to be consistent with global
             // locking strategy. In particular, FarragoDbStmtContext.close()
             // locks the session before it calls

@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -272,9 +272,9 @@ SqlStringBufferUCS2::dump()
     string ret;
     char buf[100];
 
-    sprintf(buf, "DUMP: Storage=%d LeftBump=%d Size=%d RightBump=%d LP=%x Str=%x\n",
+    sprintf(buf, "DUMP: Storage=%d LeftBump=%d Size=%d RightBump=%d LP=%p Str=%p\n",
             mStorage, mLeftBump, mSize, mRightBump,
-            (uint)mLeftP, (uint)mStr);
+            mLeftP, mStr);
     ret += buf;
 
     i = 0;

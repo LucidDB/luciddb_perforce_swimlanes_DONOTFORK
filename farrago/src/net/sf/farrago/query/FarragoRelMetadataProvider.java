@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,6 @@ import org.eigenbase.stat.*;
 public class FarragoRelMetadataProvider
     extends ReflectiveRelMetadataProvider
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private FarragoRepos repos;
@@ -78,7 +77,7 @@ public class FarragoRelMetadataProvider
         args.add((Class) BitSet.class);
         args.add((Class) RexNode.class);
         mapParameterTypes("getDistinctRowCount", args);
-        
+
         mapParameterTypes(
             "areColumnsUnique",
             Collections.singletonList((Class) BitSet.class));
@@ -150,7 +149,7 @@ public class FarragoRelMetadataProvider
     {
         return columnMd.getUniqueKeys(rel, repos);
     }
-    
+
     public Boolean areColumnsUnique(RelNode rel, BitSet columns)
     {
         return columnMd.areColumnsUnique(rel, columns, repos);
@@ -174,7 +173,7 @@ public class FarragoRelMetadataProvider
         // TODO jvs 4-Nov-2006:  Override this to ignore children
         // and return true in cases where we know buffering
         // is already being done.
-        
+
         for (RelNode child : rel.getInputs()) {
             if (!FarragoRelMetadataQuery.canRestart(child)) {
                 return false;

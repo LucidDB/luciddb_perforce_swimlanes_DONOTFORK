@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.rex.*;
  */
 public class RelOptQuery
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -85,6 +84,7 @@ public class RelOptQuery
      * query.
      *
      * @param correlName Name of correlating variable
+     *
      * @return Correlating variable ordinal
      */
     public static int getCorrelOrdinal(String correlName)
@@ -94,8 +94,8 @@ public class RelOptQuery
     }
 
     /**
-     * Returns the map which identifies which correlating variable each
-     * {@link org.eigenbase.relopt.RelOptQuery.DeferredLookup} will set.
+     * Returns the map which identifies which correlating variable each {@link
+     * org.eigenbase.relopt.RelOptQuery.DeferredLookup} will set.
      *
      * @return Map of deferred lookups
      */
@@ -110,6 +110,7 @@ public class RelOptQuery
      * @param env OpenJava environment
      * @param typeFactory Type factory
      * @param rexBuilder Expression builder
+     *
      * @return New cluster
      */
     public RelOptCluster createCluster(
@@ -166,8 +167,8 @@ public class RelOptQuery
     //~ Inner Interfaces -------------------------------------------------------
 
     /**
-     * Contains the information necessary to repeat a call to
-     * {@link org.eigenbase.sql2rel.SqlToRelConverter.Blackboard#lookup}.
+     * Contains the information necessary to repeat a call to {@link
+     * org.eigenbase.sql2rel.SqlToRelConverter.Blackboard#lookup}.
      */
     public interface DeferredLookup
     {
@@ -192,6 +193,7 @@ public class RelOptQuery
          * <code>getFieldAccess("DEPTNO")</code> on that lookup.
          *
          * @param name Name of field
+         *
          * @return Expression which retrieves the given field of this lookup's
          * correlating variable
          */

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -48,9 +48,9 @@ import org.eigenbase.util.*;
  */
 public abstract class FarragoJavaUdxIterator
     extends ThreadIterator
-    implements RestartableIterator, ClosableAllocation
+    implements RestartableIterator,
+        ClosableAllocation
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final int QUEUE_ARRAY_SIZE = 100;
@@ -168,6 +168,7 @@ public abstract class FarragoJavaUdxIterator
             // thread never ran
             return;
         }
+
         // Tell the running thread to buzz off.
         stopThread = true;
         try {
@@ -206,7 +207,7 @@ public abstract class FarragoJavaUdxIterator
         extends BarfingInvocationHandler
     {
         private final FarragoJdbcParamDef [] dynamicParamDefs;
-        
+
         PreparedStatementInvocationHandler(RelDataType paramRowType)
         {
             RelDataTypeField [] fields = paramRowType.getFields();
@@ -223,7 +224,7 @@ public abstract class FarragoJavaUdxIterator
                         false);
             }
         }
-        
+
         // implement PreparedStatement
         public int executeUpdate()
             throws SQLException
@@ -237,7 +238,8 @@ public abstract class FarragoJavaUdxIterator
             // for cancellation
             while (!offer(
                     getCurrentRow(),
-                    1000)) {
+                    1000))
+            {
                 checkCancel();
             }
             ++iRow;
@@ -281,13 +283,14 @@ public abstract class FarragoJavaUdxIterator
             } else {
                 nullableValue.setNull(false);
                 AssignableValue assignableValue = (AssignableValue) fieldObj;
-                // Note: Calendar is an optional argument so it wouldn't 
+
+                // Note: Calendar is an optional argument so it wouldn't
                 // make sense to pass in a null Calendar as a parameter
                 Object scrubbedValue;
                 if (calendar == null) {
                     scrubbedValue = dynamicParamDefs[iField].scrubValue(obj);
                 } else {
-                    scrubbedValue = 
+                    scrubbedValue =
                         dynamicParamDefs[iField].scrubValue(obj, calendar);
                 }
                 assignableValue.assignFrom(scrubbedValue);

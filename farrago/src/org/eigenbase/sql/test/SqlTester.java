@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -45,7 +45,6 @@ import org.eigenbase.sql.*;
  */
 public interface SqlTester
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -235,13 +234,13 @@ public interface SqlTester
      *
      * @param expression SQL scalar expression
      * @param expectedError Pattern for expected error. If !runtime, must
-     *   include an error location.
+     * include an error location.
      * @param runtime If true, must fail at runtime; if false, must fail at
-     *   validate time
+     * validate time
      */
     void checkFails(
         String expression,
-        String expectedError, 
+        String expectedError,
         boolean runtime);
 
     //~ Inner Interfaces -------------------------------------------------------

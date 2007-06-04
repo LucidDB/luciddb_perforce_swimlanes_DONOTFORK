@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -51,7 +51,6 @@ public class FarragoJdbcEngineConnection
     implements FarragoConnection,
         FarragoSessionConnectionSource
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private FarragoSessionFactory sessionFactory;
@@ -114,7 +113,7 @@ public class FarragoJdbcEngineConnection
     public Connection newConnection()
     {
         return new FarragoJdbcEngineConnection(
-                session.cloneSession(null));
+            session.cloneSession(null));
     }
 
     // implement Connection
@@ -204,10 +203,9 @@ public class FarragoJdbcEngineConnection
         try {
             // FarragoSessionStmtContext created without a param def factory
             // because plain Statements cannot use dynamic parameters.
-            return
-                new FarragoJdbcEngineStatement(
-                    this,
-                    session.newStmtContext(null));
+            return new FarragoJdbcEngineStatement(
+                this,
+                session.newStmtContext(null));
         } catch (Throwable ex) {
             throw FarragoJdbcEngineDriver.newSqlException(ex);
         }
@@ -440,7 +438,7 @@ public class FarragoJdbcEngineConnection
         throws SQLException
     {
         validateSession();
-        
+
         return session.getWarningQueue().getWarnings();
     }
 
@@ -509,15 +507,18 @@ public class FarragoJdbcEngineConnection
 
     /**
      * Performs additional setup based on connection property settings.
+     *
      * @param info connection properties
+     *
      * @throws SQLException
      */
-    protected void initConnection(Properties info) throws SQLException
+    protected void initConnection(Properties info)
+        throws SQLException
     {
         String initialSchema = info.getProperty("schema");
         if (initialSchema != null) {
             Statement stmt = this.createStatement();
-            ((FarragoJdbcEngineStatement)stmt).stmtContext.daemonize();
+            ((FarragoJdbcEngineStatement) stmt).stmtContext.daemonize();
             stmt.executeUpdate("set schema '" + initialSchema + "'");
         }
     }
@@ -648,10 +649,10 @@ public class FarragoJdbcEngineConnection
         {
             FarragoMedDataWrapper dataWrapper = getWrapper();
             try {
-                return
-                    dataWrapper.getServerPropertyInfo(locale,
-                        wrapperProps,
-                        serverProps);
+                return dataWrapper.getServerPropertyInfo(
+                    locale,
+                    wrapperProps,
+                    serverProps);
             } finally {
                 closeWrapperCache();
             }
@@ -665,11 +666,11 @@ public class FarragoJdbcEngineConnection
         {
             FarragoMedDataWrapper dataWrapper = getWrapper();
             try {
-                return
-                    dataWrapper.getColumnSetPropertyInfo(locale,
-                        wrapperProps,
-                        serverProps,
-                        tableProps);
+                return dataWrapper.getColumnSetPropertyInfo(
+                    locale,
+                    wrapperProps,
+                    serverProps,
+                    tableProps);
             } finally {
                 closeWrapperCache();
             }
@@ -684,12 +685,12 @@ public class FarragoJdbcEngineConnection
         {
             FarragoMedDataWrapper dataWrapper = getWrapper();
             try {
-                return
-                    dataWrapper.getColumnPropertyInfo(locale,
-                        wrapperProps,
-                        serverProps,
-                        tableProps,
-                        columnProps);
+                return dataWrapper.getColumnPropertyInfo(
+                    locale,
+                    wrapperProps,
+                    serverProps,
+                    tableProps,
+                    columnProps);
             } finally {
                 closeWrapperCache();
             }

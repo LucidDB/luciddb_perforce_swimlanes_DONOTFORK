@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -59,7 +59,6 @@ import org.eigenbase.rel.convert.*;
  */
 public abstract class RelTraitDef
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final WeakHashMap<RelTrait, WeakReference<RelTrait>> canonicalMap;
@@ -68,7 +67,8 @@ public abstract class RelTraitDef
 
     public RelTraitDef()
     {
-        this.canonicalMap = new WeakHashMap<RelTrait, WeakReference<RelTrait>>();
+        this.canonicalMap =
+            new WeakHashMap<RelTrait, WeakReference<RelTrait>>();
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -104,8 +104,7 @@ public abstract class RelTraitDef
             + trait.getClass().getName();
 
         if (canonicalMap.containsKey(trait)) {
-            WeakReference<RelTrait> canonicalTraitRef =
-                canonicalMap.get(trait);
+            WeakReference<RelTrait> canonicalTraitRef = canonicalMap.get(trait);
             if (canonicalTraitRef != null) {
                 // Make sure the canonical trait didn't disappear between
                 // containsKey and get.

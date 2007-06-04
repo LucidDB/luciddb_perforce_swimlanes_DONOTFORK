@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -29,6 +29,7 @@ import org.eigenbase.rel.*;
 import org.eigenbase.rel.metadata.*;
 import org.eigenbase.relopt.*;
 
+
 /**
  * FennelBufferRel represents the Fennel implementation of a buffering stream.
  * product.
@@ -40,6 +41,7 @@ class FennelBufferRel
     extends FennelSingleRel
 {
     //~ Instance fields --------------------------------------------------------
+
     boolean inMemory;
     boolean multiPass;
 
@@ -62,7 +64,6 @@ class FennelBufferRel
         super(cluster, child);
         this.inMemory = inMemory;
         this.multiPass = multiPass;
-        
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -84,14 +85,14 @@ class FennelBufferRel
     public RelOptCost computeSelfCost(RelOptPlanner planner)
     {
         double rowCount = RelMetadataQuery.getRowCount(getChild());
+
         // NOTE zfong 9/6/06 - For now, I've arbitrarily set the I/O factor
         // to 1/10 the rowcount, which means that there are 10 rows per
         // page
-        return
-            planner.makeCost(
-                rowCount,
-                rowCount,
-                rowCount / 10);
+        return planner.makeCost(
+            rowCount,
+            rowCount,
+            rowCount / 10);
     }
 
     // implement RelNode

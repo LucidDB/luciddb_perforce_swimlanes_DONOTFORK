@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -45,10 +45,9 @@ import org.eigenbase.util.*;
 public class ReflectiveConvertletTable
     implements SqlRexConvertletTable
 {
-
     //~ Instance fields --------------------------------------------------------
 
-    private final Map<Object,Object> map = new HashMap<Object, Object>();
+    private final Map<Object, Object> map = new HashMap<Object, Object>();
 
     //~ Constructors -----------------------------------------------------------
 
@@ -100,11 +99,10 @@ public class ReflectiveConvertletTable
                     SqlCall call)
                 {
                     try {
-                        return
-                            (RexNode) method.invoke(
-                                ReflectiveConvertletTable.this,
-                                cx,
-                                call);
+                        return (RexNode) method.invoke(
+                            ReflectiveConvertletTable.this,
+                            cx,
+                            call);
                     } catch (IllegalAccessException e) {
                         throw Util.newInternal(
                             e,
@@ -158,12 +156,11 @@ public class ReflectiveConvertletTable
                     SqlCall call)
                 {
                     try {
-                        return
-                            (RexNode) method.invoke(
-                                ReflectiveConvertletTable.this,
-                                cx,
-                                call.getOperator(),
-                                call);
+                        return (RexNode) method.invoke(
+                            ReflectiveConvertletTable.this,
+                            cx,
+                            call.getOperator(),
+                            call);
                     } catch (IllegalAccessException e) {
                         throw Util.newInternal(
                             e,
@@ -216,8 +213,8 @@ public class ReflectiveConvertletTable
     /**
      * Registers a convertlet for a given operator instance
      *
-     * @param op Operator instance, say
-     * {@link org.eigenbase.sql.fun.SqlStdOperatorTable#minusOperator}
+     * @param op Operator instance, say {@link
+     * org.eigenbase.sql.fun.SqlStdOperatorTable#minusOperator}
      * @param convertlet Convertlet
      */
     protected void registerOp(SqlOperator op, SqlRexConvertlet convertlet)

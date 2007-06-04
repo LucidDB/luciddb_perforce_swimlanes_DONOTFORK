@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,8 +30,7 @@ import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.fem.med.*;
 import net.sf.farrago.fem.sql2003.*;
 
-import org.eigenbase.sql.SqlDialect;
-import org.eigenbase.sql.SqlUtil;
+import org.eigenbase.sql.*;
 import org.eigenbase.sql.type.*;
 import org.eigenbase.util.*;
 
@@ -48,7 +47,6 @@ import org.eigenbase.util.*;
  */
 public abstract class DdlGenerator
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     protected static final SqlDialect sqlDialect = SqlUtil.eigenbaseDialect;
@@ -93,7 +91,8 @@ public abstract class DdlGenerator
             try {
                 m.invoke(
                     this,
-                    e, stmt);
+                    e,
+                    stmt);
             } catch (InvocationTargetException e1) {
                 throw Util.newInternal(e1, "while exporting '" + e + "'");
             } catch (IllegalAccessException e1) {
@@ -143,7 +142,8 @@ public abstract class DdlGenerator
             if (keyComponent != null) {
                 for (FemKeyComponent kc : keyComponent) {
                     if (kc.getKeyConstraint()
-                        instanceof FemPrimaryKeyConstraint) {
+                        instanceof FemPrimaryKeyConstraint)
+                    {
                         result = true;
                         break;
                     }
@@ -157,10 +157,10 @@ public abstract class DdlGenerator
      * Converts a set of elements to a string using this generator.
      *
      * @param exportList List of elements to export
+     *
      * @return DDL script
      */
-    public String getExportText(
-        List<CwmModelElement> exportList)
+    public String getExportText(List<CwmModelElement> exportList)
     {
         StringBuilder outBuf = new StringBuilder();
         GeneratedDdlStmt stmt = new GeneratedDdlStmt();
@@ -173,13 +173,14 @@ public abstract class DdlGenerator
                     continue;
                 }
                 final String ddl = stmt.toString();
-                assert ddl != null && !ddl.equals("") :
-                    "Do not know how to generate DDL for " + elem.getClass();
+                assert (ddl != null) && !ddl.equals("") : "Do not know how to generate DDL for "
+                    + elem.getClass();
                 outBuf.append(ddl);
                 outBuf.append(SEP);
             } catch (RuntimeException e) {
                 throw Util.newInternal(
-                    e, "Error while exporting '" + elem + "'");
+                    e,
+                    "Error while exporting '" + elem + "'");
             }
         }
         return outBuf.toString();

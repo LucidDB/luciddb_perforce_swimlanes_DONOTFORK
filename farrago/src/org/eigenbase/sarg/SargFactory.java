@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -34,7 +34,6 @@ import org.eigenbase.sql.*;
  */
 public class SargFactory
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final RexBuilder rexBuilder;
@@ -81,8 +80,8 @@ public class SargFactory
     public SargIntervalExpr newIntervalExpr(RelDataType dataType)
     {
         return newIntervalExpr(
-                dataType,
-                SqlNullSemantics.NULL_MATCHES_NOTHING);
+            dataType,
+            SqlNullSemantics.NULL_MATCHES_NOTHING);
     }
 
     /**
@@ -97,9 +96,9 @@ public class SargFactory
         SqlNullSemantics nullSemantics)
     {
         return new SargIntervalExpr(
-                this,
-                dataType,
-                nullSemantics);
+            this,
+            dataType,
+            nullSemantics);
     }
 
     /**
@@ -120,12 +119,12 @@ public class SargFactory
     {
         return new SargRexAnalyzer(this, false);
     }
-    
+
     /**
      * @param simpleMode if true, the analyzer restrictes the types of
-     * predicates it allows; only one predicate is allowed per RexInputRef,
-     * and only one range predicate is allowed
-     * 
+     * predicates it allows; only one predicate is allowed per RexInputRef, and
+     * only one range predicate is allowed
+     *
      * @return new analyzer for rex expressions
      */
     public SargRexAnalyzer newRexAnalyzer(boolean simpleMode)

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -44,7 +44,6 @@ import org.eigenbase.util.*;
 public class MedJdbcForeignDataWrapper
     extends MedAbstractDataWrapper
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final String PROP_DRIVER_CLASS_NAME = "DRIVER_CLASS";
@@ -143,7 +142,8 @@ public class MedJdbcForeignDataWrapper
             DriverPropertyInfo [] result =
                 new DriverPropertyInfo[mapArray.length + driverArray.length];
             System.arraycopy(mapArray, 0, result, 0, mapArray.length);
-            System.arraycopy(driverArray,
+            System.arraycopy(
+                driverArray,
                 0,
                 result,
                 mapArray.length,
@@ -190,7 +190,8 @@ public class MedJdbcForeignDataWrapper
         }
         Properties chainedProps = new Properties(getProperties());
         chainedProps.putAll(props);
-        MedJdbcDataServer server = new MedJdbcDataServer(serverMofId, chainedProps);
+        MedJdbcDataServer server =
+            new MedJdbcDataServer(serverMofId, chainedProps);
         boolean success = false;
         try {
             server.initialize();

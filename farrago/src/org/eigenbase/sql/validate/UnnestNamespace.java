@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2004-2005 The Eigenbase Project
-// Copyright (C) 2004-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2004-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import org.eigenbase.sql.type.*;
 class UnnestNamespace
     extends AbstractNamespace
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final SqlCall unnest;
@@ -69,10 +68,9 @@ class UnnestNamespace
         if (type.isStruct()) {
             return type;
         }
-        return
-            validator.getTypeFactory().createStructType(
-                new RelDataType[] { type },
-                new String[] { validator.deriveAlias(unnest, 0) });
+        return validator.getTypeFactory().createStructType(
+            new RelDataType[] { type },
+            new String[] { validator.deriveAlias(unnest, 0) });
     }
 
     /**

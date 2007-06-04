@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,8 @@ package net.sf.farrago.session;
 
 import java.util.*;
 
-import net.sf.farrago.ddl.DdlHandler;
+import net.sf.farrago.ddl.*;
+
 
 /**
  * FarragoSessionModelExtension defines the SPI for plugging in custom behavior
@@ -36,7 +37,6 @@ import net.sf.farrago.ddl.DdlHandler;
  */
 public interface FarragoSessionModelExtension
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -59,8 +59,7 @@ public interface FarragoSessionModelExtension
      *
      * @param bundleList receives instances of ResourceBundle
      */
-    public void defineResourceBundles(
-        List<ResourceBundle> bundleList);
+    public void defineResourceBundles(List<ResourceBundle> bundleList);
 
     /**
      * Defines privileges allowed on various object types.

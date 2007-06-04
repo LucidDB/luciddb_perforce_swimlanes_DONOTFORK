@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -24,19 +24,23 @@ package net.sf.farrago.query;
 import org.eigenbase.rel.*;
 import org.eigenbase.rel.metadata.*;
 
+
 /**
- * FarragoRelMetadataQuery defines the relational expression metadata
- * queries specific to Farrago.
+ * FarragoRelMetadataQuery defines the relational expression metadata queries
+ * specific to Farrago.
  *
  * @author John Sichi
  * @version $Id$
  */
-public abstract class FarragoRelMetadataQuery extends RelMetadataQuery
+public abstract class FarragoRelMetadataQuery
+    extends RelMetadataQuery
 {
+    //~ Methods ----------------------------------------------------------------
+
     /**
-     * Determines whether a physical expression can be restarted.  For leaves,
-     * default implementation is true; for non-leaves, default implementation
-     * is conjunction of children.
+     * Determines whether a physical expression can be restarted. For leaves,
+     * default implementation is true; for non-leaves, default implementation is
+     * conjunction of children.
      *
      * @param rel the relational expression
      *

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -32,14 +32,15 @@ import org.eigenbase.util.*;
  */
 public enum SqlFunctionCategory
 {
-    String("STRING", "String function"),
-    Numeric("NUMERIC", "Numeric function"),
+    String("STRING", "String function"), Numeric("NUMERIC", "Numeric function"),
     TimeDate("TIMEDATE", "Time and date function"),
     System("SYSTEM", "System function"),
     UserDefinedFunction("UDF", "User-defined function"),
     UserDefinedProcedure("UDP", "User-defined procedure"),
     UserDefinedConstructor("UDC", "User-defined constructor"),
-    UserDefinedSpecificFunction("UDF_SPECIFIC", "User-defined function with SPECIFIC name");
+    UserDefinedSpecificFunction(
+        "UDF_SPECIFIC",
+        "User-defined function with SPECIFIC name");
 
     SqlFunctionCategory(
         String abbrev,

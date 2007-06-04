@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -52,7 +52,6 @@ public class BytePointer
     implements AssignableValue,
         CharSequence
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final String ENFORCE_PRECISION_METHOD_NAME =
@@ -282,7 +281,8 @@ public class BytePointer
                 ownBytes,
                 S1,
                 bp2.getByteCount());
-            System.arraycopy(bp1.buf,
+            System.arraycopy(
+                bp1.buf,
                 bp1.pos + S1 + L1,
                 ownBytes,
                 S1 + bp2.getByteCount(),
@@ -709,7 +709,6 @@ public class BytePointer
             d.getScale());
     }
 
-
     /**
      * Attempts to convert this pointer's contents from a
      * single-byte-ASCII-encoded integer string into a long.
@@ -738,7 +737,7 @@ public class BytePointer
         }
 
         // read up to 19 digits, the most for a long value
-        if (start >= end || end - start > 19) {
+        if ((start >= end) || ((end - start) > 19)) {
             return Long.MAX_VALUE;
         }
         long value = 0;
@@ -750,6 +749,7 @@ public class BytePointer
             value *= 10;
             value += x;
         }
+
         // handle overflow
         if (value < 0) {
             return Long.MAX_VALUE;

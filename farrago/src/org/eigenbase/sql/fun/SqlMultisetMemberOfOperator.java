@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,13 +39,13 @@ import org.eigenbase.sql.type.*;
 public class SqlMultisetMemberOfOperator
     extends SqlBinaryOperator
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public SqlMultisetMemberOfOperator()
     {
         //TODO check if precedence is correct
-        super("MEMBER OF",
+        super(
+            "MEMBER OF",
             SqlKind.Other,
             30,
             true,
@@ -64,7 +64,8 @@ public class SqlMultisetMemberOfOperator
                 callBinding,
                 callBinding.getCall().operands[1],
                 0,
-                throwOnFailure)) {
+                throwOnFailure))
+        {
             return false;
         }
 

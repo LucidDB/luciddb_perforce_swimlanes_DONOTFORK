@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.relopt.*;
 public class AbstractConverter
     extends ConverterRel
 {
-
     //~ Constructors -----------------------------------------------------------
 
     public AbstractConverter(
@@ -69,12 +68,11 @@ public class AbstractConverter
 
     public AbstractConverter clone()
     {
-        return
-            new AbstractConverter(
-                getCluster(),
-                getChild(),
-                traitDef,
-                cloneTraits());
+        return new AbstractConverter(
+            getCluster(),
+            getChild(),
+            traitDef,
+            cloneTraits());
     }
 
     public RelOptCost computeSelfCost(RelOptPlanner planner)
@@ -150,7 +148,8 @@ public class AbstractConverter
             final RelSet set = planner.getSet(child);
             for (RelSubset subset : set.subsets) {
                 if (subset.getTraits().equals(child.getTraits())
-                    || subset.getTraits().equals(converter.traits)) {
+                    || subset.getTraits().equals(converter.traits))
+                {
                     continue;
                 }
                 final AbstractConverter newConverter =

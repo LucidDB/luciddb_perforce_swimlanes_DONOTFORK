@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import org.eigenbase.rex.*;
  */
 public abstract class IterRules
 {
-
     //~ Inner Classes ----------------------------------------------------------
 
     /**
@@ -54,14 +53,16 @@ public abstract class IterRules
 
         protected UnionToIteratorRule(String description)
         {
-            super(UnionRel.class,
+            super(
+                UnionRel.class,
                 CallingConvention.NONE,
                 CallingConvention.ITERATOR,
                 description);
         }
 
         // factory method
-        protected RelNode newIterConcatenateRel(RelOptCluster cluster,
+        protected RelNode newIterConcatenateRel(
+            RelOptCluster cluster,
             RelNode [] inputs)
         {
             return new IterConcatenateRel(cluster, inputs);
@@ -86,8 +87,8 @@ public abstract class IterRules
                 }
             }
             return newIterConcatenateRel(
-                    union.getCluster(),
-                    newInputs);
+                union.getCluster(),
+                newInputs);
         }
     }
 
@@ -124,7 +125,8 @@ public abstract class IterRules
     {
         public OneRowToIteratorRule()
         {
-            super(OneRowRel.class,
+            super(
+                OneRowRel.class,
                 CallingConvention.NONE,
                 CallingConvention.ITERATOR,
                 "OneRowToIteratorRule");
@@ -147,7 +149,8 @@ public abstract class IterRules
 
         private IterCalcRule()
         {
-            super(CalcRel.class,
+            super(
+                CalcRel.class,
                 CallingConvention.NONE,
                 CallingConvention.ITERATOR,
                 "IterCalcRule");
@@ -178,17 +181,17 @@ public abstract class IterRules
                 rel.getCluster().getPlanner().getJavaRelImplementor(rel);
             if (!relImplementor.canTranslate(
                     convertedChild,
-                    calc.getProgram())) {
+                    calc.getProgram()))
+            {
                 // Some of the expressions cannot be translated into Java
                 return null;
             }
 
-            return
-                new IterCalcRel(
-                    rel.getCluster(),
-                    convertedChild,
-                    calc.getProgram(),
-                    ProjectRelBase.Flags.Boxed);
+            return new IterCalcRel(
+                rel.getCluster(),
+                convertedChild,
+                calc.getProgram(),
+                ProjectRelBase.Flags.Boxed);
         }
     }
 }

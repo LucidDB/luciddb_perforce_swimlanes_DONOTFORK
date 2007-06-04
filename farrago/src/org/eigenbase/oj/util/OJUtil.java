@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -22,6 +22,8 @@
 */
 package org.eigenbase.oj.util;
 
+import java.util.*;
+
 import openjava.mop.*;
 
 import openjava.ptree.*;
@@ -32,28 +34,28 @@ import org.eigenbase.reltype.*;
 import org.eigenbase.runtime.RestartableIterator;
 import org.eigenbase.util.*;
 
-import java.util.*;
 
 /**
  * Static utilities for manipulating OpenJava expressions.
  */
 public abstract class OJUtil
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     static {
         OJSystem.initConstants();
     }
 
-    public static final OJClass clazzVoid = OJClass.forClass(
+    public static final OJClass clazzVoid =
+        OJClass.forClass(
             void.class);
 
     public static final OJClass clazzObject =
         OJClass.forClass(
             java.lang.Object.class);
 
-    public static final OJClass clazzObjectArray = OJClass.arrayOf(
+    public static final OJClass clazzObjectArray =
+        OJClass.arrayOf(
             clazzObject);
 
     public static final OJClass clazzCollection =
@@ -134,7 +136,8 @@ public abstract class OJUtil
         OJClass.forClass(
             java.lang.Integer.class);
 
-    public static final TypeName tnInt = TypeName.forOJClass(
+    public static final TypeName tnInt =
+        TypeName.forOJClass(
             OJSystem.INT);
 
     public static final OJClass clazzList =
@@ -279,14 +282,18 @@ public abstract class OJUtil
     {
         if (clazz.isArray()) {
             return clazz.getComponentType();
-        } else if (clazzIterator.isAssignableFrom(clazz)
+        } else if (
+            clazzIterator.isAssignableFrom(clazz)
             || clazzEnumeration.isAssignableFrom(clazz)
             || clazzVector.isAssignableFrom(clazz)
             || clazzCollection.isAssignableFrom(clazz)
-            || clazzResultSet.isAssignableFrom(clazz)) {
+            || clazzResultSet.isAssignableFrom(clazz))
+        {
             return clazzObject;
-        } else if (clazzHashtable.isAssignableFrom(clazz)
-            || clazzMap.isAssignableFrom(clazz)) {
+        } else if (
+            clazzHashtable.isAssignableFrom(clazz)
+            || clazzMap.isAssignableFrom(clazz))
+        {
             return clazzEntry;
         } else {
             return null;
@@ -336,10 +343,9 @@ public abstract class OJUtil
     public static Expression box(OJClass clazz, Expression exp)
     {
         if (clazz.isPrimitive()) {
-            return
-                new AllocationExpression(
-                    clazz.primitiveWrapper(),
-                    new ExpressionList(exp));
+            return new AllocationExpression(
+                clazz.primitiveWrapper(),
+                new ExpressionList(exp));
         } else {
             return exp;
         }

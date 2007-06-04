@@ -10,7 +10,7 @@ AC_CANONICAL_TARGET
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_SRCDIR([common/CommonPreamble.h])
 
-AM_INIT_AUTOMAKE(fennel, 0.6.0)
+AM_INIT_AUTOMAKE(fennel, 0.7.0)
 
 dnl Define CXXFLAGS before AC_PROG_CXX to suppress the default autoconf
 dnl compiler options
@@ -28,6 +28,9 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_LEX
 AC_PROG_YACC
+
+dnl Check for gcc version (FIXME:  get rid of this once 4.1.1 goes away)
+fennel_gcc_version=`g++ --version | head -n 1 | cut -f 3 -d ' '`
 
 if test "$LEX" != "flex"; then
    AC_MSG_ERROR([Fennel build requires flex])
@@ -171,8 +174,11 @@ boost_jam_platform=linuxx86
 lib_path_var=LD_LIBRARY_PATH
 jdk_platform=linux
 
-dnl TODO:  figure out how to reliably determine the correct boost_jam_platform
-dnl On SuSE amd64, it came out just linux without the x86.
+dnl amd64 tweaks
+if test "$target_cpu" = "x86_64"
+then
+    boost_jam_platform=linux
+fi
 
 dnl Cygwin tweaks.
 if test "$target_os" = "cygwin" 
@@ -257,6 +263,13 @@ AC_ARG_WITH([debug],
 if test "$with_debug" = "yes"
 then
     CXXFLAGS="$CXXFLAGS -g"
+fi
+
+dnl Compiler version-specific tweaks
+if test "$fennel_gcc_version" = "4.1.1"
+then
+    dnl gcc 4.1.1 build encounters bogus errors
+    CXXFLAGS="$CXXFLAGS -Wno-uninitialized -Wno-unused"
 fi
 
 BOOST_THREADLIB=boost_thread-$BOOST_LIB_SUFFIX

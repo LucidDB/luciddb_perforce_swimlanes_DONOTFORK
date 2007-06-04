@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,6 +28,7 @@ import java.lang.reflect.*;
 
 import java.util.*;
 
+
 // TODO jvs 28-April-2004: move this to a repos-independent codegen utility
 // package and add a main method so it can be used from ant; this is just a
 // temporary parking space
@@ -41,7 +42,6 @@ import java.util.*;
  */
 public class CppEnumGen
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private PrintWriter pw;

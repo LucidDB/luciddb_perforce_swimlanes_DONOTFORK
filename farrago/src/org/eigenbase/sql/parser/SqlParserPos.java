@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.sql.*;
  */
 public class SqlParserPos
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -123,10 +122,9 @@ public class SqlParserPos
     // implements Object
     public String toString()
     {
-        return
-            EigenbaseResource.instance().ParserContext.str(
-                lineNumber,
-                columnNumber);
+        return EigenbaseResource.instance().ParserContext.str(
+            lineNumber,
+            columnNumber);
     }
 
     /**
@@ -135,12 +133,11 @@ public class SqlParserPos
      */
     public SqlParserPos plus(SqlParserPos pos)
     {
-        return
-            new SqlParserPos(
-                getLineNum(),
-                getColumnNum(),
-                pos.getEndLineNum(),
-                pos.getEndColumnNum());
+        return new SqlParserPos(
+            getLineNum(),
+            getColumnNum(),
+            pos.getEndLineNum(),
+            pos.getEndColumnNum());
     }
 
     /**
@@ -180,8 +177,7 @@ public class SqlParserPos
      * Combines the parser positions of a list of nodes to create a position
      * which spans from the beginning of the first to the end of the last.
      */
-    public static SqlParserPos sum(
-        List<SqlNode> nodes)
+    public static SqlParserPos sum(List<SqlNode> nodes)
     {
         return sum(nodes.toArray(new SqlNode[nodes.size()]));
     }
@@ -204,7 +200,8 @@ public class SqlParserPos
             testLine = pos.getLineNum();
             testColumn = pos.getColumnNum();
             if ((testLine < line)
-                || ((testLine == line) && (testColumn < column))) {
+                || ((testLine == line) && (testColumn < column)))
+            {
                 line = testLine;
                 column = testColumn;
             }
@@ -212,7 +209,8 @@ public class SqlParserPos
             testLine = pos.getEndLineNum();
             testColumn = pos.getEndColumnNum();
             if ((testLine > endLine)
-                || ((testLine == endLine) && (testColumn > endColumn))) {
+                || ((testLine == endLine) && (testColumn > endColumn)))
+            {
                 endLine = testLine;
                 endColumn = testColumn;
             }
@@ -247,7 +245,8 @@ public class SqlParserPos
             testLine = pos.getLineNum();
             testColumn = pos.getColumnNum();
             if ((testLine < line)
-                || ((testLine == line) && (testColumn < column))) {
+                || ((testLine == line) && (testColumn < column)))
+            {
                 line = testLine;
                 column = testColumn;
             }
@@ -255,7 +254,8 @@ public class SqlParserPos
             testLine = pos.getEndLineNum();
             testColumn = pos.getEndColumnNum();
             if ((testLine > endLine)
-                || ((testLine == endLine) && (testColumn > endColumn))) {
+                || ((testLine == endLine) && (testColumn > endColumn)))
+            {
                 endLine = testLine;
                 endColumn = testColumn;
             }

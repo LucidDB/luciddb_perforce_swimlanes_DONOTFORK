@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,11 +28,11 @@ import java.util.*;
 
 import javax.sql.*;
 
+import net.sf.farrago.jdbc.engine.*;
 import net.sf.farrago.namespace.*;
 import net.sf.farrago.namespace.impl.*;
 import net.sf.farrago.type.*;
 import net.sf.farrago.util.*;
-import net.sf.farrago.jdbc.engine.*;
 
 import org.eigenbase.rel.*;
 import org.eigenbase.rel.convert.*;
@@ -52,7 +52,6 @@ import org.eigenbase.util.*;
 class MedJdbcColumnSet
     extends MedAbstractColumnSet
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final MedJdbcNameDirectory directory;
@@ -120,12 +119,11 @@ class MedJdbcColumnSet
                 dialect,
                 select);
         if (directory.server.lenient) {
-            return
-                toLenientRel(
-                    cluster,
-                    rel,
-                    origRowType,
-                    srcRowType);
+            return toLenientRel(
+                cluster,
+                rel,
+                origRowType,
+                srcRowType);
         }
         return rel;
     }
@@ -141,12 +139,14 @@ class MedJdbcColumnSet
         if (directory.server == null) {
             return null;
         }
-        if (directory.server.schemaName != null &&
-            !directory.server.useSchemaNameAsForeignQualifier) {
+        if ((directory.server.schemaName != null)
+            && !directory.server.useSchemaNameAsForeignQualifier)
+        {
             // Schema name should never be specified for a connection to
             // Farrago; if it is, bail.
             return null;
         }
+
         // Instead, schema name should always be present in foreign name.
         String [] schemaQualifiedName = getForeignName();
         if (schemaQualifiedName.length < 2) {

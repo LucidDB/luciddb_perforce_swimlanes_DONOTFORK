@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import org.eigenbase.rex.*;
 public abstract class LoptMetadataQuery
     extends RelMetadataQuery
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -56,21 +55,20 @@ public abstract class LoptMetadataQuery
      */
     public static Double getCostWithFilters(RelNode rel, RexNode filters)
     {
-        return
-            (Double) rel.getCluster().getMetadataProvider().getRelMetadata(
-                rel,
-                "getCostWithFilters",
-                new Object[] { filters });
+        return (Double) rel.getCluster().getMetadataProvider().getRelMetadata(
+            rel,
+            "getCostWithFilters",
+            new Object[] { filters });
     }
 
     /**
-     * Like {@link RelMetadataQuery#getColumnOrigins}, for a given output
-     * column of an expression, determines all columns of underlying tables
-     * which contribute to result values.  The difference is if the column
-     * is derived from a complex {@link RelNode}, then null is returned instead.
+     * Like {@link RelMetadataQuery#getColumnOrigins}, for a given output column
+     * of an expression, determines all columns of underlying tables which
+     * contribute to result values. The difference is if the column is derived
+     * from a complex {@link RelNode}, then null is returned instead.
      *
-     * <p>A 'complex RelNode' is a RelNode that we do not push
-     * {@link org.eigenbase.rel.rules.SemiJoinRel}s past.
+     * <p>A 'complex RelNode' is a RelNode that we do not push {@link
+     * org.eigenbase.rel.rules.SemiJoinRel}s past.
      *
      * @param rel the relational expression
      * @param iOutputColumn 0-based ordinal for output column of interest
@@ -87,7 +85,7 @@ public abstract class LoptMetadataQuery
             rel.getCluster().getMetadataProvider().getRelMetadata(
                 rel,
                 "getSimpleColumnOrigins",
-                new Object[]{iOutputColumn});
+                new Object[] { iOutputColumn });
         return (Set<RelColumnOrigin>) o;
     }
 }

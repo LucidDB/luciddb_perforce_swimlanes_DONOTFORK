@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -20,13 +20,13 @@
 */
 package com.lucidera.farrago;
 
-import org.eigenbase.sql.validate.*;
-
 import net.sf.farrago.cwm.core.*;
 import net.sf.farrago.fem.sql2003.*;
-
 import net.sf.farrago.query.*;
 import net.sf.farrago.session.*;
+
+import org.eigenbase.sql.validate.*;
+
 
 /**
  * LucidDbPreparingStmt refines {@link FarragoPreparingStmt} with
@@ -35,14 +35,19 @@ import net.sf.farrago.session.*;
  * @author John V. Sichi
  * @version $Id$
  */
-public class LucidDbPreparingStmt extends FarragoPreparingStmt
+public class LucidDbPreparingStmt
+    extends FarragoPreparingStmt
 {
+    //~ Constructors -----------------------------------------------------------
+
     public LucidDbPreparingStmt(
         FarragoSessionStmtValidator stmtValidator,
         String sql)
     {
         super(stmtValidator, sql);
     }
+
+    //~ Methods ----------------------------------------------------------------
 
     // implement FarragoSessionPreparingStmt
     public SqlValidator getSqlValidator()

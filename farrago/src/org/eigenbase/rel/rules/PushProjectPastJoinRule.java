@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.sql.*;
 public class PushProjectPastJoinRule
     extends RelOptRule
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -97,7 +96,7 @@ public class PushProjectPastJoinRule
         if (pushProject.locateAllRefs()) {
             return;
         }
-        
+
         // create left and right projections, projecting only those
         // fields referenced on each side
         RelNode leftProjRel =
@@ -121,7 +120,7 @@ public class PushProjectPastJoinRule
                 rightProjRel.getRowType().getFields();
             RelDataTypeField [] projJoinFields =
                 new RelDataTypeField[projLeftFields.length
-                + projRightFields.length];
+                    + projRightFields.length];
             System.arraycopy(
                 leftProjRel.getRowType().getFields(),
                 0,

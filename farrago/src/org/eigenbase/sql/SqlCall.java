@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.sql.validate.*;
 public class SqlCall
     extends SqlNode
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private SqlOperator operator;
@@ -119,7 +118,8 @@ public class SqlCall
     public SqlNode clone(SqlParserPos pos)
     {
         return operator.createCall(
-            pos, SqlNode.cloneArray(operands));
+            pos,
+            SqlNode.cloneArray(operands));
     }
 
     public void unparse(
@@ -129,7 +129,8 @@ public class SqlCall
     {
         if ((leftPrec > operator.getLeftPrec())
             || ((operator.getRightPrec() <= rightPrec) && (rightPrec != 0))
-            || (writer.isAlwaysUseParentheses() && isA(SqlKind.Expression))) {
+            || (writer.isAlwaysUseParentheses() && isA(SqlKind.Expression)))
+        {
             final SqlWriter.Frame frame = writer.startList("(", ")");
             operator.unparse(writer, operands, 0, 0);
             writer.endList(frame);

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -51,7 +51,6 @@ import org.eigenbase.reltype.*;
 public interface FarragoSessionExecutableStmt
     extends FarragoAllocationOwner
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -78,7 +77,7 @@ public interface FarragoSessionExecutableStmt
      * @return true if this statement is DML; false if a query
      */
     public boolean isDml();
-    
+
     /**
      * @return the table modification operation type if this is a table
      * modification statement; otherwise null
@@ -97,8 +96,8 @@ public interface FarragoSessionExecutableStmt
     public Set<String> getReferencedObjectIds();
 
     /**
-     * @return the modification time of an object accessed by this statement,
-     *   or null if the modification time is not available
+     * @return the modification time of an object accessed by this statement, or
+     * null if the modification time is not available
      */
     public String getReferencedObjectModTime(String mofid);
 

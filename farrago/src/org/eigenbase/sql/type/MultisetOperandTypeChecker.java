@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,15 +30,13 @@ import org.eigenbase.sql.*;
  * Parameter type-checking strategy types must be [nullable] Multiset,
  * [nullable] Multiset and the two types must have the same element type
  *
- * @see MultisetSqlType#getComponentType
- *
  * @author Wael Chatila
  * @version $Id$
+ * @see MultisetSqlType#getComponentType
  */
 public class MultisetOperandTypeChecker
     implements SqlOperandTypeChecker
 {
-
     //~ Methods ----------------------------------------------------------------
 
     public boolean checkOperandTypes(
@@ -51,7 +49,8 @@ public class MultisetOperandTypeChecker
                 callBinding,
                 op0,
                 0,
-                throwOnFailure)) {
+                throwOnFailure))
+        {
             return false;
         }
 
@@ -60,7 +59,8 @@ public class MultisetOperandTypeChecker
                 callBinding,
                 op1,
                 0,
-                throwOnFailure)) {
+                throwOnFailure))
+        {
             return false;
         }
 

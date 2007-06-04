@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.util.*;
  */
 public abstract class SqlAbstractParserImpl
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -536,7 +535,8 @@ public abstract class SqlAbstractParserImpl
                 final int [][] expectedTokenSequences =
                     parseException.getExpectedTokenSequences();
                 for (int i = 0; i
-                    < expectedTokenSequences.length; i++) {
+                    < expectedTokenSequences.length; i++)
+                {
                     final int [] expectedTokenSequence =
                         expectedTokenSequences[i];
                     assert expectedTokenSequence.length == 1;
@@ -593,8 +593,10 @@ public abstract class SqlAbstractParserImpl
             jdbcReservedSet.removeAll(sql92ReservedWordSet);
             jdbcReservedSet.removeAll(nonReservedKeyWordSet);
             int j = 0;
-            for (Iterator<String> jdbcReservedIter = jdbcReservedSet.iterator();
-                jdbcReservedIter.hasNext();) {
+            for (
+                Iterator<String> jdbcReservedIter = jdbcReservedSet.iterator();
+                jdbcReservedIter.hasNext();)
+            {
                 String jdbcReserved = jdbcReservedIter.next();
                 if (j++ > 0) {
                     sb.append(",");
@@ -621,8 +623,7 @@ public abstract class SqlAbstractParserImpl
 
         public boolean isKeyword(String token)
         {
-            return
-                isNonReservedKeyword(token)
+            return isNonReservedKeyword(token)
                 || isReservedFunctionName(token)
                 || isContextVariableName(token)
                 || isReservedWord(token);

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.reltype.*;
 public class FennelRenameRel
     extends FennelSingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private String [] fieldNames;
@@ -78,12 +77,11 @@ public class FennelRenameRel
     // implement Cloneable
     public FennelRenameRel clone()
     {
-        return
-            new FennelRenameRel(
-                getCluster(),
-                getChild().clone(),
-                fieldNames,
-                cloneTraits());
+        return new FennelRenameRel(
+            getCluster(),
+            getChild().clone(),
+            fieldNames,
+            cloneTraits());
     }
 
     // implement RelNode
@@ -96,24 +94,23 @@ public class FennelRenameRel
     public RelDataType deriveRowType()
     {
         final RelDataTypeField [] fields = getChild().getRowType().getFields();
-        return
-            getCluster().getTypeFactory().createStructType(
-                new RelDataTypeFactory.FieldInfo() {
-                    public int getFieldCount()
-                    {
-                        return fields.length;
-                    }
+        return getCluster().getTypeFactory().createStructType(
+            new RelDataTypeFactory.FieldInfo() {
+                public int getFieldCount()
+                {
+                    return fields.length;
+                }
 
-                    public String getFieldName(int index)
-                    {
-                        return fieldNames[index];
-                    }
+                public String getFieldName(int index)
+                {
+                    return fieldNames[index];
+                }
 
-                    public RelDataType getFieldType(int index)
-                    {
-                        return fields[index].getType();
-                    }
-                });
+                public RelDataType getFieldType(int index)
+                {
+                    return fields[index].getType();
+                }
+            });
     }
 
     // override Rel

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2005-2005 Xiaoyang
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2005-2007 Xiaoyang
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -32,12 +32,12 @@ import org.eigenbase.oj.util.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.rex.*;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.util.Util;
+import org.eigenbase.util.*;
 
 
 /**
- * FarragoOJRexBuiltinImplementor implements Farrago specifics of
- * {@link org.eigenbase.oj.rex.OJRexImplementor} for builtin functions
+ * FarragoOJRexBuiltinImplementor implements Farrago specifics of {@link
+ * org.eigenbase.oj.rex.OJRexImplementor} for builtin functions
  *
  * @author Xiaoyang Luo
  * @version $Id$
@@ -45,7 +45,6 @@ import org.eigenbase.util.Util;
 public class FarragoOJRexBuiltinImplementor
     extends FarragoOJRexImplementor
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final int FLOOR_FUNCTION = 1;
@@ -156,7 +155,8 @@ public class FarragoOJRexBuiltinImplementor
         case LOWER_FUNCTION:
         case UPPER_FUNCTION:
         case INITCAP_FUNCTION:
-            implementChangeCase(translator,
+            implementChangeCase(
+                translator,
                 call,
                 operands,
                 varResult,
@@ -588,17 +588,18 @@ public class FarragoOJRexBuiltinImplementor
     private StatementList getThrowStatementList(String funcName)
     {
         // String quotedName = "\"" + funcName + "\"";
-        Util.discard(net.sf.farrago.resource.FarragoResource.instance().InvalidFunctionArgument);
-        return
-            new StatementList(
-                new ThrowStatement(
-                    new MethodCall(
-                        new Literal(
-                            Literal.STRING,
-                            "net.sf.farrago.resource.FarragoResource.instance().InvalidFunctionArgument"),
-                        "ex",
-                        new ExpressionList(
-                            Literal.makeLiteral(funcName)))));
+        Util.discard(
+            net.sf.farrago.resource.FarragoResource.instance()
+            .InvalidFunctionArgument);
+        return new StatementList(
+            new ThrowStatement(
+                new MethodCall(
+                    new Literal(
+                        Literal.STRING,
+                        "net.sf.farrago.resource.FarragoResource.instance().InvalidFunctionArgument"),
+                    "ex",
+                    new ExpressionList(
+                        Literal.makeLiteral(funcName)))));
     }
 }
 

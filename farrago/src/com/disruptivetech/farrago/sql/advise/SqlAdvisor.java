@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,6 @@ import org.eigenbase.util.*;
  */
 public class SqlAdvisor
 {
-
     //~ Instance fields --------------------------------------------------------
 
     // Flags indicating precision/scale combinations
@@ -128,8 +127,8 @@ public class SqlAdvisor
      * represents a SQL identifier for which its fully qualified name is to be
      * returned.
      *
-     * @return a {@link SqlMoniker} that contains the fully qualified name of the
-     * specified SQL identifier, returns null if none is found or the SQL
+     * @return a {@link SqlMoniker} that contains the fully qualified name of
+     * the specified SQL identifier, returns null if none is found or the SQL
      * statement is invalid.
      */
     public SqlMoniker getQualifiedName(String sql, int cursor)
@@ -316,8 +315,7 @@ public class SqlAdvisor
         if (sql.charAt(cursor - 1) == '.') {
             int idxLastSpace = sql.lastIndexOf(' ', cursor - 1);
             int idxLastEqual = sql.lastIndexOf('=', cursor - 1);
-            return
-                (idxLastSpace < idxLastEqual) ? (idxLastEqual + 1)
+            return (idxLastSpace < idxLastEqual) ? (idxLastEqual + 1)
                 : (idxLastSpace + 1);
         } else {
             return -1;

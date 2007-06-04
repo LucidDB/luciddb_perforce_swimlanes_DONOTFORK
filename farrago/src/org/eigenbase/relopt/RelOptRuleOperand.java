@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -35,13 +35,12 @@ import org.eigenbase.util.*;
  * <p>For example, the rule to pull a filter up from the left side of a join
  * takes operands: <code>(Join (Filter) (Any))</code>.</p>
  *
- * <p>Note that <code>children</code> means different things if it is empty or it
- * is <code>null</code>: <code>(Join (Filter <b>()</b>) (Any))</code> means
+ * <p>Note that <code>children</code> means different things if it is empty or
+ * it is <code>null</code>: <code>(Join (Filter <b>()</b>) (Any))</code> means
  * that, to match the rule, <code>Filter</code> must have no operands.</p>
  */
 public class RelOptRuleOperand
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final RelOptRuleOperand [] noOperands =
@@ -133,8 +132,8 @@ public class RelOptRuleOperand
     {
         int h = clazz.hashCode();
         h = Util.hash(
-                h,
-                traits.hashCode());
+            h,
+            traits.hashCode());
         h = Util.hashArray(h, children);
         return h;
     }
@@ -150,8 +149,7 @@ public class RelOptRuleOperand
             (this.traits != null) ? this.traits.equals(that.traits)
             : (that.traits == null);
 
-        return
-            (this.clazz == that.clazz)
+        return (this.clazz == that.clazz)
             && equalTraits
             && Arrays.equals(this.children, that.children);
     }

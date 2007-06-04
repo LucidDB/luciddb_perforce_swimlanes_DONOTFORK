@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,13 +28,14 @@ package net.sf.farrago.util;
  * @version $Id$
  */
 public class FarragoCacheEntry
-    implements FarragoObjectCache.Entry, FarragoObjectCache.UninitializedEntry
+    implements FarragoObjectCache.Entry,
+        FarragoObjectCache.UninitializedEntry
 {
-    //~ Static fields/initializers --------------------------------------------
+    //~ Instance fields --------------------------------------------------------
 
-    // NOTE jvs 15-July-2004: entry attribute synchronization is
-    // fine-grained; pinCount is protected by FarragoObjectCache.mapKeyToEntry's
-    // monitor, while the others are protected by the entry's monitor.
+    // NOTE jvs 15-July-2004: entry attribute synchronization is fine-grained;
+    // pinCount is protected by FarragoObjectCache.mapKeyToEntry's monitor,
+    // while the others are protected by the entry's monitor.
     Object key;
     Object value;
     int pinCount;
@@ -46,7 +47,7 @@ public class FarragoCacheEntry
      */
     FarragoObjectCache parentCache;
 
-    //~ Constructor -----------------------------------------------------------
+    //~ Constructors -----------------------------------------------------------
 
     public FarragoCacheEntry(FarragoObjectCache parentCache)
     {
@@ -84,8 +85,8 @@ public class FarragoCacheEntry
 
     public String toString()
     {
-        return "FarragoCacheEntry: key=" + key + ", value=" + value +
-            ", pinCount=" + pinCount;
+        return "FarragoCacheEntry: key=" + key + ", value=" + value
+            + ", pinCount=" + pinCount;
     }
 }
 

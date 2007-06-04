@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -43,7 +43,6 @@ import org.eigenbase.reltype.*;
 public class FennelPullCorrelatorRel
     extends FennelDoubleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final List<CorrelatorRel.Correlation> correlations;
@@ -53,7 +52,7 @@ public class FennelPullCorrelatorRel
     /**
      * Creates a Correlator.
      *
-     * @param cluster {@link RelOptCluster} this relational expression belongs
+     * @param cluster {@link RelOptCluster}  this relational expression belongs
      * to
      * @param left left input relational expression
      * @param right right input relational expression
@@ -103,10 +102,10 @@ public class FennelPullCorrelatorRel
     public RelOptCost computeSelfCost(RelOptPlanner planner)
     {
         double rowCount = RelMetadataQuery.getRowCount(this);
-        return
-            planner.makeCost(rowCount,
-                0,
-                rowCount * getRowType().getFieldList().size());
+        return planner.makeCost(
+            rowCount,
+            0,
+            rowCount * getRowType().getFieldList().size());
     }
 
     // implement RelNode
@@ -117,13 +116,12 @@ public class FennelPullCorrelatorRel
 
     protected RelDataType deriveRowType()
     {
-        return
-            JoinRel.deriveJoinRowType(
-                left.getRowType(),
-                right.getRowType(),
-                JoinRelType.INNER,
-                getCluster().getTypeFactory(),
-                null);
+        return JoinRel.deriveJoinRowType(
+            left.getRowType(),
+            right.getRowType(),
+            JoinRelType.INNER,
+            getCluster().getTypeFactory(),
+            null);
     }
 
     // implement FennelRel

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -68,8 +68,9 @@ class FarragoDbSessionPrivilegeMap
         if (includeSubclasses) {
             JmiClassVertex classVertex =
                 modelView.getModelGraph().getVertexForRefClass(refClass);
-            for (JmiClassVertex jmiClassVertex :
-                modelView.getAllSubclassVertices(classVertex))
+            for (
+                JmiClassVertex jmiClassVertex
+                : modelView.getAllSubclassVertices(classVertex))
             {
                 classVertex = (JmiClassVertex) jmiClassVertex;
                 mapPrivilegeForType(
@@ -110,10 +111,10 @@ class FarragoDbSessionPrivilegeMap
 
     void makeImmutable()
     {
-        Iterator<Map.Entry<RefClass,Set<String>>> iter =
+        Iterator<Map.Entry<RefClass, Set<String>>> iter =
             mapTypeToSet.entrySet().iterator();
         while (iter.hasNext()) {
-            Map.Entry<RefClass,Set<String>> entry = iter.next();
+            Map.Entry<RefClass, Set<String>> entry = iter.next();
             Set<String> set = entry.getValue();
             if (set.isEmpty()) {
                 iter.remove();

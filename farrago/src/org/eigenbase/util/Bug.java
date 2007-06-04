@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Portions Copyright (C) 2006-2006 John V. Sichi
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Portions Copyright (C) 2006-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -52,7 +52,6 @@ package org.eigenbase.util;
  */
 public abstract class Bug
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -100,23 +99,22 @@ public abstract class Bug
     // angel
 
     /**
-     * Whether <a href="http://issues.eigenbase.org/browse/FRG-187">issue FRG-187:
-     * FarragoAutoVmOperatorTest.testOverlapsOperator fails</a> is
+     * Whether <a href="http://issues.eigenbase.org/browse/FRG-187">issue
+     * FRG-187: FarragoAutoVmOperatorTest.testOverlapsOperator fails</a> is
      * fixed.
      */
     public static final boolean Frg187Fixed = false;
 
     /**
-     * Whether <a href="http://issues.eigenbase.org/browse/FRG-188">issue FRG-188:
-     * FarragoAutoVmOperatorTest tests for aggregate functions fails</a> is
-     * fixed.
+     * Whether <a href="http://issues.eigenbase.org/browse/FRG-188">issue
+     * FRG-188: FarragoAutoVmOperatorTest tests for aggregate functions
+     * fails</a> is fixed.
      */
     public static final boolean Frg188Fixed = false;
 
     /**
-     * Whether <a href="http://issues.eigenbase.org/browse/FRG-189">issue FRG-189:
-     * FarragoAutoVmOperatorTest.testSelect fails</a> is
-     * fixed.
+     * Whether <a href="http://issues.eigenbase.org/browse/FRG-189">issue
+     * FRG-189: FarragoAutoVmOperatorTest.testSelect fails</a> is fixed.
      */
     public static final boolean Frg189Fixed = false;
 
@@ -177,9 +175,9 @@ public abstract class Bug
     public static final boolean Frg216Fixed = false;
 
     /**
-     * Whether <a href="http://issues.eigenbase.org/browse/FNL-54">issue
-     * FNL-54: cast time to timestamp should initialize date to current_date</a>
-     * is fixed.
+     * Whether <a href="http://issues.eigenbase.org/browse/FNL-54">issue FNL-54:
+     * cast time to timestamp should initialize date to current_date</a> is
+     * fixed.
      */
     public static final boolean Fnl54Fixed = false;
 

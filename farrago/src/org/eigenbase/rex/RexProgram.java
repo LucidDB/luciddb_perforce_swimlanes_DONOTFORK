@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2002-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -29,7 +29,8 @@ import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.util.Permutation;
+import org.eigenbase.util.*;
+
 
 /**
  * A collection of expressions which read inputs, compute output expressions,
@@ -49,7 +50,6 @@ import org.eigenbase.util.Permutation;
  */
 public class RexProgram
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -270,7 +270,9 @@ public class RexProgram
         termList.add("child");
         collectExplainTerms("", termList, valueList, pw.getDetailLevel());
 
-        if (pw.getDetailLevel() == SqlExplainLevel.DIGEST_ATTRIBUTES && false) {
+        if ((pw.getDetailLevel() == SqlExplainLevel.DIGEST_ATTRIBUTES)
+            && false)
+        {
             termList.add("type");
             valueList.add(rel.getRowType());
         }
@@ -286,7 +288,10 @@ public class RexProgram
         List<String> termList,
         List<Object> valueList)
     {
-        collectExplainTerms(prefix, termList, valueList,
+        collectExplainTerms(
+            prefix,
+            termList,
+            valueList,
             SqlExplainLevel.EXPPLAN_ATTRIBUTES);
     }
 
@@ -322,8 +327,8 @@ public class RexProgram
         // expression, try to be a bit less verbose.
         int trivialCount = 0;
 
-        // Do not use the trivialCount optimization if computing digest for the optimizer
-        // (as opposed to doing an explain plan).
+        // Do not use the trivialCount optimization if computing digest for the
+        // optimizer (as opposed to doing an explain plan).
         if (level != SqlExplainLevel.DIGEST_ATTRIBUTES) {
             trivialCount = countTrivial(projects);
         }
@@ -382,13 +387,12 @@ public class RexProgram
      */
     public RexProgram copy()
     {
-        return
-            new RexProgram(
-                inputRowType,
-                exprs,
-                projects,
-                (condition == null) ? null : condition.clone(),
-                outputRowType);
+        return new RexProgram(
+            inputRowType,
+            exprs,
+            projects,
+            (condition == null) ? null : condition.clone(),
+            outputRowType);
     }
 
     /**
@@ -583,8 +587,7 @@ public class RexProgram
      * returns a list of collations which hold for its output. The result is
      * mutable.
      */
-    public List<RelCollation> getCollations(
-        List<RelCollation> inputCollations)
+    public List<RelCollation> getCollations(List<RelCollation> inputCollations)
     {
         List<RelCollation> outputCollations = new ArrayList<RelCollation>(1);
         deduceCollations(
@@ -599,7 +602,8 @@ public class RexProgram
      * Given a list of expressions and a description of which are ordered,
      * computes a list of collations. The result is mutable.
      */
-    public static void deduceCollations(List<RelCollation> outputCollations,
+    public static void deduceCollations(
+        List<RelCollation> outputCollations,
         final int sourceCount,
         List<RexLocalRef> refs,
         List<RelCollation> inputCollations)
@@ -617,8 +621,10 @@ loop:
         for (RelCollation collation : inputCollations) {
             final ArrayList<RelFieldCollation> fieldCollations =
                 new ArrayList<RelFieldCollation>(0);
-            for (RelFieldCollation fieldCollation
-                : collation.getFieldCollations()) {
+            for (
+                RelFieldCollation fieldCollation
+                : collation.getFieldCollations())
+            {
                 final int source = fieldCollation.getFieldIndex();
                 final int target = targets[source];
                 if (target < 0) {
@@ -688,7 +694,7 @@ loop:
     /**
      * Gets reference counts for each expression in the program, where the
      * references are detected from later expressions in the same program, as
-     * well as the project list and condition.  Expressions with references
+     * well as the project list and condition. Expressions with references
      * counts greater than 1 are true common subexpressions.
      *
      * @return array of reference counts; the ith element in the returned array
@@ -746,12 +752,12 @@ loop:
     }
 
     /**
-     * Returns the input field that an output field is populated from, or -1
-     * if it is populated from an expression.
+     * Returns the input field that an output field is populated from, or -1 if
+     * it is populated from an expression.
      */
     public int getSourceField(int outputOrdinal)
     {
-        assert outputOrdinal >= 0 && outputOrdinal < this.projects.length;
+        assert (outputOrdinal >= 0) && (outputOrdinal < this.projects.length);
         RexLocalRef project = projects[outputOrdinal];
         int index = project.index;
         while (true) {
@@ -831,7 +837,8 @@ loop:
                     localRef.getType(),
                     "type2",
                     exprs[index].getType(),
-                    fail)) {
+                    fail))
+            {
                 assert !fail;
                 ++failCount;
                 return false;
@@ -858,7 +865,8 @@ loop:
                     typeField.getType(),
                     "type2",
                     fieldAccess.getType(),
-                    fail)) {
+                    fail))
+            {
                 assert !fail;
                 ++failCount;
                 return false;
@@ -930,8 +938,7 @@ loop:
         {
             // Constant if operator is deterministic and all operands are
             // constant.
-            return
-                call.getOperator().isDeterministic()
+            return call.getOperator().isDeterministic()
                 && RexVisitorImpl.visitArrayAnd(
                     this,
                     call.getOperands());
@@ -985,8 +992,8 @@ loop:
                 newOperands[i] = operands[i].accept(this);
             }
             return call.clone(
-                    call.getType(),
-                    newOperands);
+                call.getType(),
+                newOperands);
         }
 
         public RexNode visitOver(RexOver over)
@@ -1014,8 +1021,8 @@ loop:
             final RexNode referenceExpr =
                 fieldAccess.getReferenceExpr().accept(this);
             return new RexFieldAccess(
-                    referenceExpr,
-                    fieldAccess.getField());
+                referenceExpr,
+                fieldAccess.getField());
         }
     }
 
@@ -1040,4 +1047,3 @@ loop:
 }
 
 // End RexProgram.java
-

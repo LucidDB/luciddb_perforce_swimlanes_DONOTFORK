@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,18 +25,21 @@ import net.sf.farrago.fennel.tuple.*;
 
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.type.*;
-import org.eigenbase.util.Util;
+import org.eigenbase.util.*;
+
 
 /**
- * Static utility methods related to Fennel storage. Historically, these
- * methods were refactored from FennelRelUtil to remove their dependency
- * on the Farrago query package.
+ * Static utility methods related to Fennel storage. Historically, these methods
+ * were refactored from FennelRelUtil to remove their dependency on the Farrago
+ * query package.
  *
  * @author John Pham
  * @version $Id$
  */
 public abstract class FennelUtil
 {
+    //~ Methods ----------------------------------------------------------------
+
     /**
      * Creates a FennelTupleDescriptor for a RelDataType which is a row.
      *

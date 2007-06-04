@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -48,7 +48,6 @@ import org.openide.util.lookup.*;
  */
 public abstract class MdrUtil
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     // NOTE jvs 23-Dec-2004: This tracer cannot be statically initialized,
@@ -191,9 +190,10 @@ public abstract class MdrUtil
 
             // Register our custom ErrorManager together with the default.
             ErrorManager em = new TracingErrorManager(tracer);
-            setLookups(new Lookup[] {
+            setLookups(
+                new Lookup[] {
                     defaultLookup,
-                Lookups.singleton(em)
+                    Lookups.singleton(em)
                 });
         }
     }

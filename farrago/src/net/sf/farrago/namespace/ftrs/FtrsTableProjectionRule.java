@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -43,7 +43,6 @@ import org.eigenbase.relopt.*;
 class FtrsTableProjectionRule
     extends MedAbstractFennelProjectionRule
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -92,13 +91,14 @@ class FtrsTableProjectionRule
                 Collections.EMPTY_SET,
                 null,
                 newProjList);
+
         // empty list indicates that nothing can be projected
         if (projectedColumnList.size() == 0) {
             return;
         }
         ProjectRel newProject;
         if (newProjList.isEmpty()) {
-            newProject = null;         
+            newProject = null;
         } else {
             newProject = newProjList.get(0);
         }
@@ -108,11 +108,12 @@ class FtrsTableProjectionRule
         // based on cost, since sort order and I/O may be in competition.
         final FarragoRepos repos = FennelRelUtil.getRepos(origScan);
 
-        Integer[] projectedColumns =
+        Integer [] projectedColumns =
             projectedColumnList.toArray(
                 new Integer[projectedColumnList.size()]);
-        for (FemLocalIndex index :
-            FarragoCatalogUtil.getTableIndexes(
+        for (
+            FemLocalIndex index
+            : FarragoCatalogUtil.getTableIndexes(
                 repos,
                 origScan.ftrsTable.getCwmColumnSet()))
         {
@@ -123,9 +124,10 @@ class FtrsTableProjectionRule
             }
 
             if (!testIndexCoverage(
-                origScan.ftrsTable.getIndexGuide(),
-                index,
-                projectedColumns)) {
+                    origScan.ftrsTable.getIndexGuide(),
+                    index,
+                    projectedColumns))
+            {
                 continue;
             }
 
@@ -167,9 +169,8 @@ class FtrsTableProjectionRule
         }
         Integer [] indexProjection =
             indexGuide.getUnclusteredCoverageArray(index);
-        return
-            Arrays.asList(indexProjection).containsAll(
-                Arrays.asList(projection));
+        return Arrays.asList(indexProjection).containsAll(
+            Arrays.asList(projection));
     }
 }
 

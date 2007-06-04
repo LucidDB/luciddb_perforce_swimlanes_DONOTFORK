@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,7 +37,6 @@ import net.sf.farrago.session.*;
 public class LucidDbSessionFactory
     extends FarragoDefaultSessionFactory
 {
-
     //~ Methods ----------------------------------------------------------------
 
     // implement FarragoSessionPersonalityFactory

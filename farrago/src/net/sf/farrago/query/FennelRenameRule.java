@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2003-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2003-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -25,6 +25,7 @@ package net.sf.farrago.query;
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
 
+
 /**
  * FennelRenameRule is a rule for converting a rename-only Project into
  * FennelRename.
@@ -35,7 +36,6 @@ import org.eigenbase.relopt.*;
 public class FennelRenameRule
     extends RelOptRule
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -47,7 +47,7 @@ public class FennelRenameRule
                 ProjectRel.class,
                 null));
     }
-    
+
     public FennelRenameRule(RelOptRuleOperand rule)
     {
         super(rule);
@@ -65,29 +65,28 @@ public class FennelRenameRule
     public void onMatch(RelOptRuleCall call)
     {
         ProjectRel project = (ProjectRel) call.rels[0];
-        
+
         FennelRenameRel rename = renameChild(project);
         if (rename == null) {
             return;
         }
-        
+
         call.transformTo(rename);
     }
-    
+
     /**
      * If appropriate, creates a FennelRenameRel to replace an existing
      * ProjectRel.
-     * 
+     *
      * @param project the existing ProjectRel
-     * 
-     * @return the replacement FennelRenameRel or null if the project cannot
-     * be replaced with a FennelRenameRel
+     *
+     * @return the replacement FennelRenameRel or null if the project cannot be
+     * replaced with a FennelRenameRel
      */
     protected FennelRenameRel renameChild(ProjectRel project)
     {
-        boolean needRename =
-            RelOptUtil.checkProjAndChildInputs(project, true);
-        
+        boolean needRename = RelOptUtil.checkProjAndChildInputs(project, true);
+
         // either the inputs were different or they were identical, including
         // matching field names; in the case of the latter, let
         // RemoveTrivialProjectRule handle removing the redundant project
@@ -104,14 +103,13 @@ public class FennelRenameRule
             return null;
         }
 
-        return
-            new FennelRenameRel(
-                project.getCluster(),
-                fennelInput,
-                RelOptUtil.getFieldNames(project.getRowType()),
-                RelOptUtil.mergeTraits(
-                    fennelInput.getTraits(),
-                    new RelTraitSet(FennelRel.FENNEL_EXEC_CONVENTION)));
+        return new FennelRenameRel(
+            project.getCluster(),
+            fennelInput,
+            RelOptUtil.getFieldNames(project.getRowType()),
+            RelOptUtil.mergeTraits(
+                fennelInput.getTraits(),
+                new RelTraitSet(FennelRel.FENNEL_EXEC_CONVENTION)));
     }
 }
 

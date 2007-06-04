@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.relopt.*;
 class LcsIndexIntersectRel
     extends LcsIndexBitOpRel
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -59,13 +58,12 @@ class LcsIndexIntersectRel
     // implement Cloneable
     public LcsIndexIntersectRel clone()
     {
-        return
-            new LcsIndexIntersectRel(
-                getCluster(),
-                RelOptUtil.clone(getInputs()),
-                lcsTable,
-                startRidParamId,
-                rowLimitParamId);
+        return new LcsIndexIntersectRel(
+            getCluster(),
+            RelOptUtil.clone(getInputs()),
+            lcsTable,
+            startRidParamId,
+            rowLimitParamId);
     }
 
     // implement RelNode

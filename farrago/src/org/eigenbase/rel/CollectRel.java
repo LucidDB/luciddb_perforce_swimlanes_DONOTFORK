@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@ import org.eigenbase.relopt.*;
 import org.eigenbase.reltype.*;
 import org.eigenbase.sql.type.*;
 
+
 /**
  * A relational expression which collapses multiple rows into one.
  *
@@ -33,9 +34,9 @@ import org.eigenbase.sql.type.*;
  *
  * <ul>
  * <li>{@link com.disruptivetech.farrago.rel.FarragoMultisetSplitterRule}
- * creates a CollectRel from a call to
- * {@link org.eigenbase.sql.fun.SqlMultisetValueConstructor} or to
- * {@link org.eigenbase.sql.fun.SqlMultisetQueryConstructor}.</li>
+ * creates a CollectRel from a call to {@link
+ * org.eigenbase.sql.fun.SqlMultisetValueConstructor} or to {@link
+ * org.eigenbase.sql.fun.SqlMultisetQueryConstructor}.</li>
  * </ul>
  * </p>
  *
@@ -46,7 +47,6 @@ import org.eigenbase.sql.type.*;
 public final class CollectRel
     extends SingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final String fieldName;
@@ -106,6 +106,7 @@ public final class CollectRel
      *
      * @param rel relational expression
      * @param fieldName name of sole output field
+     *
      * @return output type of a collect relational expression
      */
     public static RelDataType deriveCollectRowType(
@@ -123,10 +124,9 @@ public final class CollectRel
             rel.getCluster().getTypeFactory().createStructType(
                 new RelDataType[] { ret },
                 new String[] { fieldName });
-        return
-            rel.getCluster().getTypeFactory().createTypeWithNullability(
-                ret,
-                false);
+        return rel.getCluster().getTypeFactory().createTypeWithNullability(
+            ret,
+            false);
     }
 }
 

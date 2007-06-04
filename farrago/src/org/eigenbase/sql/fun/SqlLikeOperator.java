@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -54,7 +54,6 @@ import org.eigenbase.util.*;
 public class SqlLikeOperator
     extends SqlSpecialOperator
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final boolean negated;
@@ -69,7 +68,8 @@ public class SqlLikeOperator
         // LIKE is right-associative, because that makes it easier to capture
         // dangling ESCAPE clauses: "a like b like c escape d" becomes
         // "a like (b like c escape d)".
-        super(name,
+        super(
+            name,
             kind,
             30,
             false,
@@ -99,14 +99,16 @@ public class SqlLikeOperator
         case 2:
             if (!SqlTypeStrategies.otcStringSameX2.checkOperandTypes(
                     callBinding,
-                    throwOnFailure)) {
+                    throwOnFailure))
+            {
                 return false;
             }
             break;
         case 3:
             if (!SqlTypeStrategies.otcStringSameX3.checkOperandTypes(
                     callBinding,
-                    throwOnFailure)) {
+                    throwOnFailure))
+            {
                 return false;
             }
 
@@ -122,7 +124,8 @@ public class SqlLikeOperator
                 callBinding.getValidator(),
                 callBinding.getScope(),
                 callBinding.getCall().operands,
-                throwOnFailure)) {
+                throwOnFailure))
+        {
             return false;
         }
         return true;

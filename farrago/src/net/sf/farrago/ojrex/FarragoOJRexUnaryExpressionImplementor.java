@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -45,7 +45,6 @@ import org.eigenbase.sql.type.*;
 public class FarragoOJRexUnaryExpressionImplementor
     extends FarragoOJRexImplementor
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final int ojUnaryExpressionOrdinal;
@@ -73,7 +72,8 @@ public class FarragoOJRexUnaryExpressionImplementor
 
         for (int i = 0; i < 1; ++i) {
             valueOperands[i] =
-                translator.convertPrimitiveAccess(operands[i],
+                translator.convertPrimitiveAccess(
+                    operands[i],
                     call.operands[i]);
         }
 
@@ -93,7 +93,8 @@ public class FarragoOJRexUnaryExpressionImplementor
         Statement assignmentStmt =
             new ExpressionStatement(
                 new AssignmentExpression(
-                    new FieldAccess(varResult,
+                    new FieldAccess(
+                        varResult,
                         NullablePrimitive.VALUE_FIELD_NAME),
                     AssignmentExpression.EQUALS,
                     implementNotNull(translator, call, valueOperands)));
@@ -128,12 +129,12 @@ public class FarragoOJRexUnaryExpressionImplementor
             new UnaryExpression(operands[0],
                 ojUnaryExpressionOrdinal);
         if ((returnType.getSqlTypeName() != SqlTypeName.BOOLEAN)
-            && (factory.getClassForPrimitive(returnType) != null)) {
+            && (factory.getClassForPrimitive(returnType) != null))
+        {
             // Cast to correct primitive return type so compiler is happy
-            return
-                new CastExpression(
-                    OJClass.forClass(factory.getClassForPrimitive(returnType)),
-                    expr);
+            return new CastExpression(
+                OJClass.forClass(factory.getClassForPrimitive(returnType)),
+                expr);
         } else {
             return expr;
         }

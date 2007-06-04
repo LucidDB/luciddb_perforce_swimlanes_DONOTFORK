@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -49,7 +49,6 @@ import org.eigenbase.util.*;
 class MedMdrNameDirectory
     extends MedAbstractNameDirectory
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final MedMdrDataServer server;
@@ -140,12 +139,11 @@ class MedMdrNameDirectory
         String [] localName)
         throws SQLException
     {
-        return
-            lookupColumnSetAndImposeType(
-                typeFactory,
-                new String[] { foreignName },
-                localName,
-                null);
+        return lookupColumnSetAndImposeType(
+            typeFactory,
+            new String[] { foreignName },
+            localName,
+            null);
     }
 
     FarragoMedColumnSet lookupColumnSetAndImposeType(
@@ -164,13 +162,13 @@ class MedMdrNameDirectory
             rowType = computeRowType(typeFactory, refClass);
         }
 
-        return
-            new MedMdrClassExtent(this,
-                typeFactory,
-                refClass,
-                foreignName,
-                localName,
-                rowType);
+        return new MedMdrClassExtent(
+            this,
+            typeFactory,
+            refClass,
+            foreignName,
+            localName,
+            rowType);
     }
 
     private RelDataType computeRowType(
@@ -217,8 +215,7 @@ class MedMdrNameDirectory
         throws SQLException
     {
         RefPackage subPackage =
-            lookupRefPackage(
-                new String[] { foreignName },
+            lookupRefPackage(new String[] { foreignName },
                 1);
         if (subPackage == null) {
             return null;

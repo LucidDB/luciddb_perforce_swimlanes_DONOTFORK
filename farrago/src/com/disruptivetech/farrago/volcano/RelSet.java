@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,7 +42,6 @@ import org.eigenbase.trace.*;
  */
 class RelSet
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final Logger tracer = EigenbaseTrace.getPlannerTracer();
@@ -131,7 +130,8 @@ class RelSet
     public RelSubset add(RelNode rel)
     {
         assert equivalentSet == null : "adding to a dead set";
-        RelSubset subset = getOrCreateSubset(
+        RelSubset subset =
+            getOrCreateSubset(
                 rel.getCluster(),
                 rel.getTraits());
         subset.add(rel);

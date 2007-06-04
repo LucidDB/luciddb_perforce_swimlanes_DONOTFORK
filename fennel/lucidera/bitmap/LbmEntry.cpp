@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -2091,7 +2091,7 @@ int LbmEntry::segmentContainsRid(
     if (rid >= startRid && rid < startRid + (nSegBytes * LbmOneByteSize)) {
         // rid is within the current segment; check the
         // appropriate byte
-        uint byteNum = (opaqueToInt(rid - startRid) / LbmOneByteSize) + 1;
+        int byteNum = (opaqueToInt(rid - startRid) / LbmOneByteSize) + 1;
         uint8_t setRid = 1 << (opaqueToInt(rid) % LbmOneByteSize);
         if (pSeg[-byteNum] & setRid) {
             return 0;

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2005-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2005-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -48,7 +48,6 @@ public abstract class FennelMultipleRel
     extends AbstractRelNode
     implements FennelRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected RelNode [] inputs;
@@ -111,15 +110,14 @@ public abstract class FennelMultipleRel
 
         FarragoPreparingStmt stmt = FennelRelUtil.getPreparingStmt(this);
 
-        return
-            new MethodCall(
-                stmt.getConnectionVariable(),
-                "dummyArray",
-                new ExpressionList(
-                    new ArrayAllocationExpression(
-                        OJClass.forClass(Object.class),
-                        new ExpressionList(null),
-                        new ArrayInitializer(expressionList))));
+        return new MethodCall(
+            stmt.getConnectionVariable(),
+            "dummyArray",
+            new ExpressionList(
+                new ArrayAllocationExpression(
+                    OJClass.forClass(Object.class),
+                    new ExpressionList(null),
+                    new ArrayInitializer(expressionList))));
     }
 
     // implement RelNode

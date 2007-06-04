@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -89,8 +89,10 @@ uint FlatFileBuffer::read()
 
     uint free = bufferSize - residual;
     char *target = pBuffer + residual;
-    uint targetSize =
-        std::min( free * sizeof(char), (uint) (fileEnd - filePosition) );
+    uint targetSize = (uint)
+        std::min( 
+            FileSize(free * sizeof(char)), 
+            fileEnd - filePosition );
     
     RandomAccessRequest readRequest;
     readRequest.pDevice = pRandomAccessDevice.get();

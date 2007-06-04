@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,6 @@ import org.eigenbase.sql.type.*;
 public class LcsRowScanRel
     extends FennelMultipleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private LcsIndexGuide indexGuide;
@@ -71,8 +70,6 @@ public class LcsRowScanRel
      */
     final Integer [] projectedColumns;
 
-    FarragoRepos repos;
-
     /**
      * Types of scans to perform.
      */
@@ -85,8 +82,8 @@ public class LcsRowScanRel
     final Integer [] residualColumns;
 
     /**
-     * Selectivity from filtering using the inputs.
-     * Possible inputs are index searches and residual filter values.
+     * Selectivity from filtering using the inputs. Possible inputs are index
+     * searches and residual filter values.
      */
     double inputSelectivity;
 
@@ -128,9 +125,8 @@ public class LcsRowScanRel
         this.residualColumns = resCols;
 
         assert (lcsTable.getPreparingStmt()
-                == FennelRelUtil.getPreparingStmt(this));
+            == FennelRelUtil.getPreparingStmt(this));
 
-        repos = FennelRelUtil.getRepos(this);
         this.inputSelectivity = inputSelectivity;
     }
 
@@ -159,8 +155,8 @@ public class LcsRowScanRel
     public RelOptCost computeSelfCost(RelOptPlanner planner)
     {
         return computeCost(
-                planner,
-                RelMetadataQuery.getRowCount(this));
+            planner,
+            RelMetadataQuery.getRowCount(this));
     }
 
     // overwrite SingleRel
@@ -178,46 +174,44 @@ public class LcsRowScanRel
             return flattenedRowType;
         } else {
             final RelDataTypeField [] fields = flattenedRowType.getFields();
-            return
-                getCluster().getTypeFactory().createStructType(
-                    new RelDataTypeFactory.FieldInfo() {
-                        public int getFieldCount()
-                        {
-                            return projectedColumns.length;
-                        }
+            return getCluster().getTypeFactory().createStructType(
+                new RelDataTypeFactory.FieldInfo() {
+                    public int getFieldCount()
+                    {
+                        return projectedColumns.length;
+                    }
 
-                        public String getFieldName(int index)
+                    public String getFieldName(int index)
+                    {
+                        final int i = projectedColumns[index].intValue();
+                        if (LucidDbOperatorTable.ldbInstance()
+                                                .isSpecialColumnId(i))
                         {
-                            final int i = projectedColumns[index].intValue();
-                            if (LucidDbOperatorTable.ldbInstance()
-                                .isSpecialColumnId(i)) {
-                                return
-                                    LucidDbOperatorTable.ldbInstance()
-                                    .getSpecialOpName(i);
-                            } else {
-                                return fields[i].getName();
-                            }
+                            return LucidDbOperatorTable.ldbInstance()
+                                                       .getSpecialOpName(i);
+                        } else {
+                            return fields[i].getName();
                         }
+                    }
 
-                        public RelDataType getFieldType(int index)
-                        {
-                            final int i = projectedColumns[index].intValue();
-                            LucidDbOperatorTable ldbInstance =
-                                LucidDbOperatorTable.ldbInstance();
-                            if (ldbInstance.isSpecialColumnId(i)) {
-                                RelDataTypeFactory typeFactory =
-                                    getCluster().getTypeFactory();
-                                SqlTypeName typeName =
-                                    ldbInstance.getSpecialOpRetTypeName(i);
-                                return
-                                    typeFactory.createTypeWithNullability(
-                                        typeFactory.createSqlType(typeName),
-                                        ldbInstance.isNullable(i));
-                            } else {
-                                return fields[i].getType();
-                            }
+                    public RelDataType getFieldType(int index)
+                    {
+                        final int i = projectedColumns[index].intValue();
+                        LucidDbOperatorTable ldbInstance =
+                            LucidDbOperatorTable.ldbInstance();
+                        if (ldbInstance.isSpecialColumnId(i)) {
+                            RelDataTypeFactory typeFactory =
+                                getCluster().getTypeFactory();
+                            SqlTypeName typeName =
+                                ldbInstance.getSpecialOpRetTypeName(i);
+                            return typeFactory.createTypeWithNullability(
+                                typeFactory.createSqlType(typeName),
+                                ldbInstance.isNullable(i));
+                        } else {
+                            return fields[i].getType();
                         }
-                    });
+                    }
+                });
         }
     }
 
@@ -244,7 +238,8 @@ public class LcsRowScanRel
             for (int i = 0; i < projList.size(); i++) {
                 Integer colId = (Integer) projList.get(i);
                 if (LucidDbOperatorTable.ldbInstance().isSpecialColumnId(
-                        colId)) {
+                        colId))
+                {
                     projList.set(
                         i,
                         LucidDbOperatorTable.ldbInstance().getSpecialOpName(
@@ -252,7 +247,6 @@ public class LcsRowScanRel
                 }
             }
         }
-
 
         // REVIEW jvs 27-Dec-2005:  Since LcsRowScanRel is given
         // a list (implying ordering) as input, it seems to me that
@@ -291,8 +285,7 @@ public class LcsRowScanRel
         pw.explain(
             this,
             nameList,
-            objects
-            );
+            objects);
     }
 
     // overwrite FennelSingleRel
@@ -311,7 +304,7 @@ public class LcsRowScanRel
         // modify the input to the scan to either scan the deletion index
         // (in the case of a full table scan) or to minus off the deletion
         // index (in the case of an index scan)
-        RelNode[] newInputs;
+        RelNode [] newInputs;
         if (isFullScan) {
             newInputs = new RelNode[inputs.length + 1];
             System.arraycopy(inputs, 0, newInputs, 1, inputs.length);
@@ -326,7 +319,7 @@ public class LcsRowScanRel
         } else {
             newInputs = new RelNode[inputs.length];
             if (inputs.length > 1) {
-                System.arraycopy(inputs, 1, newInputs, 1, inputs.length-1);
+                System.arraycopy(inputs, 1, newInputs, 1, inputs.length - 1);
             }
             newInputs[0] =
                 getIndexGuide().createMinusOfDeletionIndex(
@@ -405,12 +398,13 @@ public class LcsRowScanRel
         }
 
         if (LucidDbOperatorTable.ldbInstance().isSpecialColumnId(
-                fieldOrdinal)) {
+                fieldOrdinal))
+        {
             return null;
         } else {
             int columnOrdinal = getIndexGuide().unFlattenOrdinal(fieldOrdinal);
-            return
-                (FemAbstractColumn) lcsTable.getCwmColumnSet().getFeature().get(
+            return (FemAbstractColumn) lcsTable.getCwmColumnSet().getFeature()
+                .get(
                     columnOrdinal);
         }
     }
@@ -475,7 +469,8 @@ public class LcsRowScanRel
         if (projectedColumns != null) {
             for (int i = 0; i < projectedColumns.length; i++) {
                 if (LucidDbSpecialOperators.isLcsRidColumnId(
-                        projectedColumns[i])) {
+                        projectedColumns[i]))
+                {
                     return new RelFieldCollation[] { new RelFieldCollation(i) };
                 }
             }

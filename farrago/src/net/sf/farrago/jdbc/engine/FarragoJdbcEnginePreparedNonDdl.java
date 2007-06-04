@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -43,7 +43,6 @@ import net.sf.farrago.type.*;
 public class FarragoJdbcEnginePreparedNonDdl
     extends FarragoJdbcEnginePreparedStatement
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -120,9 +119,8 @@ public class FarragoJdbcEnginePreparedNonDdl
             throw new SQLException(ERRMSG_NOT_A_QUERY + sql);
         }
         try {
-            return
-                new FarragoResultSetMetaData(
-                    stmtContext.getPreparedRowType());
+            return new FarragoResultSetMetaData(
+                stmtContext.getPreparedRowType());
         } catch (Throwable ex) {
             throw FarragoJdbcEngineDriver.newSqlException(ex);
         }
@@ -133,9 +131,8 @@ public class FarragoJdbcEnginePreparedNonDdl
         throws SQLException
     {
         try {
-            return
-                new FarragoParameterMetaData(
-                    stmtContext.getPreparedParamType());
+            return new FarragoParameterMetaData(
+                stmtContext.getPreparedParamType());
         } catch (Throwable ex) {
             throw FarragoJdbcEngineDriver.newSqlException(ex);
         }

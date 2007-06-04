@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,9 @@ import com.lucidera.farrago.fennel.*;
 import com.lucidera.lurql.*;
 
 import java.io.*;
+
 import java.sql.*;
+
 import java.util.*;
 
 import javax.jmi.reflect.*;
@@ -74,8 +76,7 @@ import org.eigenbase.util14.*;
 public class FarragoDefaultSessionPersonality
     implements FarragoSessionPersonality
 {
-
-    //~ Static fields ----------------------------------------------------------
+    //~ Static fields/initializers ---------------------------------------------
 
     // REVIEW jvs 8-May-2007:  These are referenced from various
     // places where it seems like macker should prevent the dependency.
@@ -83,27 +84,29 @@ public class FarragoDefaultSessionPersonality
     // (probably FarragoSessionVariables), leaving these here as aliases.
 
     /**
-     * Numeric data from external data sources may have a greater precision
-     * than Farrago. Whether data of greater precision should be replaced
-     * with null when it overflows due to the greater precision.
+     * Numeric data from external data sources may have a greater precision than
+     * Farrago. Whether data of greater precision should be replaced with null
+     * when it overflows due to the greater precision.
      */
     public static final String SQUEEZE_JDBC_NUMERIC = "squeezeJdbcNumeric";
     public static final String SQUEEZE_JDBC_NUMERIC_DEFAULT = "true";
+
     /**
      * Whether statement caching is enabled for a session
      */
     public static final String CACHE_STATEMENTS = "cacheStatements";
     public static final String CACHE_STATEMENTS_DEFAULT = "true";
+
     /**
      * Whether DDL validation should be done at prepare time
      */
     public static final String VALIDATE_DDL_ON_PREPARE = "validateDdlOnPrepare";
     public static final String VALIDATE_DDL_ON_PREPARE_DEFAULT = "true";
+
     /**
-     * Whether the GENERATED ALWAYS option for identity columns should
-     * be enforced.  TODO jvs 8-May-2007:  This is only intended
-     * for use by the system during ALTER TABLE REBUILD; need to
-     * hide it from the user level.
+     * Whether the GENERATED ALWAYS option for identity columns should be
+     * enforced. TODO jvs 8-May-2007: This is only intended for use by the
+     * system during ALTER TABLE REBUILD; need to hide it from the user level.
      */
     public static final String ENFORCE_IDENTITY_GENERATED_ALWAYS =
         "enforceIdentityGeneratedAlways";
@@ -123,13 +126,17 @@ public class FarragoDefaultSessionPersonality
 
         paramValidator = new ParamValidator();
         paramValidator.registerBoolParam(
-            SQUEEZE_JDBC_NUMERIC, false);
+            SQUEEZE_JDBC_NUMERIC,
+            false);
         paramValidator.registerBoolParam(
-            CACHE_STATEMENTS, false);
+            CACHE_STATEMENTS,
+            false);
         paramValidator.registerBoolParam(
-            VALIDATE_DDL_ON_PREPARE, false);
+            VALIDATE_DDL_ON_PREPARE,
+            false);
         paramValidator.registerBoolParam(
-            ENFORCE_IDENTITY_GENERATED_ALWAYS, false);
+            ENFORCE_IDENTITY_GENERATED_ALWAYS,
+            false);
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -212,7 +219,7 @@ public class FarragoDefaultSessionPersonality
         // preparing statement, because that doesn't need to be aware of its
         // context. However, custom personalities may have a use for it, which
         // is why it is provided in the interface.
-        String sql = stmtContext == null ? "?" : stmtContext.getSql();
+        String sql = (stmtContext == null) ? "?" : stmtContext.getSql();
         FarragoPreparingStmt stmt =
             new FarragoPreparingStmt(stmtValidator, sql);
         initPreparingStmt(stmt);
@@ -261,7 +268,8 @@ public class FarragoDefaultSessionPersonality
         // implicitly dropped.
         ddlValidator.defineDropRule(
             repos.getKeysIndexesPackage().getIndexSpansClass(),
-            new FarragoSessionDdlDropRule("spannedClass",
+            new FarragoSessionDdlDropRule(
+                "spannedClass",
                 null,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_CASCADE));
 
@@ -269,7 +277,8 @@ public class FarragoDefaultSessionPersonality
         // CASCADE, they go away.
         ddlValidator.defineDropRule(
             repos.getCorePackage().getDependencySupplier(),
-            new FarragoSessionDdlDropRule("supplier",
+            new FarragoSessionDdlDropRule(
+                "supplier",
                 null,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_RESTRICT));
 
@@ -277,7 +286,8 @@ public class FarragoDefaultSessionPersonality
         // down with it.
         ddlValidator.defineDropRule(
             repos.getCorePackage().getElementOwnership(),
-            new FarragoSessionDdlDropRule("ownedElement",
+            new FarragoSessionDdlDropRule(
+                "ownedElement",
                 CwmDependency.class,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_CASCADE));
 
@@ -286,7 +296,8 @@ public class FarragoDefaultSessionPersonality
         // are dropped implicitly), so we specify the superInterface filter.
         ddlValidator.defineDropRule(
             repos.getCorePackage().getElementOwnership(),
-            new FarragoSessionDdlDropRule("namespace",
+            new FarragoSessionDdlDropRule(
+                "namespace",
                 CwmSchema.class,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_RESTRICT));
 
@@ -294,7 +305,8 @@ public class FarragoDefaultSessionPersonality
         // also be implicitly dropped.
         ddlValidator.defineDropRule(
             repos.getBehavioralPackage().getOperationMethod(),
-            new FarragoSessionDdlDropRule("specification",
+            new FarragoSessionDdlDropRule(
+                "specification",
                 null,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_CASCADE));
 
@@ -432,7 +444,7 @@ public class FarragoDefaultSessionPersonality
             return null;
         }
         return new LurqlQueryProcessor(
-                database.getSystemRepos().getMdrRepos());
+            database.getSystemRepos().getMdrRepos());
     }
 
     public boolean isSupportedType(SqlTypeName type)
@@ -510,8 +522,8 @@ public class FarragoDefaultSessionPersonality
         boolean found = resultSet.next();
         assert (found);
         boolean nextRowCount = addRowCount(resultSet, rowCounts);
-        if (tableModOp == TableModificationRel.Operation.INSERT &&
-            nextRowCount)
+        if ((tableModOp == TableModificationRel.Operation.INSERT)
+            && nextRowCount)
         {
             // if the insert is on a column store table, a second rowcount
             // may be returned, indicating the number of insert violations
@@ -560,6 +572,8 @@ public class FarragoDefaultSessionPersonality
         baseIndexMap.setIndexRoot(index, newRoot);
     }
 
+    //~ Inner Classes ----------------------------------------------------------
+
     /**
      * ParamDesc represents a session parameter descriptor
      */
@@ -569,12 +583,14 @@ public class FarragoDefaultSessionPersonality
         boolean nullability;
         Long rangeStart, rangeEnd;
 
-        public ParamDesc(int type, boolean nullability) {
+        public ParamDesc(int type, boolean nullability)
+        {
             this.type = type;
             this.nullability = nullability;
         }
 
-        public ParamDesc(int type, boolean nullability, long start, long end) {
+        public ParamDesc(int type, boolean nullability, long start, long end)
+        {
             this.type = type;
             this.nullability = nullability;
             rangeStart = start;
@@ -611,14 +627,20 @@ public class FarragoDefaultSessionPersonality
         }
 
         public void registerIntParam(
-            String name, boolean nullability, int start, int end)
+            String name,
+            boolean nullability,
+            int start,
+            int end)
         {
             assert (start <= end);
             params.put(name, new ParamDesc(INT_TYPE, nullability, start, end));
         }
 
         public void registerLongParam(
-            String name, boolean nullability, long start, long end)
+            String name,
+            boolean nullability,
+            long start,
+            long end)
         {
             assert (start <= end);
             params.put(name, new ParamDesc(LONG_TYPE, nullability, start, end));
@@ -639,14 +661,14 @@ public class FarragoDefaultSessionPersonality
             String name,
             String value)
         {
-            if (! params.containsKey(name)) {
+            if (!params.containsKey(name)) {
                 throw FarragoResource.instance().ValidatorUnknownSysParam.ex(
                     ddlValidator.getRepos().getLocalizedObjectName(name));
             }
             ParamDesc paramDesc = params.get(name);
-            if (paramDesc.nullability == false && value == null) {
-                throw FarragoResource.instance()
-                .ValidatorSysParamTypeMismatch.ex(
+            if ((paramDesc.nullability == false) && (value == null)) {
+                throw FarragoResource.instance().ValidatorSysParamTypeMismatch
+                .ex(
                     value,
                     ddlValidator.getRepos().getLocalizedObjectName(name));
             } else if (value == null) {
@@ -662,7 +684,9 @@ public class FarragoDefaultSessionPersonality
                 o = Integer.valueOf(value);
                 if (paramDesc.rangeStart != null) {
                     Integer i = (Integer) o;
-                    if (i < paramDesc.rangeStart || i > paramDesc.rangeEnd) {
+                    if ((i < paramDesc.rangeStart)
+                        || (i > paramDesc.rangeEnd))
+                    {
                         throw FarragoResource.instance()
                         .ParameterValueOutOfRange.ex(value, name);
                     }
@@ -672,7 +696,9 @@ public class FarragoDefaultSessionPersonality
                 o = Long.valueOf(value);
                 if (paramDesc.rangeStart != null) {
                     Long l = (Long) o;
-                    if (l < paramDesc.rangeStart || l > paramDesc.rangeEnd) {
+                    if ((l < paramDesc.rangeStart)
+                        || (l > paramDesc.rangeEnd))
+                    {
                         throw FarragoResource.instance()
                         .ParameterValueOutOfRange.ex(value, name);
                     }
@@ -683,7 +709,7 @@ public class FarragoDefaultSessionPersonality
                 break;
             case DIRECTORY_TYPE:
                 File dir = new File(value);
-                if ( (!dir.exists()) || (!dir.isDirectory()) ) {
+                if ((!dir.exists()) || (!dir.isDirectory())) {
                     throw FarragoResource.instance().InvalidDirectory.ex(
                         value);
                 }

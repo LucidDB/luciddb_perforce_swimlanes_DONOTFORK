@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -32,10 +32,11 @@ import net.sf.farrago.resource.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.trace.*;
 
+
 /**
  * FarragoJdbcEngineDriver implements the Farrago engine/server side of the
- * {@link java.sql.Driver} interface.  It does not register itself;
- * for that, use {@link FarragoJdbcEngineDriver}.
+ * {@link java.sql.Driver} interface. It does not register itself; for that, use
+ * {@link FarragoJdbcEngineDriver}.
  *
  * @author John V. Sichi
  * @version $Id$
@@ -44,7 +45,6 @@ public abstract class FarragoUnregisteredJdbcEngineDriver
     extends FarragoAbstractJdbcDriver
     implements FarragoJdbcServerDriver
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final Logger tracer =
@@ -87,12 +87,12 @@ public abstract class FarragoUnregisteredJdbcEngineDriver
 
         try {
             if (driverUrl.equals(getBaseUrl())
-                || driverUrl.equals(getClientUrl())) {
-                return
-                    new FarragoJdbcEngineConnection(
-                        driverUrl,
-                        driverProps,
-                        newSessionFactory());
+                || driverUrl.equals(getClientUrl()))
+            {
+                return new FarragoJdbcEngineConnection(
+                    driverUrl,
+                    driverProps,
+                    newSessionFactory());
             } else {
                 throw FarragoResource.instance().JdbcInvalidUrl.ex(driverUrl);
             }

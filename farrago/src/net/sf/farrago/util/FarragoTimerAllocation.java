@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -36,7 +36,6 @@ import java.util.*;
 public class FarragoTimerAllocation
     implements FarragoAllocation
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private Timer timer;
@@ -74,8 +73,7 @@ public class FarragoTimerAllocation
         // to request immediate execution.  If there is already a task in
         // progress, it will complete first.
         synchronized (shutdownSynch) {
-            timer.schedule(
-                new CancelTask(),
+            timer.schedule(new CancelTask(),
                 0);
             while (timer != null) {
                 try {

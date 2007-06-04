@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ import org.eigenbase.trace.*;
  */
 public interface RelOptPlanner
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     public static final Logger tracer = EigenbaseTrace.getPlannerTracer();
@@ -253,8 +252,8 @@ public interface RelOptPlanner
      * <p>An important use of this method is when a {@link RelOptRule} has
      * created a relational expression which is indisputably better than the
      * original relational expression. The rule set the original relational
-     * expression's importance to zero, to reduce the search space. Pending
-     * rule calls are cancelled, and future rules will not fire.
+     * expression's importance to zero, to reduce the search space. Pending rule
+     * calls are cancelled, and future rules will not fire.
      *
      * @param rel Relational expression
      * @param importance Importance

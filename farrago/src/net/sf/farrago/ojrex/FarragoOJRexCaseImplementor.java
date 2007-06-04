@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2005-2005 Xiaoyang Luo
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2005-2007 Xiaoyang Luo
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -33,9 +33,8 @@ import org.eigenbase.sql.type.*;
 
 
 /**
- * FarragoOJRexCaseImplementor implements Farrago specifics of
- * {@link org.eigenbase.oj.rex.OJRexImplementor} for <code>CASE</code>
- * expressions.
+ * FarragoOJRexCaseImplementor implements Farrago specifics of {@link
+ * org.eigenbase.oj.rex.OJRexImplementor} for <code>CASE</code> expressions.
  *
  * @author Xiaoyang Luo
  * @version $Id$
@@ -43,7 +42,6 @@ import org.eigenbase.sql.type.*;
 public class FarragoOJRexCaseImplementor
     extends FarragoOJRexImplementor
 {
-
     //~ Methods ----------------------------------------------------------------
 
     // implement FarragoOJRexImplementor

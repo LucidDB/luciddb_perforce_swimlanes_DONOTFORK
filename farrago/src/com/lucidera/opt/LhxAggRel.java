@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,6 @@ public class LhxAggRel
     extends AggregateRelBase
     implements FennelRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -100,9 +99,9 @@ public class LhxAggRel
     public Object implementFennelChild(FennelRelImplementor implementor)
     {
         return implementor.visitChild(
-                this,
-                0,
-                getChild());
+            this,
+            0,
+            getChild());
     }
 
     // implement FennelRel
@@ -142,9 +141,8 @@ public class LhxAggRel
     public static AggFunction lookupAggFunction(
         AggregateRel.Call call)
     {
-        return
-            AggFunctionEnum.forName(
-                "AGG_FUNC_" + call.getAggregation().getName());
+        return AggFunctionEnum.forName(
+            "AGG_FUNC_" + call.getAggregation().getName());
     }
 }
 

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2005-2005 Xiaoyang Luo
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2005-2007 Xiaoyang Luo
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,6 @@ import net.sf.farrago.resource.*;
  */
 public class RuntimeTypeUtil
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -43,26 +42,27 @@ public class RuntimeTypeUtil
     private static final String javaRegexSpecials = "[]()|^-+*?{}$\\";
     private static final String SqlSimilarSpecials = "[]()|^-+*_%?{}";
     private static final String [] regCharClasses =
-        {
-            "[:ALPHA:]", "\\p{Alpha}",
-            "[:alpha:]", "\\p{Alpha}",
-            "[:UPPER:]", "\\p{Upper}",
-            "[:upper:]", "\\p{Upper}",
-            "[:LOWER:]", "\\p{Lower}",
-            "[:lower:]", "\\p{Lower}",
-            "[:DIGIT:]", "\\d",
-            "[:digit:]", "\\d",
-            "[:SPACE:]", " ",
-            "[:space:]", " ",
-            "[:WHITESPACE:]", "\\s",
-            "[:whitespace:]", "\\s",
-            "[:ALNUM:]", "\\p{alnum}",
-            "[:alnum:]", "\\p{alnum}"
-        };
+    {
+        "[:ALPHA:]", "\\p{Alpha}",
+        "[:alpha:]", "\\p{Alpha}",
+        "[:UPPER:]", "\\p{Upper}",
+        "[:upper:]", "\\p{Upper}",
+        "[:LOWER:]", "\\p{Lower}",
+        "[:lower:]", "\\p{Lower}",
+        "[:DIGIT:]", "\\d",
+        "[:digit:]", "\\d",
+        "[:SPACE:]", " ",
+        "[:space:]", " ",
+        "[:WHITESPACE:]", "\\s",
+        "[:whitespace:]", "\\s",
+        "[:ALNUM:]", "\\p{alnum}",
+        "[:alnum:]", "\\p{alnum}"
+    };
 
     //~ Methods ----------------------------------------------------------------
 
-    public static String SqlToRegexLike(String sqlPattern,
+    public static String SqlToRegexLike(
+        String sqlPattern,
         CharSequence escapeStr)
     {
         int i;
@@ -88,8 +88,10 @@ public class RuntimeTypeUtil
                         new Integer(i));
                 }
                 char nextChar = sqlPattern.charAt(i + 1);
-                if ((nextChar == '_') || (nextChar == '%')
-                    || (nextChar == escapeChar)) {
+                if ((nextChar == '_')
+                    || (nextChar == '%')
+                    || (nextChar == escapeChar))
+                {
                     javaPattern.append(nextChar);
                     i++;
                 } else {
@@ -109,7 +111,8 @@ public class RuntimeTypeUtil
         return javaPattern.toString();
     }
 
-    private static void similarEscapeRuleChecking(String sqlPattern,
+    private static void similarEscapeRuleChecking(
+        String sqlPattern,
         char escapeChar)
     {
         if (escapeChar == 0) {
@@ -128,7 +131,8 @@ public class RuntimeTypeUtil
                     }
                     char c = sqlPattern.charAt(i + 1);
                     if ((SqlSimilarSpecials.indexOf(c) < 0)
-                        && (c != escapeChar)) {
+                        && (c != escapeChar))
+                    {
                         throw FarragoResource.instance().InvalidEscapeSequence
                         .ex(
                             sqlPattern,
@@ -199,12 +203,11 @@ public class RuntimeTypeUtil
                 case '[':
                     javaPattern.append('[');
                     insideCharacterEnumeration = true;
-                    i =
-                        sqlSimilarRewriteCharEnumeration(
-                            sqlPattern,
-                            javaPattern,
-                            i,
-                            escapeChar);
+                    i = sqlSimilarRewriteCharEnumeration(
+                        sqlPattern,
+                        javaPattern,
+                        i,
+                        escapeChar);
                     break;
                 case ']':
                     if (!insideCharacterEnumeration) {
@@ -299,7 +302,8 @@ public class RuntimeTypeUtil
         return i - 1;
     }
 
-    public static String SqlToRegexSimilar(String sqlPattern,
+    public static String SqlToRegexSimilar(
+        String sqlPattern,
         CharSequence escapeStr)
     {
         char escapeChar = (char) 0;

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,9 +30,8 @@ import java.util.*;
 /**
  * FennelTupleDescriptor provides the metadata describing a tuple. This is used
  * in conjunction with FennelTupleAccessor objects to marshall and unmarshall
- * data into FennelTupleData objects from external formats.
- *
- * This class is JDK 1.4 compatible.
+ * data into FennelTupleData objects from external formats. This class is JDK
+ * 1.4 compatible.
  *
  * @author Mike Bennett
  * @version $Id$
@@ -40,7 +39,6 @@ import java.util.*;
 public class FennelTupleDescriptor
     implements Serializable
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**

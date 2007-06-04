@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.reltype.*;
 public class LcsTable
     extends MedAbstractColumnSet
 {
-
     //~ Instance fields --------------------------------------------------------
 
     /**
@@ -76,19 +75,18 @@ public class LcsTable
                 getPreparingStmt().getRepos(),
                 getCwmColumnSet());
         double inputSelectivity = 1.0;
-        
-        return
-            new LcsRowScanRel(
-                cluster,
-                emptyInput,
-                this,
-                clusteredIndexes,
-                connection,
-                null,
-                true,
-                false,
-                new Integer[0],
-                inputSelectivity);
+
+        return new LcsRowScanRel(
+            cluster,
+            emptyInput,
+            this,
+            clusteredIndexes,
+            connection,
+            null,
+            true,
+            false,
+            new Integer[0],
+            inputSelectivity);
     }
 
     public LcsIndexGuide getIndexGuide()

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2004-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2004-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -19,46 +19,40 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
 package org.eigenbase.util;
 
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.List;
+import java.util.*;
 
 
 /**
- * Filtered iterator class:  an iterator that includes only
- * elements that are instanceof a specified class.  Apologies
- * for the dorky name.
- *
- * @see Util#cast(List, Class)
- * @see Util#cast(Iterator, Class)
+ * Filtered iterator class: an iterator that includes only elements that are
+ * instanceof a specified class. Apologies for the dorky name.
  *
  * @author jason
- * @since November 9, 2004
  * @version $Id$
- **/
-public class Filterator<E> implements Iterator<E>
+ * @see Util#cast(List, Class)
+ * @see Util#cast(Iterator, Class)
+ * @since November 9, 2004
+ */
+public class Filterator<E>
+    implements Iterator<E>
 {
-    //~ Instance fields -------------------------------------------------------
+    //~ Instance fields --------------------------------------------------------
 
     Class<E> includeFilter;
     Iterator<? extends Object> iterator;
     E lookAhead;
     boolean ready;
 
-    //~ Constructors ----------------------------------------------------------
+    //~ Constructors -----------------------------------------------------------
 
-    public Filterator(
-        Iterator<?> iterator,
-        Class<E> includeFilter)
+    public Filterator(Iterator<?> iterator, Class<E> includeFilter)
     {
         this.iterator = iterator;
         this.includeFilter = includeFilter;
     }
 
-    //~ Methods ---------------------------------------------------------------
+    //~ Methods ----------------------------------------------------------------
 
     /* (non-Javadoc)
      * @see java.util.Iterator#hasNext()

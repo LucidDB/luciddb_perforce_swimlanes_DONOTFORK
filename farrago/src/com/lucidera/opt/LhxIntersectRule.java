@@ -1,8 +1,8 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Copyright (C) 2006-2006 The Eigenbase Project
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Copyright (C) 2006-2007 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,6 @@ import org.eigenbase.relopt.*;
 public class LhxIntersectRule
     extends RelOptRule
 {
-
     //~ Constructors -----------------------------------------------------------
 
     /**
@@ -75,18 +74,21 @@ public class LhxIntersectRule
         // make up the join condition
         List<Integer> leftKeys = new ArrayList<Integer>();
         List<Integer> rightKeys = new ArrayList<Integer>();
-        
+
         // an empty array means no filtering of null values
         // i.e. a null value is considered to match another null value
         List<Integer> filterNulls = new ArrayList<Integer>();
-        
+
         for (int i = 0; i < leftRel.getRowType().getFieldCount(); i++) {
             leftKeys.add(i);
             rightKeys.add(i);
         }
 
-        for (int inputNo = 1; inputNo < intersectRel.getInputs().length;
-            inputNo++) {
+        for (
+            int inputNo = 1;
+            inputNo < intersectRel.getInputs().length;
+            inputNo++)
+        {
             // perform pair-wise intersect
             RelNode rightRel = intersectRel.getInputs()[inputNo];
 

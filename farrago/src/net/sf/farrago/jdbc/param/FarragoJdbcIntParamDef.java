@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2006-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Portions Copyright (C) 2006-2006 John V. Sichi
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2006-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Portions Copyright (C) 2006-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -30,17 +30,15 @@ import org.eigenbase.util14.*;
 
 
 /**
- * FarragoJdbcEngineIntParamDef defines a integer parameter.
+ * FarragoJdbcEngineIntParamDef defines a integer parameter. This class is JDK
+ * 1.4 compatible.
  *
- * This class is JDK 1.4 compatible.
- * 
  * @author Angel Chang
  * @version $Id$
  */
 class FarragoJdbcIntParamDef
     extends FarragoJdbcParamDef
 {
-
     //~ Instance fields --------------------------------------------------------
 
     final long min;
@@ -84,6 +82,7 @@ class FarragoJdbcIntParamDef
     {
         if (value instanceof Number) {
             Number n = (Number) value;
+
             // REVIEW jvs 13-Oct-2006:  going through double could lose
             // precision for a very big long, right?
             return NumberUtil.round(n.doubleValue());

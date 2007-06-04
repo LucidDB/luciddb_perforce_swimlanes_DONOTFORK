@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import org.eigenbase.util.*;
 public class SwapJoinRule
     extends RelOptRule
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -101,7 +100,7 @@ public class SwapJoinRule
             newJoin.setVariablesStopped(
                 new HashSet<String>(join.getVariablesStopped()));
         }
-        final RexNode[] exps =
+        final RexNode [] exps =
             RelOptUtil.createSwappedJoinExprs(newJoin, join, true);
         return CalcRel.createProject(
             newJoin,
@@ -118,12 +117,12 @@ public class SwapJoinRule
         if (swapped == null) {
             return;
         }
+
         // The result is either a Project or, if the project is trivial, a
         // raw Join.
         final JoinRel newJoin =
-            swapped instanceof JoinRel ?
-                (JoinRel) swapped :
-                (JoinRel) swapped.getInput(0);
+            (swapped instanceof JoinRel) ? (JoinRel) swapped
+            : (JoinRel) swapped.getInput(0);
 
         call.transformTo(swapped);
 
@@ -137,13 +136,15 @@ public class SwapJoinRule
                 newJoin,
                 join,
                 false);
-        RelNode project = CalcRel.createProject(
+        RelNode project =
+            CalcRel.createProject(
                 swapped,
                 exps,
                 RelOptUtil.getFieldNames(newJoin.getRowType()));
 
         // Make sure extra traits are carried over from the original rel
-        project = RelOptRule.convert(
+        project =
+            RelOptRule.convert(
                 project,
                 swapped.getTraits());
 
@@ -192,18 +193,16 @@ public class SwapJoinRule
                 int index = var.getIndex();
                 if (index < leftFields.length) {
                     // Field came from left side of join. Move it to the right.
-                    return
-                        rexBuilder.makeInputRef(
-                            leftFields[index].getType(),
-                            rightFields.length + index);
+                    return rexBuilder.makeInputRef(
+                        leftFields[index].getType(),
+                        rightFields.length + index);
                 }
                 index -= leftFields.length;
                 if (index < rightFields.length) {
                     // Field came from right side of join. Move it to the left.
-                    return
-                        rexBuilder.makeInputRef(
-                            rightFields[index].getType(),
-                            index);
+                    return rexBuilder.makeInputRef(
+                        rightFields[index].getType(),
+                        index);
                 }
                 throw Util.newInternal(
                     "Bad field offset: index="

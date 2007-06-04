@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -36,7 +36,6 @@ import org.eigenbase.rex.*;
 public abstract class FilterRelBase
     extends SingleRel
 {
-
     //~ Instance fields --------------------------------------------------------
 
     private final RexNode condition;
@@ -46,7 +45,7 @@ public abstract class FilterRelBase
     /**
      * Creates a filter.
      *
-     * @param cluster {@link RelOptCluster} this relational expression belongs
+     * @param cluster {@link RelOptCluster}  this relational expression belongs
      * to
      * @param traits the traits of this rel
      * @param child input relational expression
@@ -87,8 +86,8 @@ public abstract class FilterRelBase
     public double getRows()
     {
         return estimateFilteredRows(
-                getChild(),
-                condition);
+            getChild(),
+            condition);
     }
 
     public static double estimateFilteredRows(RelNode child, RexProgram program)
@@ -101,16 +100,14 @@ public abstract class FilterRelBase
         } else {
             condition = program.expandLocalRef(programCondition);
         }
-        return
-            estimateFilteredRows(
-                child,
-                condition);
+        return estimateFilteredRows(
+            child,
+            condition);
     }
-    
+
     public static double estimateFilteredRows(RelNode child, RexNode condition)
     {
-        return
-            RelMetadataQuery.getRowCount(child)
+        return RelMetadataQuery.getRowCount(child)
             * RelMetadataQuery.getSelectivity(child, condition);
     }
 

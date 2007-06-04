@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2002-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2002-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This library is free software; you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published by the
@@ -52,7 +52,6 @@ import java.util.*;
  */
 public abstract class Property
 {
-
     //~ Instance fields --------------------------------------------------------
 
     protected final Properties properties;
@@ -215,8 +214,7 @@ public abstract class Property
     protected static boolean toBoolean(final String value)
     {
         String trimmedLowerValue = value.toLowerCase().trim();
-        return
-            trimmedLowerValue.equals("1")
+        return trimmedLowerValue.equals("1")
             || trimmedLowerValue.equals("true")
             || trimmedLowerValue.equals("yes");
     }
@@ -238,9 +236,10 @@ public abstract class Property
      * <p/>A trigger list is associated with a property key, and contains zero
      * or more {@link Trigger} objects.
      *
-     * <p/>Each {@link Trigger} is stored in a {@link WeakReference} so that when
-     * the Trigger is only reachable via weak references the Trigger will be be
-     * collected and the contents of the WeakReference will be set to null.
+     * <p/>Each {@link Trigger} is stored in a {@link WeakReference} so that
+     * when the Trigger is only reachable via weak references the Trigger will
+     * be be collected and the contents of the WeakReference will be set to
+     * null.
      */
     private static class TriggerList
         extends ArrayList

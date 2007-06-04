@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Copyright (C) 2005-2005 Disruptive Tech
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,6 @@ import org.eigenbase.reltype.*;
 public interface FarragoTypeFactory
     extends OJTypeFactory
 {
-
     //~ Methods ----------------------------------------------------------------
 
     /**
@@ -130,8 +129,9 @@ public interface FarragoTypeFactory
      * DatabaseMetaData#getColumns} call. See {@link #createResultSetType} for
      * details on type substitutions.
      *
-     * @param getColumnsResultSet {@link ResultSet} positioned on a row returned
-     * from the getColumns call; result set position is unchanged by this method
+     * @param getColumnsResultSet {@link ResultSet}  positioned on a row
+     * returned from the getColumns call; result set position is unchanged by
+     * this method
      * @param substitute if true, use substitutions; if false, throw exception
      * for unsupported types or type attributes
      *
@@ -146,8 +146,9 @@ public interface FarragoTypeFactory
      * DatabaseMetaData#getColumns} call. See {@link #createResultSetType} for
      * details on type substitutions.
      *
-     * @param getColumnsResultSet {@link ResultSet} positioned on a row returned
-     * from the getColumns call; result set position is unchanged by this method
+     * @param getColumnsResultSet {@link ResultSet}  positioned on a row
+     * returned from the getColumns call; result set position is unchanged by
+     * this method
      * @param substitute if true, use substitutions; if false, throw exception
      * for unsupported types or type attributes
      * @param typeMapping types to substitute

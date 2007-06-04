@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2005 LucidEra, Inc.
-// Copyright (C) 2005-2005 The Eigenbase Project
-// Portions Copyright (C) 2003-2005 John V. Sichi
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -45,8 +45,7 @@ public class FlatFileFennelRel
     extends TableAccessRelBase
     implements FennelRel
 {
-
-    //~ Static fields ----------------------------------------------------------
+    //~ Static fields/initializers ---------------------------------------------
 
     // name of the session parameter for log directory
     public static final String LOG_DIR = "logDir";
@@ -173,9 +172,10 @@ public class FlatFileFennelRel
                 SqlTypeName.VARCHAR,
                 MAX_ROW_ERROR_TEXT_WIDTH);
         errorText = typeFactory.createTypeWithNullability(errorText, true);
-        RelDataType errorType = typeFactory.createStructType(
-            new RelDataType[] { errorText },
-            new String[] { "ROW_TEXT" });
+        RelDataType errorType =
+            typeFactory.createStructType(
+                new RelDataType[] { errorText },
+                new String[] { "ROW_TEXT" });
         implementor.setErrorRecordType(this, streamDef, errorType);
 
         return streamDef;

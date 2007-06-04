@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2006-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2006-2006 LucidEra, Inc.
-// Portions Copyright (C) 2006-2006 John V. Sichi
+// Copyright (C) 2006-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2006-2007 LucidEra, Inc.
+// Portions Copyright (C) 2006-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -22,34 +22,40 @@
 */
 package org.eigenbase.rex;
 
-import org.eigenbase.util.Permutation;
+import org.eigenbase.util.*;
+
 
 /**
- * Visitor which replaces {@link RexLocalRef} objects after the expressions
- * in a {@link RexProgram} have been reordered.
- *
- * @see RexPermuteInputsShuttle
+ * Visitor which replaces {@link RexLocalRef} objects after the expressions in a
+ * {@link RexProgram} have been reordered.
  *
  * @author jhyde
  * @version $Id$
+ * @see RexPermuteInputsShuttle
  */
 public class RexPermutationShuttle
     extends RexShuttle
 {
+    //~ Instance fields --------------------------------------------------------
+
     private final Permutation permutation;
+
+    //~ Constructors -----------------------------------------------------------
 
     public RexPermutationShuttle(Permutation permutation)
     {
         this.permutation = permutation;
     }
 
+    //~ Methods ----------------------------------------------------------------
+
     public RexNode visitLocalRef(RexLocalRef local)
     {
         final int index = local.getIndex();
         int target = permutation.getTarget(index);
         return new RexLocalRef(
-                target,
-                local.getType());
+            target,
+            local.getType());
     }
 }
 

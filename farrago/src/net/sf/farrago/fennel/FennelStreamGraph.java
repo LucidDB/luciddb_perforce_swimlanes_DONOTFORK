@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2006 The Eigenbase Project
-// Copyright (C) 2005-2006 Disruptive Tech
-// Copyright (C) 2005-2006 LucidEra, Inc.
-// Portions Copyright (C) 2003-2006 John V. Sichi
+// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2007 Disruptive Tech
+// Copyright (C) 2005-2007 LucidEra, Inc.
+// Portions Copyright (C) 2003-2007 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,6 @@ import net.sf.farrago.util.*;
 public class FennelStreamGraph
     implements FarragoAllocation
 {
-
     //~ Static fields/initializers ---------------------------------------------
 
     private static final Logger tracer =
@@ -73,7 +72,8 @@ public class FennelStreamGraph
      *
      * @return handle to stream
      */
-    public FennelStreamHandle findStream(FarragoMetadataFactory metadataFactory,
+    public FennelStreamHandle findStream(
+        FarragoMetadataFactory metadataFactory,
         String streamName,
         boolean isInput)
     {
@@ -180,10 +180,9 @@ public class FennelStreamGraph
     {
         traceStreamHandle("fetch", streamHandle);
         try {
-            return
-                FennelStorage.tupleStreamFetch(
-                    streamHandle.getLongHandle(),
-                    byteArray);
+            return FennelStorage.tupleStreamFetch(
+                streamHandle.getLongHandle(),
+                byteArray);
         } catch (SQLException ex) {
             throw fennelDbHandle.handleNativeException(ex);
         }
@@ -210,11 +209,10 @@ public class FennelStreamGraph
             streamHandle,
             execStreamInputOrdinal);
         try {
-            return
-                FennelStorage.tupleStreamTransformFetch(
-                    streamHandle.getLongHandle(),
-                    execStreamInputOrdinal,
-                    byteArray);
+            return FennelStorage.tupleStreamTransformFetch(
+                streamHandle.getLongHandle(),
+                execStreamInputOrdinal,
+                byteArray);
         } catch (SQLException ex) {
             throw fennelDbHandle.handleNativeException(ex);
         }
