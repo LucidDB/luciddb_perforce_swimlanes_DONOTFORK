@@ -475,6 +475,27 @@ public class LoptMetadataTest
             Math.sqrt(tableRowCount * selectedRowCount),
             cost);
     }
+    
+    public void testCumulativeCostRowScanWithInputs()
+        throws Exception
+    {
+        // Make sure the cumulative cost reflects filtering cost, even
+        // when the filters are pushed down as inputs into the row scan
+        HepProgramBuilder programBuilder = new HepProgramBuilder();
+        programBuilder.addRuleClass(LcsIndexAccessRule.class);
+        transformQuery(
+            programBuilder.createProgram(),
+            "select * from emps where age = 30");
+        RelOptCost cost = RelMetadataQuery.getCumulativeCost(rootRel);
+
+        // Cumulative cost is the filtered table access since the
+        // predicate is sargable.
+        double tableRowCount = COLSTORE_EMPS_ROWCOUNT;
+        double selectedRowCount = tableRowCount * DEFAULT_SARGABLE_SELECTIVITY;
+        checkCost(
+            Math.sqrt(tableRowCount * selectedRowCount),
+            cost);
+    }
 
     public void testCumulativeCostFilteredProjection()
         throws Exception
@@ -784,6 +805,22 @@ public class LoptMetadataTest
 
         // TODO: in and not in operators, but does IN work?
     }
+    
+    public void testRowCountRowScanWithInputs()
+        throws Exception
+    {
+        // Make sure the row count reflects the filters that are inputs
+        // into the row scan
+        HepProgramBuilder programBuilder = new HepProgramBuilder();
+        programBuilder.addRuleClass(LcsIndexAccessRule.class);
+        transformQuery(
+            programBuilder.createProgram(),
+            "select * from emps where deptno = 10");
+
+        Double result = RelMetadataQuery.getRowCount(rootRel);
+        assertTrue(result != null);
+        assertEquals(COLSTORE_EMPS_ROWCOUNT * .01, result, EPSILON);
+    }
 
     private void checkRowCountJoin(String sql, Double expected)
         throws Exception
@@ -834,6 +871,25 @@ public class LoptMetadataTest
         checkRowCountJoin(
             "select * from t1, t2 where t1.a = t2.a and t2.b = 1",
             1000 * DEFAULT_SARGABLE_SELECTIVITY);
+    }
+    
+    public void testRowCountLeftOuterJoinNoColStats()
+        throws Exception
+    {
+        checkRowCountJoin(
+            "select * from emps e left outer join depts d "+
+            "on e.deptno = d.deptno and d.dname = 'foo'",
+            (double) COLSTORE_EMPS_ROWCOUNT);
+    }
+    
+    public void testRowCountRightOuterJoinNoColStats()
+        throws Exception
+    {
+        checkRowCountJoin(
+            "select * from depts d right outer join emps e "+
+            "on e.deptno = d.deptno and d.dname = 'foo'",
+            (double) COLSTORE_EMPS_ROWCOUNT);
+        
     }
 
     public void testRowCountJoinNonEquiJoin()
