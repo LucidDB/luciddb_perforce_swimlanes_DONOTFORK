@@ -49,7 +49,6 @@ CacheImpl<PageT,VictimPolicyT>
 :
     deviceTable(CompoundId::getMaxDeviceCount()),
     pageTable(),
-    pages(params.nMemPagesMax),
     bufferAllocator(
         pBufferAllocatorInit ?
         *pBufferAllocatorInit
@@ -62,23 +61,7 @@ CacheImpl<PageT,VictimPolicyT>
 
     initializeStats();
 
-    // allocate pages, adding all of them onto the free list and registering
-    // them with victimPolicy
-    for (uint i = 0; i < params.nMemPagesMax; i++) {
-        PBuffer pBuffer = NULL;
-        if (i < params.nMemPagesInit) {
-            pBuffer = static_cast<PBuffer>(
-                bufferAllocator.allocate());
-        }
-        PageT &page = *new PageT(*this,pBuffer);
-        pages[i] = &page;
-        if (pBuffer) {
-            unmappedBucket.pageList.push_back(page);
-        } else {
-            unallocatedBucket.pageList.push_back(page);
-        }
-        victimPolicy.registerPage(page);
-    }
+    allocatePages(params);
 
     // initialize page hash table
     // NOTE: this is the size of the page hash table; 2N is for a 50%
@@ -125,6 +108,106 @@ void CacheImpl<PageT,VictimPolicyT>::initializeStats()
 }
 
 template <class PageT,class VictimPolicyT>
+void CacheImpl<PageT,VictimPolicyT>::allocatePages(CacheParams const &params)
+{
+    static const int allocErrorMsgSize = 255;
+
+    // Make two attempts: First, use the configured values.  If that fails, 
+    // try again with default nMemPagesMax.  If that fails, throw in the towel.
+    for(int attempts = 0; attempts < 2; attempts++) {
+        bool allocError = false;
+        int allocErrorCode = 0;
+        char allocErrorMsg[allocErrorMsgSize + 1] = { 0 };
+
+        uint nPagesMax = params.nMemPagesMax;
+        uint nPagesInit = params.nMemPagesInit;
+
+        try {
+            if (attempts != 0) {
+                nPagesMax = CacheParams::defaultMemPagesMax;
+                nPagesInit = CacheParams::defaultMemPagesInit;
+            }
+
+            pages.clear();
+            if (pages.capacity() > nPagesMax) {
+                // Reset capacity of pages to a smaller value by swapping pages
+                // with a temporary vector that has no capacity.
+                std::vector<PageT *>(0).swap(pages);
+            }
+            pages.reserve(nPagesMax);
+            pages.assign(nPagesMax, NULL);
+
+            // allocate pages, but defer adding all of them onto the free list
+            for (uint i = 0; i < nPagesMax; i++) {
+                PBuffer pBuffer = NULL;
+                if (i < nPagesInit) {
+                    pBuffer = static_cast<PBuffer>(
+                        bufferAllocator.allocate(&allocErrorCode));
+                    if (pBuffer == NULL) {
+                        allocError = true;
+                        strncpy(
+                            allocErrorMsg, "mmap failed", allocErrorMsgSize);
+                        break;
+                    }
+                }
+                PageT &page = *new PageT(*this,pBuffer);
+                pages[i] = &page;
+            }
+        } catch(std::exception &excn) {
+            allocError = true;
+            allocErrorCode = 0;
+            if (dynamic_cast<std::bad_alloc *>(&excn) != NULL) {
+                strncpy(allocErrorMsg, "malloc failed", allocErrorMsgSize);
+            } else {
+                strncpy(allocErrorMsg, excn.what(), allocErrorMsgSize);
+            }
+        }
+
+        if (!allocError) {
+            // successful allocation
+            break;
+        }
+
+        // Free the allocated pages
+        for (uint i = 0; i < pages.size(); i++) {
+            if (!pages[i]) {
+                break;
+            }
+            PBuffer pBuffer = pages[i]->pBuffer;
+            deleteAndNullify(pages[i]);
+            if (pBuffer) {
+                // Ignore any error. We are sometimes unable to deallocate
+                // pages when trying to recover from initial failure.  Likely
+                // the second attempt will fail as well.  This leads to a
+                // failed assertion in the VMAllocator destructor.  See the
+                // comment there.
+                bufferAllocator.deallocate(pBuffer);
+            }
+        }
+
+        if (attempts != 0) {
+            // Reduced page count still failed.  Give up.
+            close();
+            throw SysCallExcn(std::string(allocErrorMsg), allocErrorCode);
+        }
+    }
+
+    // Go back and add the pages to the free list and register them with
+    // victimPolicy (requires no further memory allocation as the free lists
+    // and victim policy use IntrusiveList and IntrusiveDList).
+    for (uint i = 0; i < pages.size(); i++) {
+        PageT *page = pages[i];
+        PBuffer pBuffer = page->pBuffer;
+        if (pBuffer) {
+            unmappedBucket.pageList.push_back(*page);
+        } else {
+            unallocatedBucket.pageList.push_back(*page);
+        }
+        victimPolicy.registerPage(*page);
+    }
+}
+
+template <class PageT,class VictimPolicyT>
 uint CacheImpl<PageT,VictimPolicyT>::getAllocatedPageCount()
 {
     SXMutexSharedGuard guard(unallocatedBucket.mutex);
@@ -149,10 +232,42 @@ void CacheImpl<PageT,VictimPolicyT>::setAllocatedPageCount(
         pages.size() - unallocatedBucket.pageList.size();
     if (nMemPages < nMemPagesDesired) {
         // allocate some more
-        PageBucketMutator mutator(unallocatedBucket.pageList);
-        for (; nMemPages < nMemPagesDesired; ++nMemPages) {
+
+        // LER-5976: Allocate all pBuffers ahead of time so we can revert to
+        // the old cache size if there's an allocation error.
+        int nMemPagesToAllocate = nMemPagesDesired - nMemPages;
+        std::vector<PBuffer> buffers(nMemPagesToAllocate);
+
+        for (int i = 0; i < nMemPagesToAllocate; ++i) {
+            int errorCode;
             PBuffer pBuffer = static_cast<PBuffer>(
-                bufferAllocator.allocate());
+                bufferAllocator.allocate(&errorCode));
+
+            if (pBuffer == NULL) {
+                // Release each allocated buffer and re-throw
+                for(int i = 0; i < nMemPagesToAllocate; i++) {
+                    if (buffers[i] == NULL) {
+                        break;
+                    }
+
+                    // Ignore any errors and try to deallocate as many of the
+                    // buffers as possible.  Ignoring errors leads to a failed
+                    // assertion in the VMAllocator destructor on shutdown. See
+                    // the comment there.
+                    bufferAllocator.deallocate(buffers[i]);
+                }
+                buffers.clear();
+                std::vector<PBuffer>(0).swap(buffers); // dealloc vector
+
+                throw SysCallExcn("mmap failed", errorCode);
+            }
+
+            buffers[i] = pBuffer;
+        }
+
+        PageBucketMutator mutator(unallocatedBucket.pageList);
+        for (int i = 0; i < nMemPagesToAllocate; i++) {
+            PBuffer pBuffer = buffers[i];
             PageT *page = mutator.detach();
             assert(!page->pBuffer);
             page->pBuffer = pBuffer;
@@ -166,13 +281,13 @@ void CacheImpl<PageT,VictimPolicyT>::setAllocatedPageCount(
             do {
                 page = findFreePage();
             } while (!page);
-            try {
-                bufferAllocator.deallocate(page->pBuffer);
-            } catch (...) {
-                // if the page buffer couldn't be deallocated, put it back
+
+            int errorCode;
+            if (bufferAllocator.deallocate(page->pBuffer, &errorCode)) {
+                // If the page buffer couldn't be deallocated, put it back
                 // before reporting the error
                 freePage(*page);
-                throw;
+                throw SysCallExcn("munmap failed", errorCode);
             }
             page->pBuffer = NULL;
             // move to unallocatedBucket
@@ -254,14 +369,24 @@ PageT *CacheImpl<PageT,VictimPolicyT>
             page->waitForPendingIO(pageGuard);
         }
 #ifdef DEBUG
-        bufferAllocator.setProtection(page->pBuffer, cbPage, false);
+        int errorCode;
+        if (bufferAllocator.setProtection(
+                page->pBuffer, cbPage, false, &errorCode))
+        {
+            throw new SysCallExcn("memory protection failed", errorCode);
+        }
 #endif
     } else {
         // TODO jvs 7-Feb-2006:  protection for other cases
 #ifdef DEBUG
         StrictMutexGuard pageGuard(page->mutex);
         if (page->nReferences == 1) {
-            bufferAllocator.setProtection(page->pBuffer, cbPage, true);
+            int errorCode;
+            if (bufferAllocator.setProtection(
+                    page->pBuffer, cbPage, true, &errorCode))
+            {
+                throw new SysCallExcn("memory protection failed", errorCode);
+            }
         }
 #endif
     }
@@ -283,7 +408,13 @@ void CacheImpl<PageT,VictimPolicyT>
         // originated from lockScratchPage()
         bFree = true;
     } else {
-        bufferAllocator.setProtection(page.pBuffer, cbPage, false);
+        int errorCode;
+        if (bufferAllocator.setProtection(
+                page.pBuffer, cbPage, false, &errorCode))
+        {
+            throw new SysCallExcn("memory protection failed", errorCode);
+        }
+
         page.lock.release(lockMode,txnId);
     }
     page.nReferences--;
@@ -728,7 +859,10 @@ void CacheImpl<PageT,VictimPolicyT>::closeImpl()
         victimPolicy.unregisterPage(*(pages[i]));
         PBuffer pBuffer = pages[i]->pBuffer;
         if (pBuffer) {
-            bufferAllocator.deallocate(pBuffer);
+            int errorCode;
+            if (bufferAllocator.deallocate(pBuffer, &errorCode)) {
+                throw SysCallExcn("munmap failed", errorCode);
+            }
         }
         deleteAndNullify(pages[i]);
     }

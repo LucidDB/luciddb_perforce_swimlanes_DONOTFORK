@@ -37,7 +37,7 @@ class VMAllocator : public CacheAllocator
     size_t cbAlloc;
     size_t nAllocs;
     bool bLockPages;
-    
+
 public:
     /**
      * Constructs a new VMAllocator.
@@ -56,9 +56,10 @@ public:
 // ----------------------------------------------------------------------
 // Implementation of CacheAllocator interface
 // ----------------------------------------------------------------------
-    virtual void *allocate();
-    virtual void deallocate(void *pMem);
-    virtual void setProtection(void *pMem, uint cb, bool readOnly);
+    virtual void *allocate(int *pErrorCode = NULL);
+    virtual int deallocate(void *pMem, int *pErrorCode = NULL);
+    virtual int setProtection(
+        void *pMem, uint cb, bool readOnly, int *pErrorCode = NULL);
     virtual size_t getBytesAllocated() const;
 };
 

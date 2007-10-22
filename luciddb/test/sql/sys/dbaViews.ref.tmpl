@@ -241,12 +241,11 @@
 0: jdbc:luciddb:> select catalog_name, view_name, original_text
 . . . . . . . . > from sys_root.dba_views
 . . . . . . . . > where schema_name='DBAVTEST';
-+---------------+------------+-------------------------------+
-| CATALOG_NAME  | VIEW_NAME  |         ORIGINAL_TEXT         |
-+---------------+------------+-------------------------------+
-| LOCALDB       | EMPVIEW    | 
-select * from dbavtest.emps  |
-+---------------+------------+-------------------------------+
++---------------+------------+------------------------------+
+| CATALOG_NAME  | VIEW_NAME  |        ORIGINAL_TEXT         |
++---------------+------------+------------------------------+
+| LOCALDB       | EMPVIEW    | select * from dbavtest.emps  |
++---------------+------------+------------------------------+
 0: jdbc:luciddb:> 
 0: jdbc:luciddb:> select table_name, last_analyze_row_count, 
 . . . . . . . . >   last_analyze_timestamp > creation_timestamp
@@ -369,6 +368,15 @@ sqlline> !connect jdbc:luciddb: sa ""
 +-------------+--------------+
 +-------------+--------------+
 0: jdbc:luciddb:> 
-0: jdbc:luciddb:> 
+0: jdbc:luciddb:> -- check if number of temp allocated pages is 0
+0: jdbc:luciddb:> alter system deallocate old;
+0: jdbc:luciddb:> select counter_name, counter_value
+. . . . . . . . > from sys_root.dba_performance_counters
+. . . . . . . . > where counter_name = 'TempPagesAllocatedAfterReclaim';
++---------------------------------+----------------+
+|          COUNTER_NAME           | COUNTER_VALUE  |
++---------------------------------+----------------+
+| TempPagesAllocatedAfterReclaim  | 0              |
++---------------------------------+----------------+
 0: jdbc:luciddb:> 
 0: jdbc:luciddb:> !quit

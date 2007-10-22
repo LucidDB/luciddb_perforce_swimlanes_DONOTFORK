@@ -29,6 +29,7 @@
 #include "fennel/device/RandomAccessRequest.h"
 #include "fennel/cache/Cache.h"
 #include "fennel/cache/CacheAllocator.h"
+#include "fennel/common/SysCallExcn.h"
 
 FENNEL_BEGIN_NAMESPACE
 
@@ -319,8 +320,12 @@ public:
             return false;
         }
 #ifdef DEBUG
-        getCache().getAllocator().setProtection(
-            pBuffer, getCache().getPageSize(), false);
+        int errorCode;
+        if (getCache().getAllocator().setProtection(
+                pBuffer, getCache().getPageSize(), false, &errorCode)) 
+        {
+            throw SysCallExcn("memory protection failed", errorCode);
+        }
 #endif
         return lock.tryUpgrade(txnId);
     }
@@ -338,8 +343,12 @@ public:
             waitForPendingIO(pageGuard);
         }
 #ifdef DEBUG
-        getCache().getAllocator().setProtection(
-            pBuffer, getCache().getPageSize(), false);
+        int errorCode;
+        if (getCache().getAllocator().setProtection(
+                pBuffer, getCache().getPageSize(), false, &errorCode))
+        {
+            throw SysCallExcn("memory protection failed", errorCode);
+        }
 #endif
         bool rc = lock.tryUpgrade(txnId);
         assert(rc);

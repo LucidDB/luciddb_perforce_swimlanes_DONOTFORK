@@ -31,6 +31,7 @@
 #include "fennel/cache/CacheParams.h"
 #include "fennel/common/ConfigMap.h"
 #include "fennel/common/FennelExcn.h"
+#include "fennel/common/FennelResource.h"
 #include "fennel/common/InvalidParamExcn.h"
 #include "fennel/common/Backtrace.h"
 #include "fennel/btree/BTreeBuilder.h"
@@ -240,6 +241,24 @@ void CmdInterpreter::visit(ProxyCmdOpenDatabase &cmd)
             scratchAccessor);
         pDb->recover(recoveryFactory);
     }
+
+    // Cache initialization may have been unable to allocate the requested
+    // number of pages -- check for this case and report it in the log.
+    if (pCache->getMaxAllocatedPageCount() != cacheParams.nMemPagesMax ||
+        pCache->getAllocatedPageCount() != cacheParams.nMemPagesInit)
+    {
+        FENNEL_DELEGATE_TRACE(
+            TRACE_WARNING, 
+            pDb,
+            "Unable to allocate "
+            << cacheParams.nMemPagesInit 
+            << " (of "
+            << cacheParams.nMemPagesMax
+            << " max) cache pages; allocated "
+            << pCache->getAllocatedPageCount()
+            << " cache pages.");
+    }
+
     setDbHandle(cmd.getResultHandle(),pDbHandle.release());
 }
     
@@ -273,17 +292,32 @@ void CmdInterpreter::visit(ProxyCmdSetParam &cmd)
         if (pageCount <= 0 || pageCount > pCache->getMaxAllocatedPageCount()) {
             throw InvalidParamExcn("1", "'cachePagesMax'");
         }
-        ExecStreamResourceQuantity available;
-        available.nCachePages = pageCount;
-        if (!pDbHandle->pResourceGovernor->setResourceAvailability(
-            available, EXEC_RESOURCE_CACHE_PAGES))
-        {
-            throw InvalidParamExcn(
-                "the number of pages currently assigned (plus reserve)",
-                "'cachePagesMax'");
+
+        bool decreasingPageCount = pageCount < pCache->getAllocatedPageCount();
+        if (decreasingPageCount) {
+            // Let governor veto a page count decrease
+            ExecStreamResourceQuantity available;
+            available.nCachePages = pageCount;
+            if (!pDbHandle->pResourceGovernor->setResourceAvailability(
+                    available, EXEC_RESOURCE_CACHE_PAGES))
+            {
+                throw InvalidParamExcn(
+                    "the number of pages currently assigned (plus reserve)",
+                    "'cachePagesMax'");
+            }
         }
+
         pCache->setAllocatedPageCount(pageCount);
 
+        if (!decreasingPageCount) {
+            // Notify governor of increased page count
+            ExecStreamResourceQuantity available;
+            available.nCachePages = pageCount;
+            bool result =
+                pDbHandle->pResourceGovernor->setResourceAvailability(
+                    available, EXEC_RESOURCE_CACHE_PAGES);
+            assert(result);
+        }
     } else if (paramName.compare("expectedConcurrentStatements") == 0) {
         int nStatements = boost::lexical_cast<int>(pParam->getValue());
         SharedCache pCache = pDbHandle->pDb->getCache();
