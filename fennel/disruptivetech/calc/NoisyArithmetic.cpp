@@ -108,8 +108,13 @@ DO(short)
 DO(unsigned short)
 DO(int)
 DO(unsigned int)
+#if __WORDSIZE == 64
+DO(long int)
+DO(long unsigned int)
+#else
 DO(long long int)
 DO(long long unsigned int)
+#endif
 DO(float)
 DO(double)
 DO(long double)
@@ -434,6 +439,19 @@ UNSIGNED_NEG(unsigned short)
 UNSIGNED_NEG(unsigned int)
 UNSIGNED_NEG(unsigned long long int)
 
+#if __WORDSIZE == 64
+SIGNED_ADD(long int)
+UNSIGNED_ADD(unsigned long int)
+SIGNED_SUB(long int)
+UNSIGNED_SUB(unsigned long int)
+SIGNED_MUL(long int)
+UNSIGNED_MUL(unsigned long int)
+SIGNED_DIV(long int)
+SIGNED_NEG(long int)
+UNSIGNED_DIV(unsigned long int)
+UNSIGNED_NEG(unsigned long int)
+#endif
+    
 FLOATING_ADD(float)
 FLOATING_ADD(double)
 FLOATING_ADD(long double)
