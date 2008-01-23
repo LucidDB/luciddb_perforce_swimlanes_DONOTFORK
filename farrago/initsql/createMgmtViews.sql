@@ -176,6 +176,14 @@ create or replace procedure kill_statement_match(
   specific kill_statement_match_cancel
   external name 'class net.sf.farrago.syslib.FarragoKillUDR.killStatementMatch';
 
+-- sets a filter on the optimizer rules to be used in the current session
+create or replace procedure set_opt_rule_desc_exclusion_filter(
+    in regex varchar(2000))
+language java
+contains sql
+external name 
+'class net.sf.farrago.syslib.FarragoManagementUDR.setOptRuleDescExclusionFilter';
+
 -- exports the catalog to an XMI file
 create or replace procedure export_catalog_xmi(in filename varchar(65535))
   language java
@@ -910,3 +918,15 @@ specific std_timestamp_to_char
 no sql
 external name 'class net.sf.farrago.syslib.FarragoConvertDatetimeUDR.timestamp_to_char';
 
+-- retrieves a long catalog string attribute in chunks
+create or replace function repository_lob_text(
+  mof_id varchar(128),
+  attribute_name varchar(128))
+returns table(
+  chunk_offset integer,
+  chunk_text varchar(1024))
+language java
+parameter style system defined java
+no sql
+external name 
+'class net.sf.farrago.syslib.FarragoManagementUDR.lobText';
