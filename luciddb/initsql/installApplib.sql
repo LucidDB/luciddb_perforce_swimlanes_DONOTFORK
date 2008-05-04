@@ -257,7 +257,7 @@ external name 'applib.applibJar:com.lucidera.luciddb.applib.string.RightNUdf.exe
 
 -- define StrReplace function
 create or replace function applib.str_replace(inStr varchar(65535), oldStr varchar(65535), newStr varchar(65535))
-returns varchar(128)
+returns varchar(65535)
 language java
 deterministic
 no sql
@@ -764,6 +764,14 @@ parameter style system defined java
 deterministic
 no sql
 external name 'applib.applibJar:com.lucidera.luciddb.applib.cursor.PivotColumnsToRowsUdx.execute';
+
+-- retain top most rows
+create or replace function applib.topN(IN_CURSOR cursor, N int)
+returns table(IN_CURSOR.*)
+language java
+parameter style system defined java
+no sql
+external name 'applib.applibJar:com.lucidera.luciddb.applib.cursor.TopNUdx.execute';
 
 -- collapse rows
 create or replace function collapse_rows(c cursor, delimiter varchar(1))

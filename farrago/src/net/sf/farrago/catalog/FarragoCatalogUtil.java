@@ -40,6 +40,7 @@ import net.sf.farrago.fem.security.*;
 import net.sf.farrago.fem.sql2003.*;
 import net.sf.farrago.util.*;
 
+import org.eigenbase.enki.hibernate.storage.*;
 import org.eigenbase.jmi.*;
 import org.eigenbase.sql.*;
 import org.eigenbase.sql.parser.*;
@@ -107,7 +108,7 @@ public abstract class FarragoCatalogUtil
      */
     public static boolean isRoutineMethod(FemRoutine routine)
     {
-        return routine.getSpecification().getOwner() != routine;
+        return !routine.getSpecification().getOwner().equals(routine);
     }
 
     /**
@@ -407,38 +408,20 @@ public abstract class FarragoCatalogUtil
         // values, but Enki does.  Consider modifying calls to this method to
         // do the conversion as necessary.  Or perhaps introduce a 
         // getModelElementByType method.
-        return new AbstractCollection<FemLocalIndex>() {
-            private final Collection<CwmIndex> c = 
+        
+        // REVIEW: SWZ: 2008-04-23: Force deterministic order onto the indexes.
+        // Many unit tests end up depending on this for reliable ordering
+        // of output.
+        List<FemLocalIndex> result = new ArrayList<FemLocalIndex>();
+        for(CwmIndex index:
                 repos.getKeysIndexesPackage().getIndexSpansClass().getIndex(
-                    table);
-            
-            public Iterator<FemLocalIndex> iterator()
-            {
-                return new Iterator<FemLocalIndex>() {
-                    private final Iterator<CwmIndex> iter = c.iterator();
-
-                    public boolean hasNext()
-                    {
-                        return iter.hasNext();
-                    }
-
-                    public FemLocalIndex next()
-                    {
-                        return (FemLocalIndex)iter.next();
-                    }
-
-                    public void remove()
-                    {
-                        throw new UnsupportedOperationException();
-                    }  
-                };
-            }
-            
-            public int size()
-            {
-                return c.size();
-            }
-        };
+                    table))
+        {
+            result.add((FemLocalIndex)index);
+        }
+        Collections.sort(result, JmiMofIdComparator.instance);
+        
+        return result;
     }
 
     /**

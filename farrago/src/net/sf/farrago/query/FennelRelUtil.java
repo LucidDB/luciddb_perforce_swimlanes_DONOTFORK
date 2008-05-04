@@ -310,11 +310,22 @@ public abstract class FennelRelUtil
     }
 
     /**
+     * @param rel the relational expression
+     * 
      * @return the preparing stmt that a relational expression belongs to
      */
     public static FarragoPreparingStmt getPreparingStmt(RelNode rel)
     {
-        RelOptCluster cluster = rel.getCluster();
+        return getPreparingStmt(rel.getCluster());
+    }
+    
+    /**
+     * @param cluster the cluster
+     * 
+     * @return the preparing stmt a cluster belongs to
+     */
+    public static FarragoPreparingStmt getPreparingStmt(RelOptCluster cluster)
+    {
         RelOptPlanner planner = cluster.getPlanner();
         if (planner instanceof FarragoSessionPlanner) {
             FarragoSessionPlanner farragoPlanner =

@@ -8,8 +8,10 @@
 <body>
 
 LucidDB is the first and only open-source RDBMS purpose-built entirely
-for data warehousing and business intelligence.  Most database systems
-(both proprietary and open-source) start life with a focus on
+for data warehousing and business intelligence.  It is based on
+architectural cornerstones such as column-store, bitmap indexing, hash
+join/aggregation, and page-level multiversioning.  Most database
+systems (both proprietary and open-source) start life with a focus on
 transaction processing capabilities, then get analytical capabilities
 bolted on as an afterthought (if at all).  By contrast, every
 component of LucidDB was designed with the requirements of flexible,
@@ -37,6 +39,18 @@ architecture, roadmap, and other docs to find out.
 
 <b>Project News</b>
 
+<p>
+
+22-Mar-2008: Release 0.7.3 is now available.  The major new feature
+in this release is intelligent prefetch for all access paths;
+together with improvements in data caching and asynchronous I/O, these provide
+improved performance when accessing large amounts of data on disk.
+<p>
+
+17-Dec-2007: We're looking for LucidDB users who are able to act as
+references for a report on open-source data warehousing.  If you 
+are using LucidDB and can share your experience, please let us know at the 
+<a href="http://sourceforge.net/mail/?group_id=157599">users mailing list</a>.
 <p>
 
 23-Nov-2007: Release 0.7.2 is now available.  The major new feature

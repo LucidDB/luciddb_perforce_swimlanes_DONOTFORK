@@ -869,7 +869,10 @@ public abstract class JmiMemFactory
                 Collection c = (Collection) obj;
                 return c.contains(rr.referencedEnd);
             } else {
-                return obj == rr.referencedEnd;
+                return 
+                    obj != null
+                        ? obj.equals(rr.referencedEnd)
+                        : rr.referencedEnd == null;
             }
         }
 
@@ -967,7 +970,7 @@ public abstract class JmiMemFactory
                     Reference.class,
                     rr.multiValued))
             {
-                if (featureRef.getReferencedEnd() == referencedEnd) {
+                if (featureRef.getReferencedEnd().equals(referencedEnd)) {
                     rr.ref = featureRef;
                     return true;
                 }
@@ -1009,13 +1012,14 @@ public abstract class JmiMemFactory
             RefObject refObject,
             boolean considerSubTypes)
         {
-            RefObject thisMofClass = classMap.get(clazz).refMetaObject();
+            MofClass thisMofClass = (MofClass)
+                classMap.get(clazz).refMetaObject();
 
             return isInstanceOf(thisMofClass, refObject, considerSubTypes);
         }
 
         private boolean isInstanceOf(
-            RefObject mofClass,
+            MofClass mofClass,
             RefObject refObject,
             boolean considerSubTypes)
         {
@@ -1027,6 +1031,8 @@ public abstract class JmiMemFactory
                 return false;
             }
 
+            // TODO jvs 25-Mar-2008:  provide access to JmiModelView
+            // and use getAllSubclassVertices for faster test
             JmiModelGraph modelGraph = getModelGraph();
 
             // Some tests simply use JmiMemFactory directly, in which case
@@ -1038,15 +1044,15 @@ public abstract class JmiMemFactory
             assert (modelGraph != null);
 
             JmiClassVertex mofClassVertex =
-                modelGraph.getVertexForMofClass((MofClass) refObject);
+                modelGraph.getVertexForMofClass(mofClass);
 
-            // Traverse up refObject's inheritance chain and see if we find
+            // Traverse up mofClass's inheritance chain and see if we find
             // a match.
             DirectedGraph<JmiClassVertex, JmiInheritanceEdge> inheritanceGraph =
                 modelGraph.getInheritanceGraph();
 
             Set<JmiInheritanceEdge> edges =
-                inheritanceGraph.outgoingEdgesOf(mofClassVertex);
+                inheritanceGraph.incomingEdgesOf(mofClassVertex);
             for (JmiInheritanceEdge edge : edges) {
                 mofClass = edge.getSuperClass().getMofClass();
 
