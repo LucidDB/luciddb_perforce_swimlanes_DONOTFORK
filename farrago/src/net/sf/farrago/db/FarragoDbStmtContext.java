@@ -27,7 +27,6 @@ import java.sql.*;
 import java.util.*;
 import java.util.logging.*;
 
-import net.sf.farrago.catalog.*;
 import net.sf.farrago.resource.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.util.*;
@@ -284,6 +283,11 @@ public class FarragoDbStmtContext
             // tables accessed by this statement.
             accessTables(executableStmt);
 
+            // If cancel request already came in, propagate it to
+            // new context, which will then see it as part of execution.
+            if (cancelFlag.isCancelRequested()) {
+                newContext.cancel();
+            }
             resultSet = executableStmt.execute(newContext);
             runningContext = newContext;
             newContext = null;
@@ -346,21 +350,11 @@ public class FarragoDbStmtContext
             }
         }
         
-        // If a metamodel dump has been requested, shutdown the database
-        // before dumping the metamodel.
-        if (session.metamodelDumpRequested()) {
+        if (session.shutdownRequested()) {
             session.closeAllocation();
             FarragoDatabase db =((FarragoDbSession) session).getDatabase();
             db.shutdown();
-            try {
-                FarragoReposUtil.dumpRepository(
-                    new FarragoModelLoader(),
-                    true);
-            } catch (Exception ex) {
-                throw FarragoResource.instance().CatalogDumpFailed.ex(ex);
-            } finally {
-                session.setMetamodelDump(false);
-            }
+            session.setShutdownRequest(false);
         }
     }
 
@@ -391,12 +385,17 @@ public class FarragoDbStmtContext
     {
         tracer.info("cancel");
         
-        // First, see if there are any children context that need to be
+        // First, see if there are any child contexts that need to be
         // canceled
         for (FarragoSessionStmtContext childStmtContext : childrenStmtContexts)
         {
             childStmtContext.cancel();
         }
+
+        // Record the cancellation request even if we haven't started
+        // a runtime context yet.  We'll check this once the
+        // runtime context gets created (FRG-349).
+        cancelFlag.requestCancel();
         
         FarragoSessionRuntimeContext contextToCancel = runningContext;
         if (contextToCancel == null) {

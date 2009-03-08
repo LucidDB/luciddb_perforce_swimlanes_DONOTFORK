@@ -165,6 +165,13 @@ void ParallelExecStreamScheduler::abort(ExecStreamGraph &graph)
     condition.notify_one();
 }
 
+void ParallelExecStreamScheduler::checkAbort() const
+{
+    if (pPendingExcn) {
+        throw AbortExcn();
+    }
+}
+
 void ParallelExecStreamScheduler::stop()
 {
     FENNEL_TRACE(TRACE_FINE,"stop");
@@ -473,6 +480,11 @@ ParallelExecResult::ParallelExecResult(
 {
     streamId = streamIdInit;
     rc = rcInit;
+}
+
+uint ParallelExecStreamScheduler::getDegreeOfParallelism()
+{
+    return degreeOfParallelism;
 }
 
 FENNEL_END_CPPFILE("$Id$");

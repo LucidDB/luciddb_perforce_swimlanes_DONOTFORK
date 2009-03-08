@@ -46,6 +46,8 @@
   <property name="plugin.catalog.src.dir" 
     location="${plugin.catalog.dir}/java"/>
 
+  <property name="plugin.catalog.schema" value="${project.catalog.schema}"/>
+
   <property name="plugin.src.dir" 
     location="${plugin.dir}/src"/>
 
@@ -110,6 +112,15 @@
       classpathref="plugin.classpath">
       <include name="**/*.java"/>
     </farrago.javaCompile>
+    <farrago.setReposProvider
+      reposStorageProps="${plugin.repos.storage.propfile}"/>
+    <ac:if xmlns:ac="antlib:net.sf.antcontrib">
+      <equals arg1="${farrago.enki.provider}" arg2="ENKI_HIBERNATE"/>
+      <then>
+        <farrago.antFork dir="${plugin.dir}" 
+          target="plugin.forked_configureMetamodelSchema"/>
+      </then>
+    </ac:if>
     <farrago.antFork dir="${plugin.dir}" 
       target="plugin.forked_importMetamodel"/>
     <farrago.javaExec
@@ -149,6 +160,40 @@
       <fileset dir="." includes="mdr.bt?"/>
     </delete>
 
+  </target>
+
+  <target name="plugin.forked_configureMetamodelSchema" depends="farrago.mdr_taskdef">
+    <farrago.setReposProvider
+      reposStorageProps="${plugin.repos.storage.propfile}"/>
+
+    <mdr
+        propertiesFile="${plugin.repos.storage.propfile}"
+        logConfigFile="${FarragoMdrBuildTrace.properties}"
+        modelPathRef="plugin.classpath">
+      <exportSchema
+        mode="model-plugin"
+        dir="${plugin.catalog.src.dir}"
+        extent="FarragoMetamodel"/>
+    </mdr>
+
+    <property 
+        file="${plugin.repos.storage.propfile}"
+        prefix="gensch"/>
+
+    <echo>
+      Configuring repository schema at:
+      ${gensch.net.sf.farrago.dev.connection.schema.url}
+    </echo>
+    <sql
+        driver="${gensch.net.sf.farrago.dev.connection.driver_class}"
+        url="${gensch.net.sf.farrago.dev.connection.schema.url}"
+        userid="${gensch.net.sf.farrago.dev.connection.username}"
+        password="${gensch.net.sf.farrago.dev.connection.password}"
+        classpathref="plugin.classpath">
+      <fileset dir="${plugin.catalog.src.dir}">
+        <include name="**/create.sql"/>
+      </fileset>
+    </sql>
   </target>
 
   <target name="plugin.forked_importMetamodel" depends="farrago.mdr_taskdef">

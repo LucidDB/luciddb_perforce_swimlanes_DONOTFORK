@@ -77,6 +77,23 @@ public class SqlValidatorImpl
         Valid
     }
 
+    /**
+     * Alias generated for the source table when rewriting UPDATE to MERGE.
+     */
+    public static final String UPDATE_SRC_ALIAS = "SYS$SRC";
+    
+    /**
+     * Alias generated for the target table when rewriting UPDATE to MERGE
+     * if no alias was specified by the user.
+     */
+    public static final String UPDATE_TGT_ALIAS = "SYS$TGT";
+    
+    /**
+     * Alias prefix generated for source columns when rewriting UPDATE to MERGE.
+     */
+    public static final String UPDATE_ANON_PREFIX = "SYS$ANON";
+    
+
     //~ Instance fields --------------------------------------------------------
 
     private final SqlOperatorTable opTab;
@@ -138,13 +155,12 @@ public class SqlValidatorImpl
     private final Set<SqlNode> cursorSet = new HashSet<SqlNode>();
 
     /**
-     * Stack of cursor maps that map a cursor (based on its position relative to
-     * other cursor parameters within a function call) to the SELECT associated
-     * with the cursor. A stack is needed to handle nested function calls. The
-     * function call currently being validated is at the top of the stack.
+     * Stack of objects that maintain information about function calls.  A stack
+     * is needed to handle nested function calls. The function call currently
+     * being validated is at the top of the stack.
      */
-    protected final Stack<Map<Integer, SqlSelect>> cursorMapStack =
-        new Stack<Map<Integer, SqlSelect>>();
+    protected final Stack<FunctionParamInfo> functionCallStack =
+        new Stack<FunctionParamInfo>();
 
     private int nextGeneratedId;
     protected final RelDataTypeFactory typeFactory;
@@ -173,6 +189,10 @@ public class SqlValidatorImpl
     protected boolean expandColumnReferences;
 
     private boolean rewriteCalls;
+
+    // TODO jvs 11-Dec-2008:  make this local to performUnconditionalRewrites
+    // if it's OK to expand the signature of that method.
+    private boolean validatingSqlMerge;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -269,7 +289,8 @@ public class SqlValidatorImpl
 
         // add the cursor to a map that maps the cursor to its select based on
         // the position of the cursor relative to other cursors in that call
-        Map<Integer, SqlSelect> cursorMap = cursorMapStack.peek();
+        FunctionParamInfo funcParamInfo = functionCallStack.peek();
+        Map<Integer, SqlSelect> cursorMap = funcParamInfo.cursorPosToSelectMap;
         int numCursors = cursorMap.size();
         cursorMap.put(numCursors, select);
 
@@ -284,15 +305,26 @@ public class SqlValidatorImpl
         registerNamespace(cursorScope, alias, selectNs, false);
     }
 
-    public void pushCursorMap()
+    // implement SqlValidator
+    public void pushFunctionCall()
     {
-        Map<Integer, SqlSelect> cursorMap = new HashMap<Integer, SqlSelect>();
-        cursorMapStack.push(cursorMap);
+        FunctionParamInfo funcInfo = new FunctionParamInfo();
+        functionCallStack.push(funcInfo);
     }
 
-    public void popCursorMap()
+    // implement SqlValidator
+    public void popFunctionCall()
     {
-        cursorMapStack.pop();
+        functionCallStack.pop();
+    }
+    
+    // implement SqlValidator
+    public String getParentCursor(String columnListParamName)
+    {
+        FunctionParamInfo funcParamInfo = functionCallStack.peek();
+        Map<String, String> parentCursorMap =
+            funcParamInfo.columnListParamToParentCursorMap;
+        return parentCursorMap.get(columnListParamName);
     }
 
     /**
@@ -906,6 +938,9 @@ public class SqlValidatorImpl
 
         // first transform operands and invoke generic call rewrite
         if (node instanceof SqlCall) {
+            if (node instanceof SqlMerge) {
+                validatingSqlMerge = true;
+            }
             SqlCall call = (SqlCall) node;
             boolean isSelect = call.isA(SqlKind.Select);
             boolean isAs = call.isA(SqlKind.As);
@@ -1037,96 +1072,219 @@ public class SqlValidatorImpl
             SqlUpdate call = (SqlUpdate) node;
             SqlSelect select = createSourceSelectForUpdate(call);
             call.setOperand(SqlUpdate.SOURCE_SELECT_OPERAND, select);
+            // See if we're supposed to rewrite UPDATE to MERGE
+            // (unless this is the UPDATE clause of a MERGE,
+            // in which case leave it alone).
+            if (!validatingSqlMerge) {
+                SqlNode selfJoinSrcExpr = getSelfJoinExprForUpdate(
+                    call.getTargetTable(), UPDATE_SRC_ALIAS);
+                if (selfJoinSrcExpr != null) {
+                    node = rewriteUpdateToMerge(call, selfJoinSrcExpr);
+                }
+            }
         } else if (node.isA(SqlKind.Merge)) {
             SqlMerge call = (SqlMerge) node;
-            SqlNodeList selectList;
-            SqlUpdate updateStmt = call.getUpdateCall();
-            if (updateStmt != null) {
-                // if we have an update statement, just clone the select list
-                // from the update statement's source since it's the same as
-                // what we want for the select list of the merge source -- '*'
-                // followed by the update set expressions
-                selectList =
-                    (SqlNodeList) updateStmt.getSourceSelect().getSelectList()
-                    .clone();
-            } else {
-                // otherwise, just use select *
-                selectList = new SqlNodeList(SqlParserPos.ZERO);
-                selectList.add(new SqlIdentifier("*", SqlParserPos.ZERO));
-            }
-            SqlNode targetTable = call.getTargetTable();
-            if (call.getAlias() != null) {
-                targetTable =
-                    SqlValidatorUtil.addAlias(
-                        targetTable,
-                        call.getAlias().getSimple());
-            }
+            rewriteMerge(call);
+        }
+        return node;
+    }
 
-            // Provided there is an insert substatement, the source select for
-            // the merge is a left outer join between the source in the USING
-            // clause and the target table; otherwise, the join is just an
-            // inner join.  Need to clone the source table reference in order
-            // for validation to work
-            SqlNode sourceTableRef = call.getSourceTableRef();
-            call.setSourceTableRef(sourceTableRef);
-            SqlInsert insertCall = call.getInsertCall();
-            SqlJoinOperator.JoinType joinType =
-                (insertCall == null) ? SqlJoinOperator.JoinType.Inner
-                : SqlJoinOperator.JoinType.Left;
-            SqlNode leftJoinTerm = (SqlNode) sourceTableRef.clone();
-            SqlNode outerJoin =
-                SqlStdOperatorTable.joinOperator.createCall(
-                    leftJoinTerm,
-                    SqlLiteral.createBoolean(false, SqlParserPos.ZERO),
-                    SqlLiteral.createSymbol(joinType, SqlParserPos.ZERO),
+    private void rewriteMerge(SqlMerge call)
+    {
+        SqlNodeList selectList;
+        SqlUpdate updateStmt = call.getUpdateCall();
+        if (updateStmt != null) {
+            // if we have an update statement, just clone the select list
+            // from the update statement's source since it's the same as
+            // what we want for the select list of the merge source -- '*'
+            // followed by the update set expressions
+            selectList =
+                (SqlNodeList) updateStmt.getSourceSelect().getSelectList()
+                .clone();
+        } else {
+            // otherwise, just use select *
+            selectList = new SqlNodeList(SqlParserPos.ZERO);
+            selectList.add(new SqlIdentifier("*", SqlParserPos.ZERO));
+        }
+        SqlNode targetTable = call.getTargetTable();
+        if (call.getAlias() != null) {
+            targetTable =
+                SqlValidatorUtil.addAlias(
                     targetTable,
-                    SqlLiteral.createSymbol(
-                        SqlJoinOperator.ConditionType.On,
-                        SqlParserPos.ZERO),
-                    call.getCondition(),
+                    call.getAlias().getSimple());
+        }
+
+        // Provided there is an insert substatement, the source select for
+        // the merge is a left outer join between the source in the USING
+        // clause and the target table; otherwise, the join is just an
+        // inner join.  Need to clone the source table reference in order
+        // for validation to work
+        SqlNode sourceTableRef = call.getSourceTableRef();
+        SqlInsert insertCall = call.getInsertCall();
+        SqlJoinOperator.JoinType joinType =
+            (insertCall == null) ? SqlJoinOperator.JoinType.Inner
+            : SqlJoinOperator.JoinType.Left;
+        SqlNode leftJoinTerm = (SqlNode) sourceTableRef.clone();
+        SqlNode outerJoin =
+            SqlStdOperatorTable.joinOperator.createCall(
+                leftJoinTerm,
+                SqlLiteral.createBoolean(false, SqlParserPos.ZERO),
+                SqlLiteral.createSymbol(joinType, SqlParserPos.ZERO),
+                targetTable,
+                SqlLiteral.createSymbol(
+                    SqlJoinOperator.ConditionType.On,
+                    SqlParserPos.ZERO),
+                call.getCondition(),
+                SqlParserPos.ZERO);
+        SqlSelect select =
+            SqlStdOperatorTable.selectOperator.createCall(
+                null,
+                selectList,
+                outerJoin,
+                null,
+                null,
+                null,
+                null,
+                null,
+                SqlParserPos.ZERO);
+        call.setOperand(SqlMerge.SOURCE_SELECT_OPERAND, select);
+
+        // Source for the insert call is a select of the source table
+        // reference with the select list being the value expressions;
+        // note that the values clause has already been converted to a
+        // select on the values row constructor; so we need to extract
+        // that via the from clause on the select
+        if (insertCall != null) {
+            SqlSelect valuesSelect = (SqlSelect) insertCall.getSource();
+            SqlCall valuesCall = (SqlCall) valuesSelect.getFrom();
+            SqlCall rowCall = (SqlCall) valuesCall.getOperands()[0];
+            selectList =
+                new SqlNodeList(
+                    Arrays.asList(rowCall.getOperands()),
                     SqlParserPos.ZERO);
-            SqlSelect select =
+            SqlNode insertSource = (SqlNode) sourceTableRef.clone();
+            select =
                 SqlStdOperatorTable.selectOperator.createCall(
                     null,
                     selectList,
-                    outerJoin,
+                    insertSource,
                     null,
                     null,
                     null,
                     null,
                     null,
                     SqlParserPos.ZERO);
-            call.setOperand(SqlMerge.SOURCE_SELECT_OPERAND, select);
-
-            // Source for the insert call is a select of the source table
-            // reference with the select list being the value expressions;
-            // note that the values clause has already been converted to a
-            // select on the values row constructor; so we need to extract
-            // that via the from clause on the select
-            if (insertCall != null) {
-                SqlSelect valuesSelect = (SqlSelect) insertCall.getSource();
-                SqlCall valuesCall = (SqlCall) valuesSelect.getFrom();
-                SqlCall rowCall = (SqlCall) valuesCall.getOperands()[0];
-                selectList =
-                    new SqlNodeList(
-                        Arrays.asList(rowCall.getOperands()),
-                        SqlParserPos.ZERO);
-                SqlNode insertSource = (SqlNode) sourceTableRef.clone();
-                select =
-                    SqlStdOperatorTable.selectOperator.createCall(
-                        null,
-                        selectList,
-                        insertSource,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        SqlParserPos.ZERO);
-                insertCall.setOperand(SqlInsert.SOURCE_OPERAND, select);
-            }
+            insertCall.setOperand(SqlInsert.SOURCE_OPERAND, select);
         }
-        return node;
+    }
+
+    private SqlNode rewriteUpdateToMerge(
+        SqlUpdate updateCall, SqlNode selfJoinSrcExpr)
+    {
+        // Make sure target has an alias.
+        if (updateCall.getAlias() == null) {
+            updateCall.setOperand(
+                SqlUpdate.ALIAS_OPERAND,
+                new SqlIdentifier(UPDATE_TGT_ALIAS, SqlParserPos.ZERO));
+        }
+        SqlNode selfJoinTgtExpr = getSelfJoinExprForUpdate(
+            updateCall.getTargetTable(), updateCall.getAlias().getSimple());
+        assert(selfJoinTgtExpr != null);
+
+        // Create join condition between source and target exprs,
+        // creating a conjunction with the user-level WHERE
+        // clause if one was supplied
+        SqlNode condition = updateCall.getCondition();
+        SqlNode selfJoinCond =
+            SqlStdOperatorTable.equalsOperator.createCall(
+                SqlParserPos.ZERO,
+                selfJoinSrcExpr,
+                selfJoinTgtExpr);
+        if (condition == null) {
+            condition = selfJoinCond;
+        } else {
+            condition = 
+                SqlStdOperatorTable.andOperator.createCall(
+                    SqlParserPos.ZERO,
+                    selfJoinCond,
+                    condition);
+        }
+        SqlIdentifier target = (SqlIdentifier)
+            updateCall.getTargetTable().clone(SqlParserPos.ZERO);
+
+        // For the source, we need to anonymize the fields, so
+        // that for a statement like UPDATE T SET I = I + 1,
+        // there's no ambiguity for the "I" in "I + 1";
+        // this is OK because the source and target have
+        // identical values due to the self-join.
+        // Note that we anonymize the source rather than the
+        // target because downstream, the optimizer rules
+        // don't want to see any projection on top of the target.
+        IdentifierNamespace ns = new IdentifierNamespace(
+            this,
+            target,
+            null);
+        RelDataType rowType = ns.getRowType();
+        SqlNode source =
+            updateCall.getTargetTable().clone(SqlParserPos.ZERO);
+        final SqlNodeList selectList =
+            new SqlNodeList(SqlParserPos.ZERO);
+        int i = 1;
+        for (RelDataTypeField field : rowType.getFieldList()) {
+            SqlIdentifier col = new SqlIdentifier(
+                field.getName(),
+                SqlParserPos.ZERO);
+            selectList.add(
+                SqlValidatorUtil.addAlias(col, UPDATE_ANON_PREFIX + i));
+            ++i;
+        }
+        source =
+            SqlStdOperatorTable.selectOperator.createCall(
+                null,
+                selectList,
+                source,
+                null,
+                null,
+                null,
+                null,
+                null,
+                SqlParserPos.ZERO);
+        source = SqlValidatorUtil.addAlias(source, UPDATE_SRC_ALIAS);
+        SqlMerge mergeCall = new SqlMerge(
+            SqlStdOperatorTable.mergeOperator,
+            target,
+            condition,
+            source,
+            updateCall,
+            null,
+            updateCall.getAlias(),
+            updateCall.getParserPosition());
+        rewriteMerge(mergeCall);
+        return mergeCall;
+    }
+
+    /**
+     * Allows a subclass to provide information about how to
+     * convert an UPDATE into a MERGE via self-join.  If this method
+     * returns null, then no such conversion takes place.
+     * Otherwise, this method should return a suitable unique identifier
+     * expression for the given table.
+     *
+     * @param table identifier for table being updated
+     *
+     * @param alias alias to use for qualifying columns in expression,
+     * or null for unqualified references; if this is equal to
+     * {@value #UPDATE_SRC_ALIAS}, then column references have
+     * been anonymized to "SYS$ANONx", where x is the 1-based
+     * column number.
+     *
+     * @return expression for unique identifier, or null to
+     * prevent conversion
+     */
+    protected SqlNode getSelfJoinExprForUpdate(
+        SqlIdentifier table, String alias)
+    {
+        return null;
     }
 
     /**
@@ -2620,8 +2778,7 @@ public class SqlValidatorImpl
             break;
         case On:
             Util.permAssert(condition != null, "condition != null");
-            validateNoAggs(condition, "ON");
-            condition.validate(this, joinScope);
+            validateWhereOrOn(joinScope, condition, "ON");
             break;
         case Using:
             SqlNodeList list = (SqlNodeList) condition;
@@ -3012,17 +3169,25 @@ public class SqlValidatorImpl
             return;
         }
         final SqlValidatorScope whereScope = getWhereScope(select);
-        validateNoAggs(where, "WHERE");
+        validateWhereOrOn(whereScope, where, "WHERE");
+    }
+
+    protected void validateWhereOrOn(
+        SqlValidatorScope scope,
+        SqlNode condition,
+        String keyword)
+    {
+        validateNoAggs(condition, keyword);
         inferUnknownTypes(
             booleanType,
-            whereScope,
-            where);
-        where.validate(this, whereScope);
-        final RelDataType type = deriveType(whereScope, where);
+            scope,
+            condition);
+        condition.validate(this, scope);
+        final RelDataType type = deriveType(scope, condition);
         if (!SqlTypeUtil.inBooleanFamily(type)) {
             throw newValidationError(
-                where,
-                EigenbaseResource.instance().WhereMustBeBoolean.ex());
+                condition,
+                EigenbaseResource.instance().CondMustBeBoolean.ex(keyword));
         }
     }
 
@@ -3218,9 +3383,16 @@ public class SqlValidatorImpl
                 fieldNames[i] = SqlUtil.deriveAliasFromOrdinal(i);
             }
         }
+        Set<String> assignedColumnNames = new HashSet<String>();
         for (SqlNode node : targetColumnList) {
             SqlIdentifier id = (SqlIdentifier) node;
             int iColumn = baseRowType.getFieldOrdinal(id.getSimple());
+            if (!assignedColumnNames.add(id.getSimple())) {
+                throw newValidationError(
+                    id,
+                    EigenbaseResource.instance().DuplicateTargetColumn.ex(
+                        id.getSimple()));
+            }
             if (iColumn == -1) {
                 throw newValidationError(
                     id,
@@ -3257,6 +3429,12 @@ public class SqlValidatorImpl
             SqlValidatorScope scope = scopes.get(source);
             validateQuery(source, scope);
         }
+
+        // REVIEW jvs 4-Dec-2008: In FRG-365, this namespace row type is
+        // discarding the type inferred by inferUnknownTypes (which was invoked
+        // from validateSelect above).  It would be better if that information
+        // were used here so that we never saw any untyped nulls during
+        // checkTypeAssignment.
         RelDataType sourceRowType = getNamespace(source).getRowType();
         RelDataType logicalTargetRowType =
             getLogicalTargetRowType(targetRowType, insert);
@@ -3315,7 +3493,16 @@ public class SqlValidatorImpl
             RelDataType sourceType = sourceFields[i].getType();
             RelDataType targetType = targetFields[i].getType();
             if (!SqlTypeUtil.canAssignFrom(targetType, sourceType)) {
-                SqlNode node = getNthExpr(query, i, sourceCount);
+                // FRG-255:  account for UPDATE rewrite; there's
+                // probably a better way to do this.
+                int iAdjusted = i;
+                if (query instanceof SqlUpdate) {
+                    int nUpdateColumns =
+                        ((SqlUpdate) query).getTargetColumnList().size();
+                    assert(sourceFields.length >= nUpdateColumns);
+                    iAdjusted -= (sourceFields.length - nUpdateColumns);
+                }
+                SqlNode node = getNthExpr(query, iAdjusted, sourceCount);
                 throw newValidationError(
                     node,
                     EigenbaseResource.instance().TypeNotAssignable.ex(
@@ -3667,6 +3854,23 @@ public class SqlValidatorImpl
         targetWindow.setWindowCall(call);
         targetWindow.validate(this, scope);
         targetWindow.setWindowCall(null);
+    }
+
+    public void validateAggregateParams(SqlCall aggFunction, SqlValidatorScope scope)
+    {
+        // For agg(expr), expr cannot itself contain aggregate function
+        // invocations.  For example, SUM(2*MAX(x)) is illegal; when
+        // we see it, we'll report the error for the SUM (not the MAX).
+        // For more than one level of nesting, the error which results
+        // depends on the traversal order for validation.
+         for (SqlNode param : aggFunction.getOperands()) {
+             final SqlNode agg = aggOrOverFinder.findAgg(param);
+             if (aggOrOverFinder.findAgg(param) != null) {
+                 throw newValidationError(
+                     aggFunction,
+                     EigenbaseResource.instance().NestedAggIllegal.ex());
+             }
+        }
     }
 
     public void validateCall(
@@ -4153,6 +4357,30 @@ public class SqlValidatorImpl
         }
     }
 
+    /**
+     * Utility object used to maintain information about the parameters in a
+     * function call.
+     */
+    protected static class FunctionParamInfo {
+        /**
+         *  Maps a cursor (based on its position relative to other cursor
+         *  parameters within a function call) to the SELECT associated with the
+         *  cursor.
+         */
+        public final Map<Integer, SqlSelect> cursorPosToSelectMap;
+        
+        /**
+         * Maps a column list parameter to the parent cursor parameter it references.
+         * The parameters are id'd by their names.
+         */
+        public final Map<String, String> columnListParamToParentCursorMap;
+        
+        public FunctionParamInfo()
+        {
+            cursorPosToSelectMap = new HashMap<Integer, SqlSelect>();
+            columnListParamToParentCursorMap = new HashMap<String, String>();
+        }
+    }
 }
 
 // End SqlValidatorImpl.java

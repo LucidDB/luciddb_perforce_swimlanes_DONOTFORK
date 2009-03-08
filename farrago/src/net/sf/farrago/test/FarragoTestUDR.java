@@ -31,6 +31,8 @@ import java.util.*;
 import net.sf.farrago.runtime.*;
 import net.sf.farrago.session.*;
 import net.sf.farrago.syslib.*;
+import net.sf.farrago.db.*;
+import net.sf.farrago.util.*;
 
 import org.eigenbase.util.*;
 import org.eigenbase.util14.*;
@@ -130,6 +132,11 @@ public abstract class FarragoTestUDR
         System.setProperty(name, value);
     }
 
+    public static void setFarragoProperty(String name, String value)
+    {
+        FarragoProperties.instance().setProperty(name, value);
+    }
+
     public static int accessSql()
     {
         try {
@@ -211,6 +218,34 @@ public abstract class FarragoTestUDR
             n = new Integer(0);
         }
         ramp(n.intValue(), resultInserter);
+    }
+
+    // NOTE jvs 17-Nov-2008:  This one is kind of dangerous,
+    // because it can cancel another statement executed after
+    // the one which actually invoked the UDX.  You can avoid this
+    // by using a dedicated session to invoke the UDX.
+    public static void noiseWithCancel(
+        long n,
+        long seed,
+        long cancelDelayMillis,
+        PreparedStatement resultInserter)
+        throws Exception
+    {
+        Random r = new Random();
+        for (long i = 0; i < n; ++i) {
+            resultInserter.setLong(1, r.nextLong());
+            resultInserter.executeUpdate();
+        }
+        final FarragoSession session = FarragoUdrRuntime.getSession();
+        Timer timer = new Timer(true);
+        TimerTask task = new TimerTask() 
+            {
+                public void run()
+                {
+                    session.cancel();
+                }
+            };
+        timer.schedule(task, cancelDelayMillis);
     }
 
     public static void stringify(
@@ -492,6 +527,14 @@ public abstract class FarragoTestUDR
             throw new SQLException(e.getMessage());
         }
     }
+
+    public static void simulateCatalogRecovery()
+        throws Exception
+    {
+        FarragoSession callerSession = FarragoUdrRuntime.getSession();
+        FarragoDatabase db = ((FarragoDbSession) callerSession).getDatabase();
+        db.simulateCatalogRecovery();
+    }
     
     /**
      * Sets a label within a UDR.  This currently results in an exception.
@@ -512,6 +555,114 @@ public abstract class FarragoTestUDR
         }
         stmt.executeUpdate("alter session set \"label\" = " + labelName);
     }
+    
+    /**
+     * Returns some subset of the input columns as specified by the columns
+     * parameter.
+     * 
+     * @param inputSet the input rows
+     * @param columns the list of column names that determine which columns from
+     * the input to return, as well as the order of the columns
+     * @param resultInserter used to return the resulting output
+     * 
+     * @throws SQLException
+     */
+    public static void returnInput(
+        ResultSet inputSet,
+        List<String> columns,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+        ResultSetMetaData metaData = inputSet.getMetaData();
+        int nInputCols = metaData.getColumnCount();
+        
+        // First map the source of all the columns that need to be passed back in
+        // the result.
+        List<Integer> returnColumns = new ArrayList<Integer>();
+        buildColumnMap(columns, nInputCols, metaData, returnColumns);
+        
+        // Then, for each row, retrieve those column values.
+        while (inputSet.next()) {
+            addOutputColumn(returnColumns, inputSet, resultInserter, 0);
+            resultInserter.executeUpdate();
+        }
+    }
+    
+    private static void buildColumnMap(
+        List<String> columns,
+        int nInputCols,
+        ResultSetMetaData metaData,
+        List<Integer> returnColumns)
+        throws SQLException
+    {
+        for (String column : columns) {
+            for (int i = 1; i <= nInputCols; i++) {
+                if (metaData.getColumnName(i).equals(column)) {
+                    returnColumns.add(i);
+                    break;
+                }
+            }
+        }
+        assert(returnColumns.size() == columns.size());
+    }
+    
+    private static void addOutputColumn(
+        List<Integer> returnColumns,
+        ResultSet inputSet,
+        PreparedStatement resultInserter,
+        int offset)
+        throws SQLException
+    {
+        for (int i = 0; i < returnColumns.size(); i++) {
+            Object obj = inputSet.getObject(returnColumns.get(i));
+            resultInserter.setObject(offset + i+1, obj);
+        }
+    }
+    
+    /**
+     * Returns subsets of columns from two inputs.  Both inputs must have the
+     * same number of rows, as the subsets of columns will be concatenated side by
+     * side into the result rows.  Note that this UDX is NOT doing a join between
+     * the two inputs.
+     * 
+     * @param inputSet1 first set of input rows
+     * @param inputSet2 second set of input rows
+     * @param columns1 subset of column names from the first input
+     * @param columns2 subset of column names from the second input
+     * @param resultInserter used to return the resulting output
+     * @throws SQLException
+     */
+    public static void returnTwoInputs(
+        ResultSet inputSet1,
+        ResultSet inputSet2,
+        List<String> columns1,
+        List<String> columns2,
+        PreparedStatement resultInserter)
+        throws SQLException
+    {
+        ResultSetMetaData metaData1 = inputSet1.getMetaData();
+        int nInputCols1 = metaData1.getColumnCount();
+        ResultSetMetaData metaData2 = inputSet2.getMetaData();
+        int nInputCols2 = metaData2.getColumnCount();
+        
+        List<Integer> returnColumns1 = new ArrayList<Integer>();
+        buildColumnMap(columns1, nInputCols1, metaData1, returnColumns1);
+        List<Integer> returnColumns2 = new ArrayList<Integer>();
+        buildColumnMap(columns2, nInputCols2, metaData2, returnColumns2);
+        
+        do {
+            if (!inputSet1.next()) {
+                assert(!inputSet2.next());
+                break;
+            } else if (!inputSet2.next()) {
+                assert(false);
+            }
+            addOutputColumn(returnColumns1, inputSet1, resultInserter, 0);
+            addOutputColumn(
+                returnColumns2, inputSet2, resultInserter, returnColumns1.size());
+            resultInserter.executeUpdate();
+        } while (true);
+    }     
 }
 
 // End FarragoTestUDR.java

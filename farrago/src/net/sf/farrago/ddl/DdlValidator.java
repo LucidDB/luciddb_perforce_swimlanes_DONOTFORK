@@ -180,6 +180,8 @@ public class DdlValidator
 
     private FemAuthId systemUserAuthId;
     private FemAuthId currentUserAuthId;
+
+    private boolean usePreviewDelete;
     
     //~ Constructors -----------------------------------------------------------
 
@@ -195,6 +197,10 @@ public class DdlValidator
         this.stmtValidator = stmtValidator;
         stmtValidator.addAllocation(this);
 
+        if (getRepos().getEnkiMdrRepos().supportsPreviewRefDelete()) {
+            usePreviewDelete = true;
+        }
+        
         // NOTE jvs 25-Jan-2004:  Use LinkedHashXXX, since order
         // matters for these.
         schedulingMap = 
@@ -549,7 +555,8 @@ public class DdlValidator
                     // remove stats associated with the replaced label
                     FarragoCatalogUtil.removeObsoleteStatistics(
                         (FemLabel) replacementTarget,
-                        getRepos());
+                        getRepos(),
+                        usePreviewDelete);
                 } catch (Exception ex) {
                     throw Util.newInternal(
                         ex,
@@ -876,6 +883,11 @@ public class DdlValidator
     public void validate(FarragoSessionDdlStmt ddlStmt)
     {
         this.ddlStmt = ddlStmt;
+        
+        if (isReplace()) {
+            usePreviewDelete = false;
+        }
+        
         ddlStmt.preValidate(this);
         checkValidationExcnQueue();
 
@@ -893,15 +905,18 @@ public class DdlValidator
                     if (tracer.isLoggable(Level.FINE)) {
                         tracer.fine("probe deleting " + refObj);
                     }
-                    refObj.refDelete();
+                    
+                    deleteObject(refObj);
                 }
             }
 
-            // In order to validate deletion, we need the objects to exist, but
-            // they've already been deleted.  So rollback the deletion now, but
-            // we still remember the objects encountered above.
-            rollbackDeletions();
-
+            if (!usePreviewDelete) {
+                // In order to validate deletion, we need the objects to exist,
+                // but they've already been deleted.  So rollback the deletion
+                // now, but we still remember the objects encountered above.
+                rollbackDeletions();
+            }
+            
             // REVIEW:  This may need to get more complicated in the future.
             // Like, if deletions triggered modifications to some referencing
             // object which needs to have its update validation run AFTER the
@@ -947,8 +962,8 @@ public class DdlValidator
                 SchedulingDetail scheduleDetail = mapEntry.getValue();
                 
                 RefClass cls = scheduleDetail.refClass;
-                RefObject obj =
-                    ((EnkiMDRepository)getRepos().getMdrRepos()).getByMofId(
+                RefObject obj = 
+                    getRepos().getEnkiMdrRepos().getByMofId(
                         mapEntry.getKey(), cls);
                 if (obj == null) {
                     progress = progress ||
@@ -1238,6 +1253,16 @@ public class DdlValidator
         return contextExcn;
     }
 
+    // implement FarragoSessionDdlValidator
+    public void deleteObject(RefObject obj)
+    {
+        if (usePreviewDelete) {
+            getRepos().getEnkiMdrRepos().previewRefDelete(obj);
+        } else {
+            obj.refDelete();
+        }
+    }
+    
     // implement FarragoSessionDdlValidator
     public void defineDropRule(
         RefAssociation refAssoc,

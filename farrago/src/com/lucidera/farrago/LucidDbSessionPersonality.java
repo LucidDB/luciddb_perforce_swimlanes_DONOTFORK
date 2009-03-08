@@ -89,8 +89,11 @@ public class LucidDbSessionPersonality
     //~ Instance fields --------------------------------------------------------
 
     /**
-     * If true, this session's default personality is LucidDb, as opposed to one
-     * that was switched from some other personality to LucidDb
+     * If true, this session's underlying default personality is LucidDb,
+     * as opposed to one that was switched from some other personality to
+     * LucidDb.  Note that this will still be true if the underlying
+     * personality is LucidDb, but a variation of the default LucidDb
+     * personality is used.
      */
     private boolean defaultLucidDb;
 
@@ -130,12 +133,28 @@ public class LucidDbSessionPersonality
             true,
             0,
             Integer.MAX_VALUE);
-        defaultLucidDb = (defaultPersonality == null);
+        if (defaultPersonality == null) {
+            defaultLucidDb = true;
+        } else if (defaultPersonality instanceof LucidDbSessionPersonality) {
+            LucidDbSessionPersonality personality =
+                (LucidDbSessionPersonality) defaultPersonality;
+            defaultLucidDb = personality.isDefaultLucidDbPersonality();
+        } else {
+            defaultLucidDb = false;
+        }
         this.enableIndexOnlyScans = enableIndexOnlyScans;
     }
 
     //~ Methods ----------------------------------------------------------------
 
+    /**
+     * @return true if the underlying personality is a LucidDB personality
+     */
+    public boolean isDefaultLucidDbPersonality()
+    {
+        return defaultLucidDb;
+    }
+    
     // implement FarragoSessionPersonality
     public String getDefaultLocalDataServerName(
         FarragoSessionStmtValidator stmtValidator)
@@ -143,6 +162,12 @@ public class LucidDbSessionPersonality
         return "SYS_COLUMN_STORE_DATA_SERVER";
     }
 
+    // implement FarragoSessionPersonality
+    public boolean isAlterTableAddColumnIncremental()
+    {
+        return true;
+    }
+    
     // implement FarragoSessionPersonality
     public SqlOperatorTable getSqlOperatorTable(
         FarragoSessionPreparingStmt preparingStmt)
@@ -162,12 +187,7 @@ public class LucidDbSessionPersonality
             return false;
         }
 
-        // LucidDB doesn't support UPDATE
-        if (feature == featureResource.SQLFeature_E101_03) {
-            return false;
-        }
-
-        // but LucidDB does support MERGE (unlike vanilla Farrago)
+        // LucidDB supports MERGE (unlike vanilla Farrago)
         if (feature == featureResource.SQLFeature_F312) {
             return true;
         }
@@ -223,11 +243,15 @@ public class LucidDbSessionPersonality
 
         Collection<RelOptRule> medPluginRules = new LinkedHashSet<RelOptRule>();
 
+        boolean alterTable = 
+            stmt.getSession().isReentrantAlterTableAddColumn();
+
         HepProgram program =
             createHepProgram(
                 fennelEnabled,
                 calcVM,
-                medPluginRules);
+                medPluginRules,
+                alterTable);
         FarragoSessionPlanner planner =
             new LucidDbPlanner(
                 program,
@@ -254,7 +278,8 @@ public class LucidDbSessionPersonality
     private HepProgram createHepProgram(
         boolean fennelEnabled,
         CalcVirtualMachine calcVM,
-        Collection<RelOptRule> medPluginRules)
+        Collection<RelOptRule> medPluginRules,
+        boolean alterTable)
     {
         HepProgramBuilder builder = new HepProgramBuilder();
 
@@ -275,21 +300,44 @@ public class LucidDbSessionPersonality
         // may introduce new joins which need to be optimized further on.
         builder.addRuleInstance(RemoveDistinctAggregateRule.instance);
 
+        // These rule instances need to be applied before the join filter is
+        // extracted from the join and before the MERGE statement is converted
+        // to a physical MERGE statement.
+        builder.addRuleInstance(LcsConvertMergeToUpdateRule.instanceRowScan);
+        builder.addRuleInstance(
+            LcsConvertMergeToUpdateRule.instanceFilterScan);
+        builder.addRuleInstance(
+            LcsConvertMergeToUpdateRule.instanceProjectScan);
+        builder.addRuleInstance(
+            LcsConvertMergeToUpdateRule.instanceProjectFilterScan);
+        
+        // Need to fire delete and merge rules before any projection rules
+        // since they modify the projection.  Also need to fire these
+        // before the join conditions are pulled out of the joins.
+        builder.addRuleInstance(new LcsTableDeleteRule());
+        builder.addRuleInstance(new LcsTableMergeRule());
+        
+        // Likewise for ALTER TABLE ADD COLUMN.
+        if (alterTable) {
+            builder.addRuleClass(CoerceInputsRule.class);
+            builder.addRuleInstance(LcsTableAlterRule.instance);
+        }
+
         // Now, pull join conditions out of joins, leaving behind Cartesian
         // products.  Why?  Because PushFilterRule doesn't start from
         // join conditions, only filters.  It will push them right back
         // into and possibly through the join.
         builder.addRuleInstance(ExtractJoinFilterRule.instance);
 
-        // Need to fire delete and merge rules before any projection rules
-        // since they modify the projection
-        builder.addRuleInstance(new LcsTableDeleteRule());
-        builder.addRuleInstance(new LcsTableMergeRule());
-
+        // REVIEW jvs 27-Dec-2008: Next rule is disabled because it interferes
+        // with cast elimination, and may not always have the expected benefit.
+        // If it gets re-enabled, it needs a corresponding companion to deal
+        // with MERGE.
+        
         // Convert ProjectRels underneath an insert into RenameRels before
         // applying any merge projection rules.  Otherwise, we end up losing
         // column information used in error reporting during inserts.
-        if (fennelEnabled) {
+        if (false) {
             builder.addRuleInstance(new FennelInsertRenameRule());
         }
 
@@ -810,6 +858,14 @@ public class LucidDbSessionPersonality
         TableModificationRel.Operation tableModOp,
         FarragoSessionRuntimeContext runningContext)
     {
+        if (session.isReentrantAlterTableAddColumn()) {
+            // LDB-191:  For ALTER TABLE ADD COLUMN, don't
+            // touch the rowcounts, because they don't change.
+            // We can just return 0, because the invoking session
+            // just ignores the DML return value.
+            return 0;
+        }
+        
         FarragoSessionStmtValidator stmtValidator = session.newStmtValidator();
         FarragoRepos repos = session.getRepos();
         long affectedRowCount = 0;
@@ -828,6 +884,14 @@ public class LucidDbSessionPersonality
                 stmtValidator.findSchemaObject(
                     qualifiedName,
                     FemAbstractColumnSet.class);
+
+            if (session.isReentrantAlterTableRebuild()) {
+                // LDB-191:  For ALTER TABLE REBUILD, reset
+                // the rowcounts now before incrementing them
+                // with the result of the reentrant INSERT.
+                resetRowCounts(columnSet);
+            }
+            
             Long[] rowCountStats = new Long[2];
             Timestamp labelTimestamp =
                 session.getSessionLabelCreationTimestamp();
@@ -853,14 +917,18 @@ public class LucidDbSessionPersonality
                 }
             } else if (tableModOp == TableModificationRel.Operation.MERGE) {
                 insertedRowCount = rowCounts.get(0);
-                if (FarragoCatalogUtil.hasUniqueKey(columnSet)) {
-                    violationRowCount = rowCounts.get(1);
-                    if (numRowCounts == 3) {
-                        deletedRowCount = rowCounts.get(2);
-                    }
-                } else {
-                    if (numRowCounts == 2) {
-                        deletedRowCount = rowCounts.get(1);
+                // in the case of a replace columns merge where no unique
+                // indexes are affected, only an insert row count is returned
+                if (numRowCounts > 1) {
+                    if (FarragoCatalogUtil.hasUniqueKey(columnSet)) {
+                        violationRowCount = rowCounts.get(1);
+                        if (numRowCounts == 3) {
+                            deletedRowCount = rowCounts.get(2);
+                        }
+                    } else {
+                        if (numRowCounts == 2) {
+                            deletedRowCount = rowCounts.get(1);
+                        }
                     }
                 }
             } else {
@@ -868,7 +936,8 @@ public class LucidDbSessionPersonality
             }
             
             // all kinds of DML can have rejected rows (yes, including DELETE)
-            rejectedRowCount = ((LucidDbRuntimeContext)runningContext).getTotalErrorCount();
+            rejectedRowCount =
+                ((LucidDbRuntimeContext)runningContext).getTotalErrorCount();
 
             // update the rowcounts based on the operation
             if (tableModOp == TableModificationRel.Operation.INSERT) {

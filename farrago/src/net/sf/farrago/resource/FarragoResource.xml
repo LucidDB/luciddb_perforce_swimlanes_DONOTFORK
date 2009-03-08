@@ -637,7 +637,7 @@ column type family is {1} but default value type family is {2}</text>
 </exception>
 
 <exception id="421030" name="ValidatorMultipleTableSequences">
-<text>Multiple identity columns are specified in definition of {0}</text>
+<text>Cannot specify more than one identity column in definition of {0}</text>
 </exception>
 
 <exception id="421040" name="ValidatorInvalidSequenceStart">
@@ -650,6 +650,18 @@ column type family is {1} but default value type family is {2}</text>
 
 <exception id="421060" name="ValidatorAlterFailed">
 <text>Unable to execute ALTER statement</text>
+</exception>
+
+<exception id="421065" name="ValidatorAlterForeignTable">
+<text>ALTER TABLE cannot be used on a foreign table</text>
+</exception>
+
+<exception id="421066" name="ValidatorAlterTempTable">
+<text>ALTER TABLE cannot be used on a temporary table</text>
+</exception>
+
+<exception id="421068" name="ValidatorAlterTableDataServer">
+<text>ALTER TABLE is not supported by local {0}</text>
 </exception>
 
 <exception id="421070" name="ValidatorAlterIdentityFailed">
@@ -684,6 +696,10 @@ column type family is {1} but default value type family is {2}</text>
 
 <exception id="421140" name="ValidatorCircularLabelChain">
 <text>Cannot create a circular label chain.</text>
+</exception>
+
+<exception id="421150" name="NonExistentCursorParam">
+<text>Cursor parameter {0} does not exist.</text>
 </exception>
 
 <!-- ====================================================================== -->
@@ -817,6 +833,10 @@ Messages: {1}</text>
 
 <exception id="450180" name="JavaRowTooLong">
 <text>Row size exceeds maximum ({0,number,#} bytes); row data:  {1}</text>
+</exception>
+
+<exception id="450190" name="QueryAccessNewColumn">
+<text>Cannot query new column (via {0}) currently being added by ALTER TABLE</text>
 </exception>
 
 <!-- ====================================================================== -->
@@ -959,7 +979,7 @@ Messages: {1}</text>
 </message>
 
 <message name="MedJdbc_SCHEMA_NAME_Description">
-<text>Artificial foreign schema name for servers which don't support schemas</text>
+<text>Artificial foreign schema name for servers which don''t support schemas</text>
 </message>
 
 <!-- ====================================================================== -->
@@ -1615,10 +1635,6 @@ Messages: {1}</text>
 <text>Backup property file is missing a property setting for ''{0}''</text>
 </exception>
 
-<exception id="520023" name="PaddingLessThanZero">
-<text>Padding-byte-count parameter must be greater than or equal to 0</text>
-</exception>
-
 <exception id="520024" name="BackupFileAlreadyExists">
 <text>The file ''{0}'' already exists in the archive directory</text>
 </exception>
@@ -1637,6 +1653,14 @@ Messages: {1}</text>
 
 <exception id="520028" name="BackupArchiveDirNotReadable">
 <text>The backup archive directory ''{0}'' is not readable</text>
+</exception>
+
+<exception id="520030" name="FileDeletionFailed">
+<text>Failed to delete ''{0}''</text>
+</exception>
+
+<exception id="520040" name="ServerTestConnFailed">
+<text>Failed testing connection to data server ''{0}''</text>
 </exception>
 
 <!-- End of last error section ============================================ -->

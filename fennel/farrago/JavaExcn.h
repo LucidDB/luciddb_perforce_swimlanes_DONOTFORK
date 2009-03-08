@@ -57,13 +57,13 @@ public:
      */
     jthrowable getJavaException() const;
 
-    // override FennelExcn
-    virtual void throwSelf();
-
     /**
      * @return the stack trace
      */
     const std::string& getStackTrace() const;
+
+    // override FennelExcn
+    virtual void throwSelf();
 };
 
 FENNEL_END_NAMESPACE

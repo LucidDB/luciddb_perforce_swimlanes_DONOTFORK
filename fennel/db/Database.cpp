@@ -1012,7 +1012,7 @@ TxnId Database::initiateBackup(
     // value because of read-only txns.  But we don't care about read-only
     // txns.  We just want the txnId that's in sync with what's reflected in
     // the header.
-    TxnId upperBoundCsn = header.txnLogCheckpointMemento.nextTxnId - 1;
+    TxnId upperBoundCsn = getLastCommittedTxnId();
 
     disableDeallocateOld = true;
     dataDeviceSize = pDataDevice->getSizeInBytes();
@@ -1028,7 +1028,11 @@ TxnId Database::initiateBackup(
     pBackupRestoreDevice = 
         SegPageBackupRestoreDevice::newSegPageBackupRestoreDevice(
              backupFilePathname,
+#ifdef __MINGW32__
+             "wb",
+#else
              "w",
+#endif
              compressionProgram,
              nScratchPages,
              2,
@@ -1149,10 +1153,8 @@ void Database::restoreFromBackup(
     if (lowerBoundCsn != NULL_TXN_ID) {
         TxnId headerTxnId = getLastCommittedTxnId();
         if (headerTxnId != lowerBoundCsn) {
-            std::ostringstream oss;
-            oss << headerTxnId;
             throw FennelExcn(
-                FennelResource::instance().mismatchedRestore(oss.str()));
+                FennelResource::instance().mismatchedRestore());
         }
     }
 
@@ -1170,7 +1172,11 @@ void Database::restoreFromBackup(
     pBackupRestoreDevice =
         SegPageBackupRestoreDevice::newSegPageBackupRestoreDevice(
              backupFilePathname,
+#ifdef __MINGW32__
+             "rb",
+#else
              "r",
+#endif
              compressionProgram,
              nScratchPages,
              0,

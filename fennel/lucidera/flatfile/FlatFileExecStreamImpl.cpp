@@ -22,13 +22,10 @@
 
 #include "fennel/common/CommonPreamble.h"
 #include "fennel/common/FennelResource.h"
-#include "fennel/common/SysCallExcn.h"
-#include "fennel/device/RandomAccessFileDevice.h"
 #include "fennel/exec/ExecStreamBufAccessor.h"
 #include "fennel/tuple/StoredTypeDescriptor.h"
 #include "fennel/tuple/StandardTypeDescriptor.h"
 
-#include "fennel/lucidera/flatfile/FlatFileBinding.h"
 #include "fennel/lucidera/flatfile/FlatFileExecStreamImpl.h"
 
 FENNEL_BEGIN_CPPFILE("$Id$");
@@ -42,7 +39,6 @@ FlatFileExecStream *FlatFileExecStream::newFlatFileExecStream()
 //   com.lucidera.farrago.namespace.flatfile.FlatFileFennelRel.java 
 const uint FlatFileExecStreamImpl::MAX_ROW_ERROR_TEXT_WIDTH = 4000;
 
-// TODO: remove Fennel calc code and linking
 void FlatFileExecStreamImpl::prepare(
     FlatFileExecStreamParams const &params)
 {
@@ -63,7 +59,9 @@ void FlatFileExecStreamImpl::prepare(
     mode = params.mode;
     rowDesc = readTupleDescriptor(pOutAccessor->getTupleDesc());
     rowDesc.setLenient(lenient);
-    pBuffer.reset(new FlatFileBuffer(params.dataFilePath));
+    pBuffer.reset(
+        new FlatFileBuffer(params.dataFilePath),
+        ClosableObjectDestructor());
     pParser.reset(new FlatFileParser(
                       params.fieldDelim, params.rowDelim,
                       params.quoteChar, params.escapeChar,
@@ -89,8 +87,7 @@ void FlatFileExecStreamImpl::open(bool restart)
     }
     SingleOutputExecStream::open(restart);
 
-    if (! restart)
-    {
+    if (!restart) {
         bufferLock.allocatePage();
         uint cbPageSize = bufferLock.getPage().getCache().getPageSize();
         pBufferStorage = bufferLock.getPage().getWritableData();
@@ -148,13 +145,13 @@ void FlatFileExecStreamImpl::open(bool restart)
             for (uint i = 0; i < nFields; i++) {
                 char *n = lastResult.getColumn(i);
                 if (n == NULL) {
-                    columnMap[i] = -1;
+                    columnMap[i] = MAXU;
                 } else {
                     std::string name(
                         n,
                         lastResult.getColumnSize(i));
                     columnMap[i] = findField(name);
-                    if (columnMap[i] != -1) {
+                    if (!isMAXU(columnMap[i])) {
                         found++;
                     }
                 }
@@ -276,14 +273,14 @@ FlatFileRowDescriptor FlatFileExecStreamImpl::readTupleDescriptor(
     return rowDesc;
 }
 
-int FlatFileExecStreamImpl::findField(const std::string &name)
+uint FlatFileExecStreamImpl::findField(const std::string &name)
 {
     for (uint i = 0; i < columnNames.size(); i++) {
         if (strcasecmp(name.c_str(), columnNames[i].c_str()) == 0) {
             return i;
         }
     }
-    return -1;
+    return MAXU;
 }
 
 void FlatFileExecStreamImpl::handleTuple(
@@ -434,7 +431,9 @@ void FlatFileExecStreamImpl::closeImpl()
 
 void FlatFileExecStreamImpl::releaseResources()
 {
-    pBuffer->close();
+    if (pBuffer) {
+        pBuffer->close();
+    }
 }
 
 FENNEL_END_CPPFILE("$Id$");

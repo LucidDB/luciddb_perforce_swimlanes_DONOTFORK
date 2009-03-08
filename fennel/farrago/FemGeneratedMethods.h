@@ -140,6 +140,7 @@ jmethodID ProxyLbmGeneratorStreamDef::meth_isCreateIndex = 0;
 jmethodID ProxyLbmGeneratorStreamDef::meth_getInsertRowCountParamId = 0;
 jmethodID ProxyLbmSearchStreamDef::meth_getRowLimitParamId = 0;
 jmethodID ProxyLbmSearchStreamDef::meth_getStartRidParamId = 0;
+jmethodID ProxyLbmSplicerStreamDef::meth_isCreateNewIndex = 0;
 jmethodID ProxyLbmSplicerStreamDef::meth_getIndexAccessor = 0;
 jmethodID ProxyLbmSplicerStreamDef::meth_getInsertRowCountParamId = 0;
 jmethodID ProxyLbmSplicerStreamDef::meth_getWriteRowCountParamId = 0;
@@ -147,7 +148,6 @@ jmethodID ProxyLbmUnionStreamDef::meth_getConsumerSridParamId = 0;
 jmethodID ProxyLbmUnionStreamDef::meth_getRidLimitParamId = 0;
 jmethodID ProxyLbmUnionStreamDef::meth_getSegmentLimitParamId = 0;
 jmethodID ProxyLcsClusterAppendStreamDef::meth_getClusterColProj = 0;
-jmethodID ProxyLcsClusterAppendStreamDef::meth_isOverwrite = 0;
 jmethodID ProxyLcsClusterScanDef::meth_getClusterTupleDesc = 0;
 jmethodID ProxyLcsClusterScanDef::meth_getRowScan = 0;
 jmethodID ProxyLcsRowScanStreamDef::meth_getClusterScan = 0;
@@ -576,6 +576,7 @@ visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(ne
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLbmSplicerStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLbmSplicerStreamDef>));
+ProxyLbmSplicerStreamDef::meth_isCreateNewIndex = pEnv->GetMethodID(jClass,"isCreateNewIndex","()Z");
 ProxyLbmSplicerStreamDef::meth_getIndexAccessor = pEnv->GetMethodID(jClass,"getIndexAccessor","()Ljava/util/List;");
 ProxyLbmSplicerStreamDef::meth_getInsertRowCountParamId = pEnv->GetMethodID(jClass,"getInsertRowCountParamId","()I");
 ProxyLbmSplicerStreamDef::meth_getWriteRowCountParamId = pEnv->GetMethodID(jClass,"getWriteRowCountParamId","()I");
@@ -589,7 +590,9 @@ ProxyLbmUnionStreamDef::meth_getSegmentLimitParamId = pEnv->GetMethodID(jClass,"
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLcsClusterAppendStreamDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLcsClusterAppendStreamDef>));
 ProxyLcsClusterAppendStreamDef::meth_getClusterColProj = pEnv->GetMethodID(jClass,"getClusterColProj","()Lnet/sf/farrago/fem/fennel/FemTupleProjection;");
-ProxyLcsClusterAppendStreamDef::meth_isOverwrite = pEnv->GetMethodID(jClass,"isOverwrite","()Z");
+
+jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLcsClusterReplaceStreamDef");
+visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLcsClusterReplaceStreamDef>));
 
 jClass = pEnv->FindClass("net/sf/farrago/fem/fennel/FemLcsClusterScanDef");
 visitTbl.addMethod(jClass,JniProxyVisitTable<FemVisitor>::SharedVisitorMethod(new JniProxyVisitTable<FemVisitor>::VisitorMethodImpl<ProxyLcsClusterScanDef>));
@@ -1656,6 +1659,11 @@ int32_t ProxyLbmSearchStreamDef::getStartRidParamId()
 return pEnv->CallIntMethod(jObject,meth_getStartRidParamId);
 }
 
+bool ProxyLbmSplicerStreamDef::isCreateNewIndex()
+{
+return pEnv->CallBooleanMethod(jObject,meth_isCreateNewIndex);
+}
+
 SharedProxySplicerIndexAccessorDef ProxyLbmSplicerStreamDef::getIndexAccessor()
 {
 SharedProxySplicerIndexAccessorDef p;
@@ -1698,11 +1706,6 @@ p->pEnv = pEnv;
 p->jObject = pEnv->CallObjectMethod(jObject,meth_getClusterColProj);
 if (!p->jObject) p.reset();
 return p;
-}
-
-bool ProxyLcsClusterAppendStreamDef::isOverwrite()
-{
-return pEnv->CallBooleanMethod(jObject,meth_isOverwrite);
 }
 
 SharedProxyTupleDescriptor ProxyLcsClusterScanDef::getClusterTupleDesc()

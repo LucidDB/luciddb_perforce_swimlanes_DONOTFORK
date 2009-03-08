@@ -41,14 +41,18 @@ public class LcsAppendStreamDef
 {
     //~ Instance fields --------------------------------------------------------
 
-    private FarragoRepos repos;
-    private LcsTable lcsTable;
+    protected FarragoRepos repos;
+    protected LcsTable lcsTable;
     private FemExecutionStreamDef inputStream;
-    private FennelRel appendRel;
+    protected FennelRel appendRel;
     private Double estimatedNumInputRows;
-    private LcsIndexGuide indexGuide;
-    private List<FemLocalIndex> unclusteredIndexes;
-    private FemLocalIndex deletionIndex;
+    protected LcsIndexGuide indexGuide;
+    protected List<FemLocalIndex> clusteredIndexes;
+    protected List<FemLocalIndex> unclusteredIndexes;
+    protected FemLocalIndex deletionIndex;
+    protected boolean replaceColumns;
+    protected boolean hasIndexes;
+    private boolean alterTable;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -64,18 +68,67 @@ public class LcsAppendStreamDef
         this.inputStream = inputStream;
         this.appendRel = appendRel;
         this.estimatedNumInputRows = estimatedNumInputRows;
-        indexGuide = lcsTable.getIndexGuide();
         this.deletionIndex =
             FarragoCatalogUtil.getDeletionIndex(
                 repos,
                 lcsTable.getCwmColumnSet());
     }
-
+    
     //~ Methods ----------------------------------------------------------------
 
     /**
+     * Initializes the clustered and unclustered indexes relevant to the
+     * stream that will be created.
+     */
+    protected void setupIndexes()
+    {
+        replaceColumns = false;
+        indexGuide = lcsTable.getIndexGuide();
+       
+        // Get the clustered and unclustered indexes associated with this table
+        CwmTable table = (CwmTable) lcsTable.getCwmColumnSet();
+        clusteredIndexes =
+            FarragoCatalogUtil.getClusteredIndexes(repos, table);
+        unclusteredIndexes =
+            FarragoCatalogUtil.getUnclusteredIndexes(repos, table);
+        
+        if (appendRel.getInput(0).getRowType().getFieldCount()
+            < indexGuide.getFlattenedRowType().getFieldCount())
+        {
+            // We're doing ALTER TABLE ADD COLUMN
+            alterTable = true;
+
+            // TODO jvs 6-Dec-2008: need to deal with these once we allow ALTER
+            // TABLE ADD COLUMN c UNIQUE
+            unclusteredIndexes = Collections.emptyList();
+
+            // Filter clusteredIndexes down to just the one
+            // containing the new column.
+            Integer [] projection = new Integer[1];
+            projection[0] =
+                indexGuide.getFlattenedRowType().getFieldCount() - 1;
+
+            Iterator<FemLocalIndex> iter = clusteredIndexes.iterator();
+            while (iter.hasNext()) {
+                FemLocalIndex clusteredIndex = iter.next();
+                if (!indexGuide.testIndexCoverage(clusteredIndex, projection)) {
+                    iter.remove();
+                }
+            }
+            assert(clusteredIndexes.size() == 1);
+
+            // Create a new index guide which pretends that the
+            // table only consists of the new clustered index.
+            indexGuide = new LcsIndexGuide(
+                lcsTable.getPreparingStmt().getFarragoTypeFactory(),
+                table,
+                clusteredIndexes);
+        }
+    }
+    
+    /**
      * Creates the top half of an insert execution stream, i.e., the part that
-     * appends to the clustered indexes.
+     * appends the clustered indexes.
      *
      * @param implementor FennelRel implementor
      *
@@ -84,21 +137,13 @@ public class LcsAppendStreamDef
      */
     public FemBarrierStreamDef createClusterAppendStreams(
         FennelRelImplementor implementor)
-    {
-        CwmTable table = (CwmTable) lcsTable.getCwmColumnSet();
-
+    {       
+        setupIndexes();
+        
         // if the table has unclustered indexes, the output from the append
         // stream contains a startRid; so make sure to reflect that in the
         // output descriptors
-        unclusteredIndexes =
-            FarragoCatalogUtil.getUnclusteredIndexes(repos, table);
-        boolean hasIndexes = (unclusteredIndexes.size() > 0);
-
-        //
-        // Setup the SplitterStreamDef
-        //
-        FemSplitterStreamDef splitter =
-            indexGuide.newSplitter(lcsTable.getRowType());
+        hasIndexes = (unclusteredIndexes.size() > 0);
 
         //
         // Setup all the LcsClusterAppendStreamDef's
@@ -108,19 +153,8 @@ public class LcsAppendStreamDef
         //
 
         List<FemLcsClusterAppendStreamDef> clusterAppendDefs =
-            new ArrayList<FemLcsClusterAppendStreamDef>();
-
-        // Get the clustered indexes associated with this table.
-        List<FemLocalIndex> clusteredIndexes =
-            FarragoCatalogUtil.getClusteredIndexes(repos, table);
-
-        for (FemLocalIndex clusteredIndex : clusteredIndexes) {
-            clusterAppendDefs.add(
-                indexGuide.newClusterAppend(
-                    appendRel,
-                    clusteredIndex,
-                    hasIndexes));
-        }
+            new ArrayList<FemLcsClusterAppendStreamDef>();               
+        createClusterAppends(implementor, clusterAppendDefs);
 
         //
         // Setup the BarrierStreamDef.
@@ -145,9 +179,21 @@ public class LcsAppendStreamDef
         //                                  ...
         //                               -> clusterAppend ->
         //
-        implementor.addDataFlowFromProducerToConsumer(
-            inputStream,
-            splitter);
+        
+        //
+        // Setup the SplitterStreamDef, unless there's only one
+        // clusterAppend, in which case no splitter is needed.
+        //
+        FemExecutionStreamDef splitter;
+        if (clusterAppendDefs.size() != 1) {
+            splitter = createSplitter();
+
+            implementor.addDataFlowFromProducerToConsumer(
+                inputStream,
+                splitter);
+        } else {
+            splitter = inputStream;
+        }
 
         for (FemLcsClusterAppendStreamDef clusterAppend : clusterAppendDefs) {
             implementor.addDataFlowFromProducerToConsumer(
@@ -160,7 +206,37 @@ public class LcsAppendStreamDef
 
         return barrier;
     }
-
+    
+    protected FemSplitterStreamDef createSplitter()
+    {
+        return indexGuide.newSplitter(lcsTable.getRowType());
+    }
+    
+    protected void createClusterAppends(
+        FennelRelImplementor implementor,
+        List<FemLcsClusterAppendStreamDef> clusterAppendDefs)
+    {
+        for (FemLocalIndex clusteredIndex : clusteredIndexes) {
+            clusterAppendDefs.add(
+                indexGuide.newClusterAppend(
+                    appendRel,
+                    clusteredIndex,
+                    hasIndexes,
+                    0,
+                    0,
+                    alterTable));
+        }
+    }
+    
+    /**
+     * @return true if this append stream graph will have an index creation
+     * substream
+     */
+    public boolean streamHasIndexes()
+    {
+        return hasIndexes;
+    }
+    
     /**
      * Creates the bottom half of an insert execution stream, i.e., the part the
      * inserts into the unclustered indexes.
@@ -208,8 +284,9 @@ public class LcsAppendStreamDef
                     unclusteredIndex,
                     delIndex,
                     implementor,
-                    false,
-                    insertDynParamId);
+                    replaceColumns,
+                    insertDynParamId,
+                    replaceColumns);
             bitmapAppendDefs.add(bitmapAppend);
 
             // splicers updating unique indexes can produce violations.
@@ -335,7 +412,7 @@ public class LcsAppendStreamDef
         FemMergeStreamDef mergeStream = null;
         if (numUniqueIndexes > 1) {
             mergeStream = repos.newFemMergeStreamDef();
-            mergeStream.setSequential(true);
+            mergeStream.setSequential(false);
             mergeStream.setPrePullInputs(false);
             deleteInput = mergeStream;
         }
@@ -432,7 +509,8 @@ public class LcsAppendStreamDef
                 deletionIndex,
                 null,
                 0,
-                writeRowCountParamId);
+                writeRowCountParamId,
+                false);
         implementor.addDataFlowFromProducerToConsumer(
             deleteInput,
             deleter);

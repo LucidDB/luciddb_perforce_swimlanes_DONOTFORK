@@ -202,19 +202,6 @@ public abstract class FarragoAbstractParserImpl
     }
 
     /**
-     * Creates new DDL Statement for DROP LABEL.
-     * @param droppedElement label element to drop
-     * @param restrict whether a DROP RESTRICT statement is being processed
-     * @return DDL Statement for DROP LABEL
-     */
-    public DdlDropStmt newDdlDropLabelStmt(
-        CwmModelElement droppedElement,
-        boolean restrict)
-    {
-        return new DdlDropLabelStmt((FemLabel)droppedElement, restrict);
-    }
-
-    /**
      * Creates new DDL Statement for CREATE.
      * @param createdElement catalog element to create
      * @param replaceOptions attributes of CREATE OR REPLACE
@@ -225,6 +212,19 @@ public abstract class FarragoAbstractParserImpl
         DdlReplaceOptions replaceOptions)
     {
         return new DdlCreateStmt(createdElement, replaceOptions);
+    }
+
+    /**
+     * Creates new DDL Statement for DROP LABEL.
+     * @param droppedElement label element to drop
+     * @param restrict whether a DROP RESTRICT statement is being processed
+     * @return DDL Statement for DROP LABEL
+     */
+    public DdlDropStmt newDdlDropLabelStmt(
+        CwmModelElement droppedElement,
+        boolean restrict)
+    {
+        return new DdlDropLabelStmt((FemLabel)droppedElement, restrict);
     }
 }
 

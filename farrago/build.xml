@@ -306,7 +306,8 @@ ${farrago.test.jvmargs}
   </target>
 
   <!-- compile only packages needed by Saffron -->
-  <target name="compile.saffron.deps" depends="generateResources,sqlParser">
+  <target name="compile.saffron.deps" 
+    depends="mungeJdbc, generateResources,sqlParser">
     <farrago.javaCompileClient
       srcdir="${farrago.src.dir}"
       destdir="${farrago.classes.dir}"
@@ -390,7 +391,7 @@ ${farrago.test.jvmargs}
   <target name="clean" depends="cleanTestLogs">
     <delete includeEmptyDirs="true" quiet="true">
       <fileset dir="${farrago.classes.dir}"
-        includes="**/*.class,**/*.properties"/>
+        includes="**/*.class,**/*.properties,**/*.xml"/>
       <fileset dir="${plugin.classes.dir}" includes="**/*.class"/>
       <fileset dir="${farrago.plugin.dir}" includes="**/*.jar"/>
       <fileset dir="${farrago.classes.dir}"
@@ -531,6 +532,19 @@ ${farrago.test.jvmargs}
     </copy>
   </target>
 
+  <!-- create ReposStorage.properties from the default HSQLDB+Hibernate
+       template -->
+  <target name="switchToHsqldbHibernateReposStorage">
+    <copy file="${farrago.catalog.dir}/templates/HsqldbHibernateRepos.properties"
+      tofile="${farrago.ReposStorage.propfile}" overwrite="true">
+      <filterchain>
+        <tokenfilter>
+          <replacestring from="{SCHEMA}" to="${farrago.catalog.schema}"/>
+        </tokenfilter>
+      </filterchain>
+    </copy>
+  </target>
+
   <!-- creates ReposStorage.properties from the default Postgres template -->
   <target name="switchToDefaultReposStorage">
     <copy file="${farrago.catalog.dir}/templates/HsqldbRepos.properties"
@@ -580,6 +594,14 @@ ${farrago.test.jvmargs}
       classpathref="farrago.3p.classpath">
       <include name="**/*.java"/>
     </farrago.javaCompile>
+
+    <ac:if xmlns:ac="antlib:net.sf.antcontrib">
+      <equals arg1="${farrago.enki.provider}" arg2="ENKI_HIBERNATE"/>
+      <then>
+        <farrago.mdrFork target="forked_configureMetamodelSchema"/>
+      </then>
+    </ac:if>
+
     <farrago.mdrFork target="forked_importMetamodel"/>
     <farrago.mdrFork target="forked_createCatalogRepository"/>
     <antcall target="compile.saffron.deps"/>
@@ -602,6 +624,48 @@ ${farrago.test.jvmargs}
     <delete quiet="true">
       <fileset dir="." includes="mdr.bt?"/>
     </delete>
+  </target>
+
+  <target name="forked_configureMetamodelSchema" depends="farrago.mdr_taskdef">
+    <farrago.setReposProvider/>
+
+    <mkdir dir="${farrago.catalog.sql.dir}"/>
+
+    <mdr
+        propertiesFile="${farrago.ReposStorage.propfile}"
+        logConfigFile="${FarragoMdrBuildTrace.properties}">
+      <propertyset>
+        <propertyref name="FARRAGO_CATALOG_DIR"/>
+      </propertyset>
+      <exportSchema
+        mode="model"
+        dir="${farrago.catalog.src.dir}"
+        extent="FarragoMetamodel"/>
+    </mdr>
+
+    <property 
+        file="${farrago.ReposStorage.propfile}"
+        prefix="gensch"/>
+
+    <echo>
+      Configuring repository schema at:
+      ${gensch.net.sf.farrago.dev.connection.schema.url}
+    </echo>
+    <sql
+        driver="${gensch.net.sf.farrago.dev.connection.driver_class}"
+        url="${gensch.net.sf.farrago.dev.connection.schema.url}"
+        userid="${gensch.net.sf.farrago.dev.connection.username}"
+        password="${gensch.net.sf.farrago.dev.connection.password}"
+        classpathref="farrago.3p.classpath">
+      <!-- Ant will alphaebtize if these are in the same fileset. 
+           Keep provider.sql first, since it logically belongs first. -->
+      <fileset dir="${farrago.catalog.src.dir}">
+        <include name="**/provider.sql"/>
+      </fileset>
+      <fileset dir="${farrago.catalog.src.dir}">
+        <include name="**/create.sql"/>
+      </fileset>
+    </sql>
   </target>
 
   <target name="importMetamodel">

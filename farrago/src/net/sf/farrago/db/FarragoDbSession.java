@@ -139,7 +139,7 @@ public class FarragoDbSession
     private boolean isAutoCommit;
     private boolean shutDownRequested;
     private boolean catalogDumpRequested;
-    private boolean metamodelDumpRequested;
+    private boolean shutdownRequested;
     private boolean reposSessionEnded;
     private boolean wasKilled;
 
@@ -177,7 +177,7 @@ public class FarragoDbSession
 
     private Pattern optRuleDescExclusionFilter;
     
-    private FemLabel sessionLabel;
+    private SessionLabel sessionLabel;
 
     private boolean isLoopback;
 
@@ -547,8 +547,10 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public synchronized boolean isClosed()
+    public boolean isClosed()
     {
+        // NOTE jvs 18-Nov-2008:  don't mark this method as
+        // synchronized; see FRG-294 for why.
         return (database == null);
     }
 
@@ -559,16 +561,22 @@ public class FarragoDbSession
     }
 
     // implement FarragoSession
-    public synchronized boolean isTxnInProgress()
+    public boolean isTxnInProgress()
     {
+        // NOTE jvs 18-Nov-2008:  don't mark this method as
+        // synchronized; see FRG-294 for why.
+        
         // TODO jvs 9-Mar-2006:  Unify txn state.
         if (txnIdRef.txnId != null) {
             return true;
         }
-        if (fennelTxnContext == null) {
+
+        FennelTxnContext contextToCheck = fennelTxnContext;
+        
+        if (contextToCheck == null) {
             return false;
         }
-        return fennelTxnContext.isTxnInProgress();
+        return contextToCheck.isTxnInProgress();
     }
 
     // implement FarragoSession
@@ -776,35 +784,42 @@ public class FarragoDbSession
     
     private void setSessionLabel(FemLabel label)
     {
-       FarragoDdlLockManager ddlLockManager = getDatabase().getDdlLockManager();
+        FarragoDdlLockManager ddlLockManager =
+            getDatabase().getDdlLockManager();
      
-       // Unlock the current label
-       if (sessionLabel != null) {
-           ddlLockManager.removeObjectsInUse(this);
-           tracer.info("Session label reset to null");
-       }
+        // Unlock the current label
+        if (sessionLabel != null) {
+            ddlLockManager.removeObjectsInUse(this);
+            tracer.info("Session label reset to null");
+        }
        
-       // If the label is an alias, determine the base label that the
-       // alias maps to.  This will make it possible to reset the alias to
-       // a new base label even though the original base label is still
-       // in-use.
-       if (label != null) {
-           FemLabel parentLabel = label.getParentLabel();
-           while (parentLabel != null) {
-               label = parentLabel;
-               parentLabel = label.getParentLabel();
-           }
-       }
-       
-       sessionLabel = label;
-       if (sessionLabel != null) {
-           // Lock the new label
-           Set<String> mofId = new HashSet<String>();
-           CwmModelElement refObj = (CwmModelElement) sessionLabel;
-           mofId.add(refObj.refMofId());
-           ddlLockManager.addObjectsInUse(this, mofId);
-           tracer.info("Session label set to \"" + sessionLabel.getName() + "\"");
-       }
+        // If the label is an alias, determine the base label that the
+        // alias maps to.  This will make it possible to reset the alias to
+        // a new base label even though the original base label is still
+        // in-use.
+        if (label == null) {
+            sessionLabel = null;
+        } else {
+            FemLabel parentLabel = label.getParentLabel();
+            while (parentLabel != null) {
+                label = parentLabel;
+                parentLabel = label.getParentLabel();
+            }
+            sessionLabel =
+                new SessionLabel(
+                    label.getCommitSequenceNumber(),
+                    label.getCreationTimestamp());
+        }
+      
+        if (sessionLabel != null) {
+            // Lock the new label
+            Set<String> mofId = new HashSet<String>();
+            CwmModelElement refObj = (CwmModelElement) label;
+            mofId.add(refObj.refMofId());
+            ddlLockManager.addObjectsInUse(this, mofId);
+            tracer.info(
+                "Session label set to \"" + label.getName() + "\"");
+        }
     }
     
     // implement FarragoSession
@@ -1389,22 +1404,22 @@ public class FarragoDbSession
     }
     
     /**
-     * Turns on a flag indicating whether a metamodel dump request has been
+     * Turns on a flag indicating whether a shutdown request has been
      * made.
      * 
      * @param val whether to set the flag to true or false
      */
-    public void setMetamodelDump(boolean val)
+    public void setShutdownRequest(boolean val)
     {
-        metamodelDumpRequested = val;
+        shutdownRequested = val;
     }
     
     /**
      * @return true if a metamodel dump has been requested
      */
-    public boolean metamodelDumpRequested()
+    public boolean shutdownRequested()
     {
-        return metamodelDumpRequested;
+        return shutdownRequested;
     }
 
     // implement FarragoSession
@@ -1419,6 +1434,19 @@ public class FarragoDbSession
         return isLoopback;
     }
 
+    // implement FarragoSession
+    public boolean isReentrantAlterTableRebuild()
+    {
+        return (getSessionIndexMap().getReloadTable() != null)
+            && !isReentrantAlterTableAddColumn();
+    }
+
+    // implement FarragoSession
+    public boolean isReentrantAlterTableAddColumn()
+    {
+        return (getSessionIndexMap().getOldTableStructure() != null);
+    }
+    
     //~ Inner Classes ----------------------------------------------------------
 
     private class DdlExecutionVisitor
@@ -1550,6 +1578,7 @@ public class FarragoDbSession
                 "must be in repos txn");
             
             boolean readOnly = !stmt.completeRequiresWriteTxn();
+            boolean success = false;
             
             FarragoSession session = ddlValidator.newReentrantSession();
             try {
@@ -1562,8 +1591,14 @@ public class FarragoDbSession
 
                 reposTxnContext.beginLockedTxn(readOnly);
 
-                stmt.completeAfterExecuteUnlocked(ddlValidator, session);
+                success = true;
+                stmt.completeAfterExecuteUnlocked(
+                    ddlValidator, session, success);
             } finally {
+                if (!success) {
+                    stmt.completeAfterExecuteUnlocked(
+                        ddlValidator, session, success);
+                }
                 ddlValidator.releaseReentrantSession(session);
             }
         }
@@ -1582,6 +1617,28 @@ public class FarragoDbSession
     private static class TxnIdRef
     {
         FarragoSessionTxnId txnId;
+    }
+
+    private static class SessionLabel
+    {
+        Long csn;
+        String timestamp;
+
+        SessionLabel(Long csn, String timestamp)
+        {
+            this.csn = csn;
+            this.timestamp = timestamp;
+        }
+
+        Long getCommitSequenceNumber()
+        {
+            return csn;
+        }
+
+        String getCreationTimestamp()
+        {
+            return timestamp;
+        }
     }
 }
 

@@ -179,6 +179,12 @@ public:
     virtual void abort(ExecStreamGraph &graph) = 0;
 
     /**
+     * Checks whether there is an abort request for this
+     * scheduler, and if so, throws an AbortExcn.
+     */
+    virtual void checkAbort() const;
+
+    /**
      * Shuts down this scheduler, preventing any further streams from
      * being scheduled.
      */
@@ -226,6 +232,12 @@ public:
      */
     virtual ExecStreamBufAccessor &readStream(
         ExecStream &stream) = 0;
+
+    /**
+     * @return the degree of parallelism implemented by this scheduler,
+     * or 1 for a non-parallel scheduler
+     */
+    virtual uint getDegreeOfParallelism();
 };
 
 inline ExecStreamResult ExecStreamScheduler::executeStream(
