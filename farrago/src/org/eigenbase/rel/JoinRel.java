@@ -85,10 +85,10 @@ public final class JoinRel
             variablesStopped,
             false);
     }
-
+    
     /**
      * Creates a JoinRel, flagged with whether it has been translated to a
-     * semi-join or multi-join.
+     * semi-join.
      *
      * @param cluster Cluster
      * @param left Left input

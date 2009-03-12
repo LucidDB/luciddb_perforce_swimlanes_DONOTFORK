@@ -56,6 +56,8 @@ public class LoptOptimizeJoinRule
         MultiJoinRel multiJoinRel = (MultiJoinRel) call.rels[0];
         LoptMultiJoin multiJoin = new LoptMultiJoin(multiJoinRel);
 
+        findRemovableOuterJoins(multiJoin);
+        
         RexBuilder rexBuilder = multiJoinRel.getCluster().getRexBuilder();
         LoptSemiJoinOptimizer semiJoinOpt =
             new LoptSemiJoinOptimizer(multiJoin, rexBuilder);
@@ -81,7 +83,7 @@ public class LoptOptimizeJoinRule
 
         multiJoin.setFactorWeights();
 
-        findRemovableOuterJoins(multiJoin);
+        findRemovableSelfJoins(multiJoin);
 
         findBestOrderings(multiJoin, semiJoinOpt, call);
     }
@@ -246,6 +248,161 @@ outerForLoop:
                 false);
         }
     }
+    
+    /**
+     * Locates pairs of joins that are self-joins where the join can be 
+     * removed because the join condition between the two factors is an
+     * equality join on unique keys.
+     * 
+     * @param multiJoin join factors being optimized
+     */
+    private void findRemovableSelfJoins(LoptMultiJoin multiJoin)
+    {
+        // Candidates for self-joins must be simple factors
+        Map<Integer, RelOptTable> simpleFactors = getSimpleFactors(multiJoin);
+        
+        // See if a simple factor is repeated and therefore potentially is
+        // part of a self-join.  Restrict each factor to at most one
+        // self-join.
+        List<RelOptTable> repeatedTables = new ArrayList<RelOptTable>();
+        TreeSet<Integer> sortedFactors = new TreeSet<Integer>();
+        sortedFactors.addAll(simpleFactors.keySet());
+        Map<Integer, Integer> selfJoinPairs =
+            new HashMap<Integer, Integer>();
+        Integer[] factors =
+            sortedFactors.toArray(new Integer[sortedFactors.size()]);
+        for (int i = 0; i < factors.length; i++) {
+            if (repeatedTables.contains(simpleFactors.get(factors[i]))) {
+                continue;
+            }
+            for (int j = i + 1; j < factors.length; j++) {
+                int leftFactor = factors[i];
+                int rightFactor = factors[j];
+                if (Arrays.equals(
+                    simpleFactors.get(leftFactor).getQualifiedName(),
+                    simpleFactors.get(rightFactor).getQualifiedName()))
+                {
+                    selfJoinPairs.put(leftFactor, rightFactor);
+                    repeatedTables.add(simpleFactors.get(leftFactor));                    
+                    break;
+                }
+            }
+        }
+        
+        // From the candidate self-join pairs, determine if there is
+        // the appropriate join condition between the two factors that will
+        // allow the join to be removed.
+        for (Integer factor1 : selfJoinPairs.keySet()) {
+            int factor2 = selfJoinPairs.get(factor1);
+            List<RexNode> selfJoinFilters = new ArrayList<RexNode>();
+            for (RexNode filter : multiJoin.getJoinFilters()) {
+                BitSet joinFactors =
+                    multiJoin.getFactorsRefByJoinFilter(filter);
+                if (joinFactors.cardinality() == 2 &&
+                    joinFactors.get(factor1) && joinFactors.get(factor2)) {
+                    selfJoinFilters.add(filter);
+                }
+            }
+            if (selfJoinFilters.size() > 0 &&
+                isJoinFilterUnique(
+                    multiJoin,
+                    factor1,
+                    factor2,
+                    selfJoinFilters))
+            {
+                multiJoin.addRemovableSelfJoinPair(factor1, factor2);
+            }
+        }
+    }
+    
+    /**
+     * Retrieves join factors that correspond to simple table references.
+     * A simple table reference is a single table reference with no grouping
+     * or aggregation.
+     * 
+     * @param multiJoin join factors being optimized
+     * 
+     * @return map consisting of the simple factors and the tables they
+     * correspond
+     */
+    private Map<Integer, RelOptTable> getSimpleFactors(LoptMultiJoin multiJoin)
+    {
+        Map<Integer, RelOptTable> returnList =
+            new HashMap<Integer, RelOptTable>();
+        
+        // Loop through all join factors and locate the ones where each
+        // column referenced from the factor is not derived and originates
+        // from the same underlying table.  Also, discard factors that
+        // are null-generating or will be removed because of semijoins.
+        if (multiJoin.getMultiJoinRel().isFullOuterJoin()) {
+            return returnList;
+        }
+        for (int factIdx = 0; factIdx < multiJoin.getNumJoinFactors();
+            factIdx++)
+        {
+            if (multiJoin.isNullGenerating(factIdx) ||
+                multiJoin.getJoinRemovalFactor(factIdx) != null)
+            {
+                continue;
+            }
+            RelNode rel = multiJoin.getJoinFactor(factIdx);
+            RelOptTable table = LoptMetadataProvider.getSimpleTableOrigin(rel);
+            if (table != null) {
+                returnList.put(factIdx, table);
+            }
+        }
+        
+        return returnList;
+    }
+    
+    /**
+     * Determines if the equality join filters between two factors that map to
+     * the same table consist of unique, identical keys.
+     * 
+     * @param multiJoin join factors being optimized
+     * @param leftFactor left factor in the join
+     * @param rightFactor right factor in the join
+     * @param joinFilterList list of join filters between the two factors
+     * 
+     * @return true if the criteria are met
+     */
+    private boolean isJoinFilterUnique(
+        LoptMultiJoin multiJoin,
+        int leftFactor,
+        int rightFactor,
+        List<RexNode> joinFilterList)
+    {
+        RexBuilder rexBuilder = 
+            multiJoin.getMultiJoinRel().getCluster().getRexBuilder();
+        RelNode leftRel = multiJoin.getJoinFactor(leftFactor);
+        RelNode rightRel = multiJoin.getJoinFactor(rightFactor);       
+        RexNode joinFilters =
+            RexUtil.andRexNodeList(rexBuilder, joinFilterList);
+        
+        // Adjust the offsets in the filter by shifting the left factor
+        // to the left and shifting the right factor to the left and then back
+        // to the right by the number of fields in the left
+        int[] adjustments = new int[multiJoin.getNumTotalFields()];
+        int leftAdjust = multiJoin.getJoinStart(leftFactor);
+        int nLeftFields = leftRel.getRowType().getFieldCount();
+        for (int i = 0; i < nLeftFields; i++) {
+            adjustments[leftAdjust + i] = -leftAdjust;
+        }
+        int rightAdjust = multiJoin.getJoinStart(rightFactor);
+        for (int i = 0; i < rightRel.getRowType().getFieldCount(); i++) {
+            adjustments[rightAdjust + i] = -rightAdjust + nLeftFields;
+        }
+        joinFilters =
+            joinFilters.accept(
+                new RelOptUtil.RexInputConverter(
+                    rexBuilder,
+                    multiJoin.getMultiJoinFields(),
+                    leftRel.getRowType().getFields(),
+                    rightRel.getRowType().getFields(),
+                    adjustments));
+        
+        return areJoinKeysUnique(leftRel, rightRel, joinFilters);
+    }
 
     /**
      * Generates N optimal join orderings. Each ordering contains each factor as
@@ -281,7 +438,7 @@ outerForLoop:
                 continue;
             }
 
-            ProjectRel newProject =
+            RelNode newProject =
                 createTopProject(multiJoin, joinTree, fieldNames);
             plans.add(newProject);
         }
@@ -299,14 +456,15 @@ outerForLoop:
     /**
      * Creates the topmost projection that will sit on top of the selected join
      * ordering. The projection needs to match the original join ordering.
+     * Also, places any post-join filters on top of the project.
      *
      * @param multiJoin join factors being optimized
      * @param joinTree selected join ordering
-     * @param fieldNames fieldnames corresponding to the proejction expressions
+     * @param fieldNames fieldnames corresponding to the projection expressions
      *
      * @return created projection
      */
-    private ProjectRel createTopProject(
+    private RelNode createTopProject(
         LoptMultiJoin multiJoin,
         LoptJoinTree joinTree,
         String [] fieldNames)
@@ -321,29 +479,47 @@ outerForLoop:
         newProjExprs = new RexNode[nTotalFields];
         List<Integer> newJoinOrder = new ArrayList<Integer>();
         joinTree.getTreeOrder(newJoinOrder);
-        int currField = 0;
         int nJoinFactors = multiJoin.getNumJoinFactors();
         RelDataTypeField [] fields = multiJoin.getMultiJoinFields();
-        for (int currFactor = 0; currFactor < nJoinFactors; currFactor++) {
-            // locate the join factor in the new join ordering
-            int fieldStart = 0;
-            for (int pos = 0; pos < nJoinFactors; pos++) {
-                if (newJoinOrder.get(pos).intValue() == currFactor) {
-                    break;
-                }
-                fieldStart +=
-                    multiJoin.getNumFieldsInJoinFactor(newJoinOrder.get(pos));
+        
+        // create a mapping from each factor to its field offset in the join
+        // ordering
+        Map<Integer, Integer> factorToOffsetMap =
+            new HashMap<Integer, Integer>();
+        for (int pos = 0, fieldStart = 0; pos < nJoinFactors; pos++) {
+            factorToOffsetMap.put(newJoinOrder.get(pos), fieldStart);
+            fieldStart +=
+                multiJoin.getNumFieldsInJoinFactor(newJoinOrder.get(pos));
+        }
+               
+        for (int currFactor = 0, currField = 0; currFactor < nJoinFactors;
+            currFactor++)
+        {
+            // if the factor is the right factor in a removable self-join,
+            // then where possible, remap references to the right factor to
+            // the corresponding reference in the left factor           
+            Integer leftFactor = null;
+            if (multiJoin.isRightFactorInRemovableSelfJoin(currFactor)) {
+                leftFactor = multiJoin.getOtherSelfJoinFactor(currFactor);
             }
-
             for (
                 int fieldPos = 0;
                 fieldPos < multiJoin.getNumFieldsInJoinFactor(currFactor);
                 fieldPos++)
             {
+                int newOffset = factorToOffsetMap.get(currFactor) + fieldPos;
+                if (leftFactor != null) {
+                    Integer leftOffset =
+                        multiJoin.getRightColumnMapping(currFactor, fieldPos);
+                    if (leftOffset != null) {
+                        newOffset =
+                            factorToOffsetMap.get(leftFactor) + leftOffset;
+                    }
+                }
                 newProjExprs[currField] =
                     rexBuilder.makeInputRef(
                         fields[currField].getType(),
-                        fieldStart + fieldPos);
+                        newOffset);
                 currField++;
             }
         }
@@ -353,8 +529,16 @@ outerForLoop:
                 joinTree.getJoinTree(),
                 newProjExprs,
                 fieldNames);
-
-        return newProject;
+        
+        // Place the post-join filter (if it exists) on top of the final
+        // projection.
+        RexNode postJoinFilter =
+            multiJoin.getMultiJoinRel().getPostJoinFilter();
+        if (postJoinFilter != null) {
+            return CalcRel.createFilter(newProject, postJoinFilter);
+        } else {
+            return newProject;
+        }
     }
 
     /**
@@ -492,88 +676,33 @@ outerForLoop:
         factorsToAdd.flip(0, nJoinFactors);
         List<RexNode> filtersToAdd =
             new ArrayList<RexNode>(multiJoin.getJoinFilters());
-        int [][] factorWeights = multiJoin.getFactorWeights();
 
+        int prevFactor = -1;
         while (factorsToAdd.cardinality() > 0) {
             int nextFactor = -1;
+            boolean selfJoin = false;
             if (factorsAdded.cardinality() == 0) {
                 nextFactor = firstFactor;
             } else {
-                // iterate through the remaining factors and determine the
-                // best one to add next
-                int bestWeight = 0;
-                Double bestCardinality = null;
-                for (
-                    int factor = factorsToAdd.nextSetBit(0);
-                    factor >= 0;
-                    factor = factorsToAdd.nextSetBit(factor + 1))
+                // If the factor just added is part of a removable self-join
+                // and the other half of the self-join hasn't been added yet,
+                // then add it next.  Otherwise, look for the optimal factor
+                // to add next.
+                Integer selfJoinFactor =
+                    multiJoin.getOtherSelfJoinFactor(prevFactor);
+                if (selfJoinFactor != null && !factorsAdded.get(selfJoinFactor))
                 {
-                    // if the factor corresponds to a dimension table whose
-                    // join we can remove, make sure the the corresponding fact
-                    // table is in the current join tree
-                    Integer factIdx = multiJoin.getJoinRemovalFactor(factor);
-                    if (factIdx != null) {
-                        if (!factorsAdded.get(factIdx)) {
-                            continue;
-                        }
-                    }
-
-                    // can't add a null-generating factor if its dependent,
-                    // non-null generating factors haven't been added yet
-                    if (multiJoin.isNullGenerating(factor)) {
-                        BitSet tmp =
-                            (BitSet) multiJoin.getOuterJoinFactors(factor)
-                            .clone();
-                        tmp.andNot(factorsAdded);
-                        if (tmp.cardinality() != 0) {
-                            continue;
-                        }
-                    }
-
-                    // determine the best weight between the current factor
-                    // under consideration and the factors that have already
-                    // been added to the tree
-                    int dimWeight = 0;
-                    for (
-                        int prevFactor = factorsAdded.nextSetBit(0);
-                        prevFactor >= 0;
-                        prevFactor = factorsAdded.nextSetBit(prevFactor + 1))
-                    {
-                        if (factorWeights[prevFactor][factor] > dimWeight) {
-                            dimWeight = factorWeights[prevFactor][factor];
-                        }
-                    }
-
-                    // only compute the join cardinality if we know that
-                    // this factor joins with some part of the current join
-                    // tree and is potentially better than other factors
-                    // already considered
-                    Double cardinality = null;
-                    if (dimWeight > 0 &&
-                        (dimWeight > bestWeight || dimWeight == bestWeight))
-                    {
-                        cardinality = 
-                            computeJoinCardinality(
-                                multiJoin,
-                                semiJoinOpt,
-                                joinTree,
-                                filtersToAdd,
-                                factor);
-                    }
-                    
-                    // if two factors have the same weight, pick the one
-                    // with the higher cardinality join key, relative to
-                    // the join being considered
-                    if ((dimWeight > bestWeight)
-                        || ((dimWeight == bestWeight)
-                            && ((bestCardinality == null)
-                                || ((cardinality != null)
-                                    && (cardinality > bestCardinality)))))
-                    {
-                        nextFactor = factor;
-                        bestWeight = dimWeight;
-                        bestCardinality = cardinality;
-                    }
+                    nextFactor = selfJoinFactor;
+                    selfJoin = true;
+                } else {
+                    nextFactor =
+                        getBestNextFactor(
+                            multiJoin,
+                            factorsToAdd,
+                            factorsAdded,
+                            semiJoinOpt,
+                            joinTree,
+                            filtersToAdd);
                 }
             }
 
@@ -593,16 +722,120 @@ outerForLoop:
                     joinTree,
                     nextFactor,
                     factorsNeeded,
-                    filtersToAdd);
+                    filtersToAdd,
+                    selfJoin);
             if (joinTree == null) {
                 return null;
             }
             factorsToAdd.clear(nextFactor);
             factorsAdded.set(nextFactor);
+            prevFactor = nextFactor;
         }
 
         assert(filtersToAdd.size() == 0);
         return joinTree;
+    }
+    
+    /**
+     * Determines the best factor to be added next into a join tree.
+     * 
+     * @param multiJoin join factors being optimized
+     * @param factorsToAdd factors to choose from to add next
+     * @param factorsAdded factors that have already been added to the join tree
+     * @param semiJoinOpt optimal semijoins for each factor
+     * @param joinTree join tree constructed thus far
+     * @param filtersToAdd remaining filters that need to be added
+     * 
+     * @return index of the best factor to add next
+     */
+    private int getBestNextFactor(
+        LoptMultiJoin multiJoin,
+        BitSet factorsToAdd,
+        BitSet factorsAdded,
+        LoptSemiJoinOptimizer semiJoinOpt,
+        LoptJoinTree joinTree,
+        List<RexNode> filtersToAdd)
+    {
+        // iterate through the remaining factors and determine the
+        // best one to add next
+        int nextFactor = -1;
+        int bestWeight = 0;
+        Double bestCardinality = null;
+        int [][] factorWeights = multiJoin.getFactorWeights();
+        for (
+            int factor = factorsToAdd.nextSetBit(0);
+            factor >= 0;
+            factor = factorsToAdd.nextSetBit(factor + 1))
+        {
+            // if the factor corresponds to a dimension table whose
+            // join we can remove, make sure the the corresponding fact
+            // table is in the current join tree
+            Integer factIdx = multiJoin.getJoinRemovalFactor(factor);
+            if (factIdx != null) {
+                if (!factorsAdded.get(factIdx)) {
+                    continue;
+                }
+            }
+
+            // can't add a null-generating factor if its dependent,
+            // non-null generating factors haven't been added yet
+            if (multiJoin.isNullGenerating(factor)) {
+                BitSet tmp =
+                    (BitSet) multiJoin.getOuterJoinFactors(factor)
+                    .clone();
+                tmp.andNot(factorsAdded);
+                if (tmp.cardinality() != 0) {
+                    continue;
+                }
+            }
+
+            // determine the best weight between the current factor
+            // under consideration and the factors that have already
+            // been added to the tree
+            int dimWeight = 0;
+            for (
+                int prevFactor = factorsAdded.nextSetBit(0);
+                prevFactor >= 0;
+                prevFactor = factorsAdded.nextSetBit(prevFactor + 1))
+            {
+                if (factorWeights[prevFactor][factor] > dimWeight) {
+                    dimWeight = factorWeights[prevFactor][factor];
+                }
+            }
+
+            // only compute the join cardinality if we know that
+            // this factor joins with some part of the current join
+            // tree and is potentially better than other factors
+            // already considered
+            Double cardinality = null;
+            if (dimWeight > 0 &&
+                (dimWeight > bestWeight || dimWeight == bestWeight))
+            {
+                cardinality = 
+                    computeJoinCardinality(
+                        multiJoin,
+                        semiJoinOpt,
+                        joinTree,
+                        filtersToAdd,
+                        factor);
+            }
+            
+            // if two factors have the same weight, pick the one
+            // with the higher cardinality join key, relative to
+            // the join being considered
+            if ((dimWeight > bestWeight)
+                || ((dimWeight == bestWeight)
+                    && ((bestCardinality == null)
+                        || ((cardinality != null)
+                            && (cardinality > bestCardinality)))))
+            {
+                nextFactor = factor;
+                bestWeight = dimWeight;
+                bestCardinality = cardinality;
+            }
+        }
+        
+        return nextFactor;
     }
 
     /**
@@ -634,6 +867,8 @@ outerForLoop:
      * @param factorsNeeded factors that must precede the factor to be added
      * @param filtersToAdd filters remaining to be added; filters added to the
      * new join tree are removed from the list
+     * @param selfJoin true if the join being created is a self-join that's
+     * removable
      *
      * @return optimal join tree with the new factor added if it is possible to
      * add the factor; otherwise, null is returned
@@ -644,7 +879,8 @@ outerForLoop:
         LoptJoinTree joinTree,
         int factorToAdd,
         BitSet factorsNeeded,
-        List<RexNode> filtersToAdd)
+        List<RexNode> filtersToAdd,
+        boolean selfJoin)
     {
         // if the factor corresponds to the null generating factor in an outer
         // join that can be removed, then create a replacement join
@@ -680,9 +916,20 @@ outerForLoop:
                 factorToAdd);
         }
 
-        // create a temporary copy of the filter list as we need the original
-        // list to pass into addToTop()
+        // Create a temporary copy of the filter list as we may need the
+        // original list to pass into addToTop().  However, if no tree was
+        // created by addToTop() because the factor being added is part of
+        // a self-join, then pass the original filter list so the added
+        // filters will still be removed from the list.
         List<RexNode> tmpFilters = new ArrayList<RexNode>(filtersToAdd);
+        LoptJoinTree topTree =
+            addToTop(
+                multiJoin,
+                semiJoinOpt,
+                joinTree,
+                factorToAdd,
+                filtersToAdd,
+                selfJoin);
         LoptJoinTree pushDownTree =
             pushDownFactor(
                 multiJoin,
@@ -690,29 +937,28 @@ outerForLoop:
                 joinTree,
                 factorToAdd,
                 factorsNeeded,
-                tmpFilters);
-
-        LoptJoinTree topTree =
-            addToTop(
-                multiJoin,
-                semiJoinOpt,
-                joinTree,
-                factorToAdd,
-                filtersToAdd);
+                (topTree == null) ? filtersToAdd : tmpFilters,
+                selfJoin);
 
         // pick the lower cost option, and replace the join ordering with
         // the ordering associated with the best option
         LoptJoinTree bestTree;
         RelOptCost costPushDown = null;
+        RelOptCost costTop = null;
         if (pushDownTree != null) {
             costPushDown =
                 RelMetadataQuery.getCumulativeCost(pushDownTree.getJoinTree());
         }
-        RelOptCost costTop =
-            RelMetadataQuery.getCumulativeCost(topTree.getJoinTree());
+        if (topTree != null) {
+            costTop =
+                RelMetadataQuery.getCumulativeCost(topTree.getJoinTree());
+        }
         
-        bestTree = topTree;
-        if ((costPushDown != null) && (costTop != null))  {
+        if (pushDownTree == null) {
+            bestTree = topTree;
+        } else if (topTree == null) {
+            bestTree = pushDownTree;
+        } else {
             if (costPushDown.isEqWithEpsilon(costTop)) {
                 // if both plans cost the same (with an allowable round-off
                 // margin of error), favor the one that passes
@@ -721,9 +967,13 @@ outerForLoop:
                     rowWidthCost(topTree.getJoinTree()))
                 {
                     bestTree = pushDownTree;
+                } else {
+                    bestTree = topTree;
                 }
             } else if (costPushDown.isLt(costTop)) {
                 bestTree = pushDownTree;
+            } else {
+                bestTree = topTree;
             }
         }
         
@@ -767,8 +1017,10 @@ outerForLoop:
      * @param factorsNeeded factors that must precede the factor to be added
      * @param filtersToAdd filters remaining to be added; filters that are added
      * to the join tree are removed from the list
+     * @param selfJoin true if the factor being added is part of a removable
+     * self-join
      *
-     * @return optimal join tree with thew new factor pushed down the current
+     * @return optimal join tree with the new factor pushed down the current
      * join tree if it is possible to do the pushdown; otherwise, null is
      * returned
      */
@@ -778,7 +1030,8 @@ outerForLoop:
         LoptJoinTree joinTree,
         int factorToAdd,
         BitSet factorsNeeded,
-        List<RexNode> filtersToAdd)
+        List<RexNode> filtersToAdd,
+        boolean selfJoin)
     {
         // pushdown option only works if we already have a join tree
         if (!isJoinTree(joinTree.getJoinTree())) {
@@ -787,11 +1040,29 @@ outerForLoop:
         int childNo = -1;
         LoptJoinTree left = joinTree.getLeft();
         LoptJoinTree right = joinTree.getRight();
-        JoinRelType joinType = ((JoinRel) joinTree.getJoinTree()).getJoinType();
+        JoinRel joinRel = (JoinRel) joinTree.getJoinTree();
+        JoinRelType joinType = joinRel.getJoinType();
+        
+        // can't push factors pass self-joins because in order to later remove
+        // them, we need to keep the factors together
+        if (joinTree.isRemovableSelfJoin()) {
+            return null;
+        }
 
-        // if there are no constraints as to which side the factor must
-        // be pushed, arbitrarily push to the left
-        if ((factorsNeeded.cardinality() == 0)
+        // If there are no constraints as to which side the factor must
+        // be pushed, arbitrarily push to the left.  In the case of a
+        // self-join, always push to the input that contains the other
+        // half of the self-join.
+        if (selfJoin) {
+            BitSet selfJoinFactor = new BitSet(multiJoin.getNumJoinFactors());
+            selfJoinFactor.set(multiJoin.getOtherSelfJoinFactor(factorToAdd));
+            if (multiJoin.hasAllFactors(left, selfJoinFactor)) {
+                childNo = 0;
+            } else {
+                assert(multiJoin.hasAllFactors(right, selfJoinFactor));
+                childNo = 1;
+            }
+        } else if ((factorsNeeded.cardinality() == 0)
             && !joinType.generatesNullsOnLeft())
         {
             childNo = 0;
@@ -831,7 +1102,8 @@ outerForLoop:
                 subTree,
                 factorToAdd,
                 factorsNeeded,
-                filtersToAdd);
+                filtersToAdd,
+                selfJoin);
 
         if (childNo == 0) {
             left = subTree;
@@ -884,6 +1156,7 @@ outerForLoop:
             newCondition,
             joinType,
             filtersToAdd,
+            false,
             false);
     }
 
@@ -896,6 +1169,8 @@ outerForLoop:
      * @param factorToAdd new factor to be added
      * @param filtersToAdd filters remaining to be added; modifies the list to
      * remove filters that can be added to the join tree
+     * @param selfJoin true if the join being created is a self-join that's
+     * removable
      *
      * @return new join tree
      */
@@ -904,8 +1179,16 @@ outerForLoop:
         LoptSemiJoinOptimizer semiJoinOpt,
         LoptJoinTree joinTree,
         int factorToAdd,
-        List<RexNode> filtersToAdd)
+        List<RexNode> filtersToAdd,
+        boolean selfJoin)
     {
+        // self-joins can never be created at the top of an existing
+        // join tree because it needs to be paired directly with the
+        // other self-join factor
+        if (selfJoin && isJoinTree(joinTree.getJoinTree())) {
+            return null;
+        }
+        
         // if the factor being added is null-generating, create the join
         // as a left outer join since it's being added to the RHS side of
         // the join; createJoinSubTree may swap the inputs and therefore
@@ -950,7 +1233,8 @@ outerForLoop:
             condition,
             joinType,
             filtersToAdd,
-            true);
+            true,
+            selfJoin);
     }
 
     /**
@@ -1018,7 +1302,13 @@ outerForLoop:
 
         if (adjust && (condition != null)) {
             int [] adjustments = new int[multiJoin.getNumTotalFields()];
-            if (needsAdjustment(multiJoin, adjustments, leftTree, rightTree)) {
+            if (needsAdjustment(
+                multiJoin,
+                adjustments,
+                leftTree,
+                rightTree,
+                false))
+            {
                 condition =
                     condition.accept(
                         new RelOptUtil.RexInputConverter(
@@ -1080,36 +1370,33 @@ outerForLoop:
             int nFieldsOld = 0;
 
             // no need to make any adjustments on the newly added factor
-            if (newJoinOrder.get(newPos).intValue() != factorAdded) {
+            int factor = newJoinOrder.get(newPos);
+            if (factor != factorAdded) {
+                // locate the position of the factor in the original join
+                // ordering
                 for (int oldPos = 0; oldPos < origJoinOrder.size(); oldPos++) {
-                    if (newJoinOrder.get(newPos).intValue()
-                        == origJoinOrder.get(oldPos).intValue())
-                    {
+                    if (factor == origJoinOrder.get(oldPos).intValue()) {
                         break;
                     }
                     nFieldsOld +=
                         multiJoin.getNumFieldsInJoinFactor(
                             origJoinOrder.get(oldPos));
                 }
-                if ((-nFieldsOld + nFieldsNew) != 0) {
+                // fill in the adjustment array for this factor
+                if (remapJoinReferences(
+                    multiJoin,
+                    factor,
+                    newJoinOrder,
+                    newPos,
+                    adjustments,
+                    nFieldsOld,
+                    nFieldsNew,
+                    false))
+                {
                     needAdjust = true;
-                    for (
-                        int i = 0;
-                        i
-                        < multiJoin.getNumFieldsInJoinFactor(
-                            newJoinOrder.get(newPos));
-                        i++)
-                    {
-                        // subtract off the number of fields to the left
-                        // in the original join order and then add on the
-                        // number of fields on the left in the new join order
-                        adjustments[i + nFieldsOld] = -nFieldsOld + nFieldsNew;
-                    }
                 }
             }
-            nFieldsNew +=
-                multiJoin.getNumFieldsInJoinFactor(
-                    newJoinOrder.get(newPos));
+            nFieldsNew += multiJoin.getNumFieldsInJoinFactor(factor);
         }
 
         if (needAdjust) {
@@ -1126,6 +1413,106 @@ outerForLoop:
         }
 
         return condition;
+    }
+    
+    /**
+     * Sets an adjustment array based on where column references for a
+     * particular factor end up as a result of a new join ordering.
+     * 
+     * <p>
+     * If the factor is not the right factor in a removable self-join, then
+     * it needs to be adjusted as follows:
+     * <ul>
+     * <li>First subtract, based on where the factor was in the original join
+     * ordering.
+     * <li>Then add on the number of fields in the factors that now precede
+     * this factor in the new join ordering.
+     *</ul>
+     *
+     * <p>
+     * If the factor is the right factor in a removable self-join and its
+     * column reference can be mapped to the left factor in the self-join,
+     * then:
+     * <ul>
+     * <li>First subtract, based on where the column reference is in the new
+     * join ordering.
+     * <li>Then, add on the number of fields up to the start of the left factor
+     * in the self-join in the new join ordering.
+     * <li>Then, finally add on the offset of the corresponding column from
+     * the left factor.
+     * </ul>
+     * Note that this only applies if both factors in the self-join are in
+     * the join ordering.  If they are, then the left factor always precedes
+     * the right factor in the join ordering.
+     * 
+     * @param multiJoin join factors being optimized
+     * @param factor the factor whose references are being adjusted
+     * @param newJoinOrder the new join ordering containing the factor
+     * @param newPos the position of the factor in the new join ordering
+     * @param adjustments the adjustments array that will be set
+     * @param offset the starting offset within the original join ordering
+     * for the columns of the factor being adjusted
+     * @param newOffset the new starting offset in the new join ordering for
+     * the columns of the factor being adjusted
+     * @param alwaysUseDefault always use the default adjustment value
+     * regardless of whether the factor is the right factor in a removable
+     * self-join
+     * 
+     * @return true if at least one column from the factor requires adjustment
+     */
+    private boolean remapJoinReferences(
+        LoptMultiJoin multiJoin,
+        int factor,
+        List<Integer> newJoinOrder,
+        int newPos,
+        int[] adjustments,
+        int offset,
+        int newOffset,
+        boolean alwaysUseDefault)       
+    {
+        boolean needAdjust = false;
+        int defaultAdjustment = -offset + newOffset;
+        if (!alwaysUseDefault &&
+            multiJoin.isRightFactorInRemovableSelfJoin(factor) &&
+            newPos != 0 &&
+            newJoinOrder.get(newPos - 1).equals(
+                multiJoin.getOtherSelfJoinFactor(factor)))
+        {
+            int nLeftFields =
+                multiJoin.getNumFieldsInJoinFactor(newJoinOrder.get(
+                    newPos - 1));
+            for (int i = 0;
+                i < multiJoin.getNumFieldsInJoinFactor(factor); i++)
+            {
+                Integer leftOffset =
+                    multiJoin.getRightColumnMapping(factor, i);
+                // if the left factor doesn't reference the column, then
+                // use the default adjustment value
+                if (leftOffset == null) {
+                    adjustments[i + offset] = defaultAdjustment;
+                } else {
+                    adjustments[i + offset] =
+                        -(offset + i) + (newOffset - nLeftFields) +
+                        leftOffset;
+                }
+                if (adjustments[i + offset] != 0) {
+                    needAdjust = true;
+                }
+            }
+        } else {
+            if (defaultAdjustment != 0) {
+                needAdjust = true;
+                for (int i = 0;
+                    i < multiJoin.getNumFieldsInJoinFactor(
+                        newJoinOrder.get(newPos));
+                    i++)
+                {
+                    adjustments[i + offset] = defaultAdjustment;
+                }
+            }
+        }
+        
+        return needAdjust;
     }
 
     /**
@@ -1349,6 +1736,8 @@ outerForLoop:
      * needs to be further adjusted if swapping is done
      * @param filtersToAdd additional filters that may be added on top of the
      * resulting JoinRel, if the join is a left or right outer join
+     * @param selfJoin true if the join being created is a self-join that's
+     * removable
      *
      * @return created JoinRel
      */
@@ -1359,13 +1748,14 @@ outerForLoop:
         RexNode condition,
         JoinRelType joinType,
         List<RexNode> filtersToAdd,
-        boolean fullAdjust)
+        boolean fullAdjust,
+        boolean selfJoin)
     {
         RexBuilder rexBuilder =
             multiJoin.getMultiJoinRel().getCluster().getRexBuilder();
 
         // swap the inputs if beneficial
-        if (swapInputs(left, right)) {
+        if (swapInputs(multiJoin, left, right, selfJoin)) {
             LoptJoinTree tmp = right;
             right = left;
             left = tmp;
@@ -1389,7 +1779,8 @@ outerForLoop:
 
         if (fullAdjust) {
             int [] adjustments = new int[multiJoin.getNumTotalFields()];
-            if (needsAdjustment(multiJoin, adjustments, left, right)) {
+            if (needsAdjustment(multiJoin, adjustments, left, right, selfJoin))
+            {
                 condition =
                     condition.accept(
                         new RelOptUtil.RexInputConverter(
@@ -1415,6 +1806,7 @@ outerForLoop:
         // be applied to the resulting join, then they need to be applied
         // as a filter on top of the outer join result
         if ((joinType == JoinRelType.LEFT) || (joinType == JoinRelType.RIGHT)) {
+            assert(!selfJoin);
             joinTree =
                 addAdditionalFilters(
                     joinTree,
@@ -1427,7 +1819,8 @@ outerForLoop:
         return new LoptJoinTree(
             joinTree,
             left.getFactorTree(),
-            right.getFactorTree());
+            right.getFactorTree(),
+            selfJoin);
     }
     
     /**
@@ -1458,7 +1851,7 @@ outerForLoop:
         } else {
             // adjust the filter to reflect the outer join output
             int [] adjustments = new int[multiJoin.getNumTotalFields()];
-            if (needsAdjustment(multiJoin, adjustments, left, right)) {
+            if (needsAdjustment(multiJoin, adjustments, left, right, false)) {
                 RexBuilder rexBuilder =
                     multiJoin.getMultiJoinRel().getCluster().getRexBuilder();
                 filterCond =
@@ -1476,6 +1869,8 @@ outerForLoop:
 
     /**
      * Swaps the operands to a join, so the smaller input is on the right.
+     * Or, if this is a removable self-join, swap so the factor that should
+     * be preserved when the self-join is removed is put on the left.
      * 
      * <p>Note that unlike Broadbase, we do not swap if in the join condition,
      * the RHS references more columns than the LHS. This can help for
@@ -1486,14 +1881,27 @@ outerForLoop:
      * doesn't handle these type of sargable predicates, there's no point in
      * doing the swap for this reason.
      *
+     * @param multiJoin join factors being optimized
      * @param left left side of join tree
      * @param right right hand side of join tree
+     * @param selfJoin true if the join is a removable self-join
      *
      * @return true if swapping should be done
      */
-    private boolean swapInputs(LoptJoinTree left, LoptJoinTree right)
+    private boolean swapInputs(
+        LoptMultiJoin multiJoin,
+        LoptJoinTree left,
+        LoptJoinTree right,
+        boolean selfJoin)
     {
         boolean swap = false;
+        
+        if (selfJoin) {
+            return
+                !multiJoin.isLeftFactorInRemovableSelfJoin(
+                    left.getFactorTree().getId());
+        }
+        
         Double leftRowCount = RelMetadataQuery.getRowCount(left.getJoinTree());
         Double rightRowCount =
             RelMetadataQuery.getRowCount(right.getJoinTree());
@@ -1563,6 +1971,7 @@ outerForLoop:
      * @param joinTree join tree
      * @param otherTree null unless joinTree only represents the left side of
      * the join tree
+     * @param selfJoin true if no adjustments need to be made for self-joins
      *
      * @return true if some adjustment is required; false otherwise
      */
@@ -1570,7 +1979,8 @@ outerForLoop:
         LoptMultiJoin multiJoin,
         int [] adjustments,
         LoptJoinTree joinTree,
-        LoptJoinTree otherTree)
+        LoptJoinTree otherTree,
+        boolean selfJoin)
     {
         boolean needAdjustment = false;
 
@@ -1582,25 +1992,125 @@ outerForLoop:
 
         int nFields = 0;
         for (int newPos = 0; newPos < joinOrder.size(); newPos++) {
-            // factor needs to be adjusted as follows:
-            // - first subtract, based on where the factor was in the
-            //   orginal join input
-            // - then add on the number of fields in the factors that now
-            //   precede this factor in the new join ordering
             int origPos = joinOrder.get(newPos);
             int joinStart = multiJoin.getJoinStart(origPos);
-            int adjustment = -joinStart + nFields;
-            int nJoinFields = multiJoin.getNumFieldsInJoinFactor(origPos);
-            nFields += nJoinFields;
-            if (adjustment != 0) {
+            // Determine the adjustments needed for join references.  Note
+            // that if the adjustment is being done for a self-join filter,
+            // we always use the default adjustment value rather than
+            // remapping the right factor to reference the left factor.
+            // Otherwise, we have no way of later identifying that the join is
+            // self-join.
+            if (remapJoinReferences(
+                multiJoin,
+                origPos,
+                joinOrder,
+                newPos,
+                adjustments,
+                joinStart,
+                nFields,
+                selfJoin))
+            {
                 needAdjustment = true;
-                for (int i = 0; i < nJoinFields; i++) {
-                    adjustments[joinStart + i] = adjustment;
-                }
             }
+            nFields += multiJoin.getNumFieldsInJoinFactor(origPos);
         }
 
         return needAdjustment;
+    }
+    
+    /**
+     * Determines whether a join is a removable self-join.  It is if it's an
+     * inner join between identical, simple factors and the equality portion
+     * of the join condition consists of the same set of unique keys.
+     * 
+     * @param joinRel the join
+     * 
+     * @return true if the join is removable
+     */
+    public static boolean isRemovableSelfJoin(JoinRel joinRel)
+    {   
+        RelNode left = joinRel.getLeft();
+        RelNode right = joinRel.getRight();
+        
+        if (joinRel.getJoinType() != JoinRelType.INNER) {
+            return false;
+        }
+        
+        // Make sure the join is between the same simple factor
+        RelOptTable leftTable = LoptMetadataProvider.getSimpleTableOrigin(left);
+        if (leftTable == null) {
+            return false;
+        }
+        RelOptTable rightTable =
+            LoptMetadataProvider.getSimpleTableOrigin(right);
+        if (rightTable == null) {
+            return false;
+        }
+        if (!Arrays.equals(
+            leftTable.getQualifiedName(),
+            rightTable.getQualifiedName()))
+        {
+            return false;
+        }
+        
+        // Determine if the join keys are identical and unique
+        return areJoinKeysUnique(left, right, joinRel.getCondition());        
+    }
+    
+    /**
+     * Determines if the equality portion of a join condition is between
+     * identical keys that are unique.
+     * 
+     * @param leftRel left side of the join
+     * @param rightRel right side of the join
+     * @param joinFilters the join condition
+     * 
+     * @return true if the equality join keys are the same and
+     * unique
+     */
+    private static boolean areJoinKeysUnique(
+        RelNode leftRel,
+        RelNode rightRel,
+        RexNode joinFilters)
+    {
+        List<Integer> leftKeys = new ArrayList<Integer>();
+        List<Integer> rightKeys = new ArrayList<Integer>();      
+        RelOptUtil.splitJoinCondition(
+            leftRel,
+            rightRel,
+            joinFilters,
+            leftKeys,
+            rightKeys);
+        
+        // Make sure each key on the left maps to the same simple column as the
+        // corresponding key on the right
+        for (int i = 0; i < leftKeys.size(); i++) {
+            RelColumnOrigin leftOrigin =
+                LoptMetadataProvider.getSimpleColumnOrigin(
+                    leftRel,
+                    leftKeys.get(i));
+            if (leftOrigin == null) {
+                return false;
+            }
+            RelColumnOrigin rightOrigin =
+                LoptMetadataProvider.getSimpleColumnOrigin(
+                    rightRel,
+                    rightKeys.get(i));
+            if (rightOrigin == null) {
+                return false;
+            }
+            if (leftOrigin.getOriginColumnOrdinal() != 
+                rightOrigin.getOriginColumnOrdinal())
+            {
+                return false;
+            }
+        }
+            
+        // Now that we've verified that the keys are the same, see if they
+        // are unique.
+        return RelMdUtil.areColumnsDefinitelyUnique(
+            leftRel,
+            RelMdUtil.setBitKeys(leftKeys));
     }
 }
 

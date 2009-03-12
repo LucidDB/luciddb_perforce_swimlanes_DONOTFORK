@@ -24,6 +24,8 @@ package net.sf.farrago.ddl;
 import java.sql.*;
 import java.util.*;
 
+import javax.jmi.reflect.*;
+
 import net.sf.farrago.catalog.*;
 import net.sf.farrago.cwm.keysindexes.*;
 import net.sf.farrago.cwm.relational.*;
@@ -42,6 +44,7 @@ import org.eigenbase.sql.SqlWriter.*;
 import org.eigenbase.sql.parser.*;
 import org.eigenbase.sql.pretty.*;
 import org.eigenbase.sql.type.*;
+import org.eigenbase.util.*;
 import org.eigenbase.util14.*;
 import org.eigenbase.trace.*;
 
@@ -69,6 +72,9 @@ public class DdlAnalyzeStmt
     //~ Static fields/initializers ---------------------------------------------
 
     private final static int DEFAULT_HISTOGRAM_BAR_COUNT = 100;
+
+    private final static int MAX_HISTOGRAM_BAR_COUNT = 
+        DEFAULT_HISTOGRAM_BAR_COUNT + (DEFAULT_HISTOGRAM_BAR_COUNT / 10);
 
     private final static long MIN_SAMPLE_SIZE = 5000L;
 
@@ -299,8 +305,11 @@ public class DdlAnalyzeStmt
 
             timingTracer.traceTime("analyze: end index page counts");
         }
+        catch(EigenbaseException ex) {
+            throw ex;
+        }
         catch(Throwable ex) {
-            throw FarragoResource.instance().ValidatorAlterFailed.ex(ex);
+            throw FarragoResource.instance().ValidatorAnalyzeFailed.ex(ex);
         }
     }
 
@@ -320,6 +329,14 @@ public class DdlAnalyzeStmt
         // we collected, but don't try to update anything.
         if (!success) {
             return;
+        }
+        
+        // Make sure we reload these objects from the repository.
+        for(IndexDetail indexDetail: indexDetails) {
+            indexDetail.reset();
+        }
+        for(ColumnDetail columnDetail: columnDetails) {
+            columnDetail.reset();
         }
         
         // Update stats computed during executeUnlocked
@@ -943,6 +960,12 @@ public class DdlAnalyzeStmt
         if (barRowCount > 0) {
             bars.add(new ColumnHistogramBar(barStartValue, barValueCount));
         }
+
+        if (bars.size() > MAX_HISTOGRAM_BAR_COUNT) {
+            throw FarragoResource.instance().ValidatorAnalyzeInvalidRowCount.ex(
+                tableName.toString());
+        }
+
         return bars;
     }
 
@@ -958,7 +981,7 @@ public class DdlAnalyzeStmt
         FemColumnHistogram origHistogram = 
             FarragoCatalogUtil.getHistogramForUpdate(
                 repos,
-                histogram.column.column,
+                histogram.column.getColumn(),
                 false);
         int origBarCount = 0;
         List<FemColumnHistogramBar> origBars = null;
@@ -1078,7 +1101,7 @@ public class DdlAnalyzeStmt
             FarragoMedLocalIndexStats indexStats =
                 ddlValidator.getIndexMap().computeIndexStats(
                     ddlValidator.getDataWrapperCache(),
-                    index.index,
+                    index.getIndex(),
                     index.estimate);
             
             index.indexStats = indexStats;
@@ -1160,7 +1183,7 @@ public class DdlAnalyzeStmt
             buildFemBars(histogram, femBars);
             FarragoCatalogUtil.updateHistogram(
                 repos,
-                histogram.column.column,
+                histogram.column.getColumn(),
                 histogram.distinctValues,
                 histogram.distinctValuesEstimated,
                 rate,
@@ -1173,7 +1196,7 @@ public class DdlAnalyzeStmt
         
         for(IndexDetail indexDetail: indexDetails) {
             FarragoCatalogUtil.updatePageCount(
-                indexDetail.index,
+                indexDetail.getIndex(),
                 indexDetail.indexStats.getPageCount(),
                 repos);
         }
@@ -1236,7 +1259,9 @@ public class DdlAnalyzeStmt
      */
     private class ColumnDetail
     {
-        private final FemAbstractColumn column;
+        private FemAbstractColumn column;
+        private final RefClass columnType;
+        private final String columnMofId;
         private final SqlIdentifier identifier;
         private final int ordinal;
 
@@ -1244,6 +1269,8 @@ public class DdlAnalyzeStmt
             FemAbstractColumn column, SqlIdentifier identifier)
         {
             this.column = column;
+            this.columnType = column.refClass();
+            this.columnMofId = column.refMofId();
             this.identifier = identifier;
 
             this.ordinal = column.getOrdinal();
@@ -1266,6 +1293,22 @@ public class DdlAnalyzeStmt
         {
             return identifier.toString();
         }
+        
+        public void reset()
+        {
+            column = null;
+        }
+        
+        public FemAbstractColumn getColumn()
+        {
+            if (column == null) {
+                column =
+                    (FemAbstractColumn)repos.getEnkiMdrRepos().getByMofId(
+                        columnMofId, columnType);
+            }
+            
+            return column;
+        }
     }
 
     /**
@@ -1273,7 +1316,8 @@ public class DdlAnalyzeStmt
      */
     private class IndexDetail
     {
-        private final FemLocalIndex index;
+        private FemLocalIndex index;
+        private final String indexMofId;
         private FarragoMedLocalIndexStats indexStats;
 
         private final boolean estimate;
@@ -1287,8 +1331,25 @@ public class DdlAnalyzeStmt
             ColumnDetail column)
         {
             this.index = index;
+            this.indexMofId = index.refMofId();
             this.estimate = estimate;
             this.column = column;
+        }
+        
+        public void reset()
+        {
+            this.index = null;
+        }
+        
+        public FemLocalIndex getIndex()
+        {
+            if (index == null) {
+                index = 
+                    (FemLocalIndex)repos.getEnkiMdrRepos().getByMofId(
+                        indexMofId, repos.getMedPackage().getFemLocalIndex());
+            }
+            
+            return index;
         }
     }
 }

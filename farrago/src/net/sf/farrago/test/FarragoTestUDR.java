@@ -22,6 +22,8 @@
 */
 package net.sf.farrago.test;
 
+import java.io.*;
+
 import java.math.*;
 
 import java.sql.*;
@@ -152,6 +154,73 @@ public abstract class FarragoTestUDR
             return rs.getInt(1);
         } catch (SQLException ex) {
             return 0;
+        }
+    }
+
+    public static String generateUnicodeString()
+    {
+        return ConversionUtil.TEST_UNICODE_STRING;
+    }
+
+    public static String generateUnicodeSupplementalString()
+    {
+        // This corresponds to the 4-byte Unicode value U+20000
+        return "\uD840\uDC00";
+    }
+
+    public static void generateUnicodeStringUdx(
+        PreparedStatement resultInserter)
+        throws Exception
+    {
+        resultInserter.setString(1, generateUnicodeString());
+        resultInserter.executeUpdate();
+    }
+
+    public static String convertUnicodeToEscapedForm(String s)
+    {
+        StringBuffer sb = new StringBuffer();
+        int n = s.length();
+        for (int i = 0; i < n; ++i) {
+            char c = s.charAt(i);
+            int v = (int) c;
+            if (v < 128) {
+                sb.append(c);
+            } else {
+                sb.append('\\');
+                sb.append(String.format("%1$04X", v));
+            }
+        }
+        return sb.toString();
+    }
+
+    public static void generateUnicodeTestCsv(String charsetName)
+        throws Exception
+    {
+        File dir = new File(
+            FarragoProperties.instance().homeDir.get());
+        dir = new File(dir, "testgen");
+        dir = new File(dir, "unicodeCsv");
+        dir.mkdirs();
+        File utf8 = new File(dir, charsetName + ".csv");
+        FileOutputStream fos = new FileOutputStream(utf8);
+        try {
+            OutputStreamWriter osw = new OutputStreamWriter(fos, charsetName);
+            PrintWriter pw = new PrintWriter(osw);
+            pw.println("C1,C2");
+            pw.print('"');
+            pw.print(ConversionUtil.TEST_UNICODE_STRING);
+            pw.print('"');
+            pw.print(",");
+            pw.println(
+                new StringBuilder(
+                    ConversionUtil.TEST_UNICODE_STRING).reverse());
+            pw.print('"');
+            pw.print("hello");
+            pw.print('"');
+            pw.println(",goodbye");
+            pw.close();
+        } finally {
+            fos.close();
         }
     }
 

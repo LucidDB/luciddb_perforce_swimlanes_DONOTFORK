@@ -571,7 +571,7 @@ public class SqlLiteral
             NlsString string = (NlsString) value;
             Charset charset = string.getCharset();
             if (null == charset) {
-                charset = Util.getDefaultCharset();
+                charset = typeFactory.getDefaultCharset();
             }
             SqlCollation collation = string.getCollation();
             if (null == collation) {
@@ -783,6 +783,64 @@ public class SqlLiteral
     {
         NlsString slit = new NlsString(s, charSet, null);
         return new SqlCharStringLiteral(slit, pos);
+    }
+
+    /**
+     * Transforms this literal (which must be of type character) into a new one
+     * in which 4-digit Unicode escape sequences have been replaced with the
+     * corresponding Unicode characters.
+     *
+     * @param unicodeEscapeChar escape character (e.g. backslash) for Unicode
+     * numeric sequences; 0 implies no transformation
+     *
+     * @return transformed literal
+     */
+    public SqlLiteral unescapeUnicode(char unicodeEscapeChar)
+    {
+        if (unicodeEscapeChar == 0) {
+            return this;
+        }
+        assert(SqlTypeUtil.inCharFamily(getTypeName()));
+        NlsString ns = (NlsString) value;
+        String s = ns.getValue();
+        StringBuilder sb = new StringBuilder();
+        int n = s.length();
+        for (int i = 0; i < n; ++i) {
+            char c = s.charAt(i);
+            if (c == unicodeEscapeChar) {
+                if (n > i+1) {
+                    if (s.charAt(i+1) == unicodeEscapeChar) {
+                        sb.append(unicodeEscapeChar);
+                        ++i;
+                        continue;
+                    }
+                }
+                if (i + 5 > n) {
+                    throw SqlUtil.newContextException(
+                        getParserPosition(),
+                        EigenbaseResource.instance().UnicodeEscapeMalformed.ex(
+                            i));
+                }
+                String u = s.substring(i + 1, i + 5);
+                short v;
+                try {
+                    v = Short.parseShort(u, 16);
+                } catch (NumberFormatException ex) {
+                    throw SqlUtil.newContextException(
+                        getParserPosition(),
+                        EigenbaseResource.instance().UnicodeEscapeMalformed.ex(
+                            i));
+                }
+                sb.append((char) v);
+                // skip hexits
+                i += 4;
+            } else {
+                sb.append(c);
+            }
+        }
+        ns = new NlsString(
+            sb.toString(), ns.getCharsetName(), ns.getCollation());
+        return new SqlCharStringLiteral(ns, getParserPosition());
     }
 
     //~ Inner Interfaces -------------------------------------------------------

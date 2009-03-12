@@ -67,8 +67,10 @@ public abstract class FarragoCatalogUtil
         FarragoRepos repos,
         CwmCatalog catalog)
     {
-        catalog.setDefaultCharacterSetName(repos.getDefaultCharsetName());
-        catalog.setDefaultCollationName(repos.getDefaultCollationName());
+        catalog.setDefaultCharacterSetName(
+            SaffronProperties.instance().defaultCharset.get());
+        catalog.setDefaultCollationName(
+            SaffronProperties.instance().defaultCollation.get());
     }
 
     /**
@@ -1050,9 +1052,9 @@ public abstract class FarragoCatalogUtil
             return;
         }
         
-         // Older catalog versions only store the row counts directly in
-         // the columnSet record so there won't be separate row count
-         // stat records yet. 
+        // Older catalog versions and newly created tables only store
+        // the row counts directly in the columnSet record so there won't
+        // be separate row count stat records yet. 
         List<FemRowCountStatistics> rowCountStatsList =
             table.getRowCountStats();
         if (rowCountStatsList.isEmpty()) {

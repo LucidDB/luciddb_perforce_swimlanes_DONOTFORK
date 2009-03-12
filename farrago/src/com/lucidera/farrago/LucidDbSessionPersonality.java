@@ -299,17 +299,6 @@ public class LucidDbSessionPersonality
         // Eliminate AGG(DISTINCT x) now, because this transformation
         // may introduce new joins which need to be optimized further on.
         builder.addRuleInstance(RemoveDistinctAggregateRule.instance);
-
-        // These rule instances need to be applied before the join filter is
-        // extracted from the join and before the MERGE statement is converted
-        // to a physical MERGE statement.
-        builder.addRuleInstance(LcsConvertMergeToUpdateRule.instanceRowScan);
-        builder.addRuleInstance(
-            LcsConvertMergeToUpdateRule.instanceFilterScan);
-        builder.addRuleInstance(
-            LcsConvertMergeToUpdateRule.instanceProjectScan);
-        builder.addRuleInstance(
-            LcsConvertMergeToUpdateRule.instanceProjectFilterScan);
         
         // Need to fire delete and merge rules before any projection rules
         // since they modify the projection.  Also need to fire these
@@ -390,10 +379,11 @@ public class LucidDbSessionPersonality
         // Convert 2-way joins to n-way joins.  Do the conversion bottom-up
         // so once a join is converted to a MultiJoinRel, you're ensured that
         // all of its children have been converted to MultiJoinRels.  At the
-        // same time, pull up projects that are on top of MultiJoinRels so the
-        // projects are above their parent joins.  Since we're pulling up
-        // projects, we need to also merge any projects we generate as a
-        // result of the pullup.
+        // same time, push any filters on top of the converted MultiJoinRel's
+        // into the MultiJoinRel and pull up projects that are on top of
+        // them so the projects are above their parent joins.  Since we're
+        // pulling up projects, we need to also merge any projects we generate
+        // as a result of the pullup.
         //
         // These three rules are applied within a subprogram so they can be
         // applied one after the other in lockstep fashion.
@@ -401,6 +391,7 @@ public class LucidDbSessionPersonality
         subprogramBuilder.addMatchOrder(HepMatchOrder.BOTTOM_UP);
         subprogramBuilder.addMatchLimit(1);
         subprogramBuilder.addRuleInstance(new ConvertMultiJoinRule());
+        subprogramBuilder.addRuleInstance(new PushFilterIntoMultiJoinRule());
         subprogramBuilder.addRuleInstance(
             PullUpProjectsOnTopOfMultiJoinRule.instanceTwoProjectChildren);
         subprogramBuilder.addRuleInstance(
@@ -487,6 +478,31 @@ public class LucidDbSessionPersonality
         // rules.
         builder.addRuleClass(LcsIndexSemiJoinRule.class);
 
+        // These rules need to be applied after semijoins have been converted,
+        // but before table projections and bitmap index searches have been
+        // applied.
+        builder.addGroupBegin();
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceFilterOnLeft);
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceFilterOnRight);
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceProjectOnLeft);
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceProjectOnRight);
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceRowScanOnLeft);
+        builder.addRuleInstance(
+            LoptModifyRemovableSelfJoinRule.instanceRowScanOnRight);
+        builder.addGroupEnd();
+        
+        // Remove self-joins that are removable.
+        builder.addRuleInstance(new LoptRemoveSelfJoinRule());
+        
+        // Push down any filters that were added as a result of removing
+        // self-joins
+        applyPushDownFilterRules(builder);
+        
         // Convert filters to bitmap index searches and boolean operators.
         // Do this after LcsIndexSemiJoinRule
         builder.addRuleClass(LcsIndexAccessRule.class);

@@ -188,6 +188,9 @@ public class FarragoTypeFactoryImpl
                         new SqlCollation(
                             SqlCollation.Coercibility.Implicit);
 
+                    charsetName =
+                        SqlUtil.translateCharacterSetName(charsetName);
+                    assert(charsetName != null);
                     Charset charSet = Charset.forName(charsetName);
                     type =
                         createTypeWithCharsetAndCollation(
@@ -881,8 +884,12 @@ public class FarragoTypeFactoryImpl
         if (type.getCharset() == null) {
             superclass = BytePointer.class;
         } else {
+            if (SqlTypeUtil.isUnicode(type)) {
+                superclass = Ucs2CharPointer.class;
+            } else {
+                superclass = EncodedCharPointer.class;
+            }
             String charsetName = type.getCharset().name();
-            superclass = EncodedCharPointer.class;
             memberDecls.add(
                 new MethodDeclaration(
                     new ModifierList(ModifierList.PROTECTED),
@@ -1118,10 +1125,8 @@ public class FarragoTypeFactoryImpl
         return type;
     }
 
-    /**
-     * Returns the default {@link Charset} for string types.
-     */
-    protected Charset getDefaultCharset()
+    // implement RelDataTypeFactory
+    public Charset getDefaultCharset()
     {
         String charsetName = repos.getDefaultCharsetName();
         Charset charset = Charset.forName(charsetName);
