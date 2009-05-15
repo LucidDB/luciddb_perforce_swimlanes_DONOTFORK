@@ -25,7 +25,6 @@
 #define Fennel_SegBufferExecStream_Included
 
 #include "fennel/exec/ConduitExecStream.h"
-#include "fennel/segment/SegStream.h"
 
 FENNEL_BEGIN_NAMESPACE
 
@@ -63,12 +62,10 @@ struct SegBufferExecStreamParams : public ConduitExecStreamParams
 class SegBufferExecStream : public ConduitExecStream
 {
     SegmentAccessor bufferSegmentAccessor;
-    SharedSegOutputStream pByteOutputStream;
-    SharedSegInputStream pByteInputStream;
+    SharedSegBufferReader pSegBufferReader;
+    SharedSegBufferWriter pSegBufferWriter;
     PageId firstPageId;
     bool multipass;
-    SegStreamPosition restartPos;
-    uint cbLastRead;
 
     void destroyBuffer();
     void openBufferForRead(bool destroy);
