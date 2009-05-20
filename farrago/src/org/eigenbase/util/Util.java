@@ -1652,6 +1652,19 @@ public class Util
         Writer appOutput)
         throws IOException, InterruptedException
     {
+        return runAppProcess(newAppProcess(cmdarray), logger, appInput, appOutput);
+    }
+
+    /**
+     * Constructs a {@link ProcessBuilder} to run an external application.
+     *
+     * @param cmdarray command and arguments.
+     * @return a ProcessBuilder.
+     */
+    public static ProcessBuilder newAppProcess(String [] cmdarray)
+    {
+        // Concatenate quoted words from cmdarray.
+        // REVIEW mb 2/24/09 Why is this needed?
         StringBuilder buf = new StringBuilder();
         for (int i = 0; i < cmdarray.length; ++i) {
             if (i > 0) {
@@ -1663,11 +1676,33 @@ public class Util
         }
         String fullcmd = buf.toString();
         buf.setLength(0);
+        return new ProcessBuilder(cmdarray);
+    }
 
-        ProcessBuilder pb = new ProcessBuilder(cmdarray);
+
+    /**
+     * Runs an external application process.
+     *
+     * @param pb {@link ProcessBuilder} for the application; might be returned by {@link #newAppProcess}.
+     * @param logger if not null, command and exit status will be logged here
+     * @param appInput if not null, data will be copied to application's stdin
+     * @param appOutput if not null, data will be captured from application's
+     * stdout and stderr
+     *
+     * @return application process exit value
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public static int runAppProcess(
+        ProcessBuilder pb,
+        Logger logger,
+        Reader appInput,
+        Writer appOutput)
+        throws IOException, InterruptedException
+    {
         pb.redirectErrorStream(true);
         if (logger != null) {
-            logger.info("start process: " + fullcmd);
+            logger.info("start process: " + pb.command());
         }
         Process p = pb.start();
 
@@ -1707,7 +1742,7 @@ public class Util
 
         int status = p.exitValue();
         if (logger != null) {
-            logger.info("exit status=" + status + " from " + fullcmd);
+            logger.info("exit status=" + status + " from " + pb.command());
         }
         return status;
     }
