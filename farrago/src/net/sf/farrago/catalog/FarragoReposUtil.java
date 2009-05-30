@@ -75,7 +75,7 @@ public abstract class FarragoReposUtil
         String subPackageName)
         throws Exception
     {
-        XMIWriter xmiWriter = XMIWriterFactory.getDefault().createXMIWriter();
+        XMIWriter xmiWriter = createXmiWriter();
         ExportRefProvider refProvider =
             new ExportRefProvider(
                 subPackageName);
@@ -95,17 +95,30 @@ public abstract class FarragoReposUtil
         }
     }
 
+    /**
+     * Creates an XMIWriter that uses a UTF-8 encoding.
+     *
+     * @return the XMIWriter
+     */
+    public static XMIWriter createXmiWriter()
+    {
+        XMIWriter xmiWriter = XMIWriterFactory.getDefault().createXMIWriter();
+        xmiWriter.getConfiguration().setEncoding("UTF-8");
+        return xmiWriter;
+    }
+
     public static void importSubModel(
         MDRepository mdrRepos,
         URL inputUrl)
         throws Exception
     {
+        FarragoTrace.getReposTracer().info("importing sub model " + inputUrl);
         if (((EnkiMDRepository) mdrRepos).isExtentBuiltIn(
                 FARRAGO_METAMODEL_EXTENT))
         {
+            FarragoTrace.getReposTracer().info("extent is builtin");
             return;
         }
-
         XMIReader xmiReader = XMIReaderFactory.getDefault().createXMIReader();
         ImportRefResolver refResolver =
             new ImportRefResolver(
@@ -124,6 +137,7 @@ public abstract class FarragoReposUtil
                 filter,
                 inputUrl.toString(),
                 mdrRepos.getExtent(FARRAGO_METAMODEL_EXTENT));
+            FarragoTrace.getReposTracer().info("read in url...");
 
             if (filter.getNumInvalidCharsFiltered() > 0) {
                 FarragoTrace.getReposTracer().warning(
@@ -134,6 +148,7 @@ public abstract class FarragoReposUtil
 
             rollback = false;
             mdrRepos.endTrans();
+            FarragoTrace.getReposTracer().info("commited trans");
         } finally {
             if (rollback) {
                 mdrRepos.endTrans(true);
@@ -230,6 +245,9 @@ public abstract class FarragoReposUtil
         File catalogDump = new File(catalogDir, catalogDumpName);
 
         try {
+            FarragoTrace.getReposTracer().info("mdrepo classloader " +
+                org.eigenbase.enki.mdr.MDRepositoryFactory.
+                getDefaultClassLoader());
             modelLoader.initStorage(false);
 
             // import metamodel
@@ -262,7 +280,7 @@ public abstract class FarragoReposUtil
         throws Exception
     {
         RefPackage refPackage = mdrRepos.getExtent(extentName);
-        XmiWriter xmiWriter = XMIWriterFactory.getDefault().createXMIWriter();
+        XMIWriter xmiWriter = createXmiWriter();
         OutputStream outStream = new FileOutputStream(file);
         try {
             xmiWriter.write(outStream, refPackage, "1.2");

@@ -45,7 +45,7 @@ FENNEL_BEGIN_NAMESPACE
  * @author John V. Sichi
  * @version $Id$
  */
-class ExecStreamEmbryo
+class FENNEL_EXEC_EXPORT ExecStreamEmbryo
 {
     /**
      * Unprepared stream.
@@ -84,7 +84,7 @@ public:
         P *pParamCopy = new P(paramsInit);
         pParams.reset(pParamCopy);
         prepareFunction = boost::bind(
-            &S::prepare, pStreamInit, boost::cref(*pParamCopy));
+            &S::prepare, pStreamInit, boost::ref(*pParamCopy));
     }
 
     inline SharedExecStream &getStream()

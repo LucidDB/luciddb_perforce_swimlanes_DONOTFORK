@@ -73,10 +73,12 @@ public:
         assert(StandardTypeDescriptor::isArray(pointerType));
     }
     ~PointerPointerInstruction() {
+#ifndef __MSVC__
         // If (0) to reduce performance impact of template type checking
         if (0) {
             PointerInstruction_NotAPointerType<PTR_TYPE>();
         }
+#endif
     }
 
 protected:
@@ -489,8 +491,9 @@ public:
 };
 
 
-class PointerPointerInstructionRegister : InstructionRegister {
-
+class FENNEL_CALCULATOR_EXPORT PointerPointerInstructionRegister
+    : InstructionRegister
+{
     // TODO: Refactor registerTypes to class InstructionRegister
     template < template <typename> class INSTCLASS2 >
     static void

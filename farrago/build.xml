@@ -58,7 +58,6 @@ ${farrago.test.jvmargs}
   <!-- Definitions for Farrago build properties and macros -->
   <import file="buildMacros.xml"/>
 
-
   <!-- Directories -->
 
   <!-- directory for Farrago compiled classes which go into plugin .jars -->
@@ -510,11 +509,18 @@ ${farrago.test.jvmargs}
        it already exists -->
   <target name="configureReposStorage" unless="ReposStorage.configured">
     <!-- Does nothing if the file already exists.  See switchTo* targets. -->
-    <copy file="${farrago.catalog.dir}/templates/HsqldbRepos.properties"
-      tofile="${farrago.ReposStorage.propfile}"/>
+    <copy file="${farrago.catalog.dir}/templates/HsqldbHibernateRepos.properties"
+      tofile="${farrago.ReposStorage.propfile}">
+      <filterchain>
+        <tokenfilter>
+          <replacestring from="{SCHEMA}" to="${farrago.catalog.schema}"/>
+        </tokenfilter>
+      </filterchain>
+    </copy>
   </target>
 
-  <!-- creates ReposStorage.properties from the default Postgres template -->
+  <!-- creates ReposStorage.properties from the default Postgres+Netbeans
+       template -->
   <target name="switchToPsqlReposStorage">
     <copy file="${farrago.catalog.dir}/templates/PostgresRepos.properties"
       tofile="${farrago.ReposStorage.propfile}" overwrite="true">
@@ -528,7 +534,7 @@ ${farrago.test.jvmargs}
     </copy>
   </target>
 
-  <!-- create ReposStorage.properties from the default Mysql+Hibernate
+  <!-- creates ReposStorage.properties from the default Mysql+Hibernate
        template -->
   <target name="switchToMysqlHibernateReposStorage">
     <copy file="${farrago.catalog.dir}/templates/MysqlHibernateRepos.properties"
@@ -541,7 +547,7 @@ ${farrago.test.jvmargs}
     </copy>
   </target>
 
-  <!-- create ReposStorage.properties from the default HSQLDB+Hibernate
+  <!-- creates ReposStorage.properties from the default HSQLDB+Hibernate
        template -->
   <target name="switchToHsqldbHibernateReposStorage">
     <copy file="${farrago.catalog.dir}/templates/HsqldbHibernateRepos.properties"
@@ -554,8 +560,15 @@ ${farrago.test.jvmargs}
     </copy>
   </target>
 
-  <!-- creates ReposStorage.properties from the default Postgres template -->
+  <!-- creates ReposStorage.properties from the default
+       template (which happens to be Hibernate+HSQLDB) -->
   <target name="switchToDefaultReposStorage">
+    <antcall target="switchToHsqldbHibernateReposStorage"/>
+  </target>
+
+  <!-- creates ReposStorage.properties from the default HSQLDB+Netbeans
+       template -->
+  <target name="switchToHsqldbReposStorage">
     <copy file="${farrago.catalog.dir}/templates/HsqldbRepos.properties"
       tofile="${farrago.ReposStorage.propfile}" overwrite="true"/>
   </target>
@@ -805,8 +818,11 @@ ${farrago.test.jvmargs}
 
   <target name="populateTestSchema" depends="determineInitSql">
     <junit printsummary="yes" fork="yes" haltonerror="yes" haltonfailure="yes"
-      tempdir="${testlog.dir}">
-      <classpath refid="farrago.sqlline.classpath"/>
+      clonevm="yes" tempdir="${testlog.dir}" includeantruntime="no">
+      <classpath>
+         <pathelement path="${farrago.sqlline.classpath}" />
+         <pathelement path="${ant.classpath}" />
+      </classpath>
       <jvmarg line="${assertions.jvmarg}"/>
       <jvmarg line="&FarragoSqlLineProps;"/>
       <sysproperty key="net.sf.farrago.fileset.unitsql"
@@ -1103,7 +1119,7 @@ ${farrago.test.jvmargs}
   <target name="junit" depends="cleanTestLogs">
     <farrago.antFork target="forked_junit" classpathref="test.classpath">
       <jvmargs>
-        <jvmarg line="-Xmx512m"/>
+        <jvmarg line="-Xmx768m"/>
         <jvmarg line="-Xss1536k"/>
         <jvmarg line="-XX:MaxPermSize=256m"/>
         <jvmarg line="${assertions.jvmarg}"/>

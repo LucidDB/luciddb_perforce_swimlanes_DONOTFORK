@@ -1177,6 +1177,10 @@ public class FarragoPreparingStmt
                 names,
                 CwmNamedColumnSet.class);
 
+        if (resolved == null) {
+            return null;
+        }
+
         if (resolved.object == null) {
             return getForeignTableFromNamespace(resolved);
         }
