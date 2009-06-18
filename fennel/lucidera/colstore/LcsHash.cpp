@@ -553,8 +553,8 @@ void LcsHashTable::init(PBuffer hashBlockInit, uint hashBlockSizeInit)
     /*
      * valueNodes follow the entry array.
      */
-    valueNodes =
-        (LcsHashValueNode *) (hashBlock + sizeof(uint16_t) * hashTableSize);
+    valueNodes = reinterpret_cast<LcsHashValueNode *>(
+        hashBlock + sizeof(uint16_t) * hashTableSize);
 
     /*
      * Starts from the very first valueNodes.

@@ -124,6 +124,7 @@ public class MedJdbcDataServer
     public static final String PROP_USE_SCHEMA_NAME_AS_FOREIGN_QUALIFIER =
         "USE_SCHEMA_NAME_AS_FOREIGN_QUALIFIER";
     public static final String PROP_LENIENT = "LENIENT";
+    public static final String PROP_SKIP_TYPE_CHECK = "SKIP_TYPE_CHECK";
     public static final String PROP_DISABLED_PUSHDOWN_REL_PATTERN =
         "DISABLED_PUSHDOWN_REL_PATTERN";
     public static final String PROP_SCHEMA_MAPPING = "SCHEMA_MAPPING";
@@ -151,6 +152,7 @@ public class MedJdbcDataServer
     public static final boolean DEFAULT_USE_SCHEMA_NAME_AS_FOREIGN_QUALIFIER =
         false;
     public static final boolean DEFAULT_LENIENT = false;
+    public static final boolean DEFAULT_SKIP_TYPE_CHECK = false;
     public static final String DEFAULT_DISABLED_PUSHDOWN_REL_PATTERN = "";
     public static final int DEFAULT_FETCH_SIZE = -1;
     public static final boolean DEFAULT_AUTOCOMMIT = true;
@@ -210,6 +212,7 @@ public class MedJdbcDataServer
     private boolean validateWhileIdle;
     protected boolean useSchemaNameAsForeignQualifier;
     protected boolean lenient;
+    protected boolean skipTypeCheck;
     protected Pattern disabledPushdownPattern;
     private int fetchSize;
     private boolean autocommit;
@@ -336,6 +339,11 @@ public class MedJdbcDataServer
                 props,
                 PROP_LENIENT,
                 DEFAULT_LENIENT);
+        skipTypeCheck =
+            getBooleanProperty(
+                props,
+                PROP_SKIP_TYPE_CHECK,
+                DEFAULT_SKIP_TYPE_CHECK);
 
         disabledPushdownPattern =
             Pattern.compile(
@@ -999,15 +1007,16 @@ public class MedJdbcDataServer
                 "proj");
 
         // all pushdown rules
-        List<MedJdbcPushDownRule> pushdownRuleList =
-            new ArrayList<MedJdbcPushDownRule>();
+        List<RelOptRule> pushdownRuleList =
+            new ArrayList<RelOptRule>();
         pushdownRuleList.add(r1);
         pushdownRuleList.add(r2);
         pushdownRuleList.add(r3);
         pushdownRuleList.add(r4);
+        pushdownRuleList.add(MedJdbcAggPushDownRule.instance);
 
         // add the non-disabled pushdown rules
-        for (MedJdbcPushDownRule rule : pushdownRuleList) {
+        for (RelOptRule rule : pushdownRuleList) {
             boolean ruledOut = false;
             for (RelOptRuleOperand op : rule.getOperands()) {
                 if (disabledPushdownPattern.matcher(
@@ -1016,6 +1025,9 @@ public class MedJdbcDataServer
                     ruledOut = true;
                     break;
                 }
+            }
+            if (disabledPushdownPattern.matcher(rule.toString()).matches()) {
+                ruledOut = true;
             }
             if (!ruledOut) {
                 planner.addRule(rule);

@@ -139,7 +139,7 @@ public:
             }
             PointerPointerInstruction<
                 PTR_TYPE, PointerOperandT>::mResult->pointer(
-                    reinterpret_cast<PTR_TYPE>(
+                    static_cast<PTR_TYPE>(
                         PointerPointerInstruction<
                             PTR_TYPE, PointerOperandT>::mOp1->pointer()) +
                     PointerPointerInstruction<
@@ -242,7 +242,7 @@ public:
             }
             PointerPointerInstruction<
                 PTR_TYPE, PointerOperandT>::mResult->pointer(
-                    reinterpret_cast<PTR_TYPE>(
+                    static_cast<PTR_TYPE>(
                         PointerPointerInstruction<
                             PTR_TYPE, PointerOperandT>::mOp1->pointer()) -
                     PointerPointerInstruction<

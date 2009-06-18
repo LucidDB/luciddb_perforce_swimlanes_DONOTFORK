@@ -117,7 +117,7 @@ public:
         case STANDARD_TYPE_UNICODE_VARCHAR:
             return "vU";
         default:
-            throw std::invalid_argument("fennel/tuple/StandardTypeDescriptor::toString");
+            permAssert(false);
         }
     }
 
@@ -184,8 +184,7 @@ public:
             }
         }
 
-        throw std::invalid_argument("fennel/tuple/StandardTypeDescriptor::fromString");
-        return EXTENSION_TYPE_MIN;
+        permAssert(false);
     }
 
     static inline bool
