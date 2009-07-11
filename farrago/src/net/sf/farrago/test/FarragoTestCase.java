@@ -369,6 +369,7 @@ public abstract class FarragoTestCase
             savedFennelConfig.remove("pageHistoryQueuePercentage");
             savedFennelConfig.remove("prefetchPagesMax");
             savedFennelConfig.remove("prefetchThrottleRate");
+            savedFennelConfig.remove("processorCacheBytes");
         } finally {
             reposTxn.commit();
         }
@@ -1002,7 +1003,8 @@ public abstract class FarragoTestCase
                 }
             } else if (stmt != null) {
                 if (stmt.execute(
-                        "select \"name\",\"foreign\" from sys_fem.med.\"DataWrapper\""))
+                        "select \"name\",\"foreign\" from "
+                        + "sys_fem.med.\"DataWrapper\""))
                 {
                     ResultSet rset = stmt.getResultSet();
                     while (rset.next()) {
@@ -1143,7 +1145,8 @@ public abstract class FarragoTestCase
                 }
             } else if (stmt != null) {
                 if (stmt.execute(
-                        "select \"name\",\"mofClassName\" from sys_fem.\"Security\".\"AuthId\""))
+                        "select \"name\",\"mofClassName\" from "
+                        + "sys_fem.\"Security\".\"AuthId\""))
                 {
                     ResultSet rset = stmt.getResultSet();
                     while (rset.next()) {
