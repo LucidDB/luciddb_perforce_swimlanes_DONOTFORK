@@ -103,6 +103,14 @@ JNIEXPORT void JNICALL Java_net_sf_farrago_fennel_FennelStorage_tupleStreamResta
 
 /*
  * Class:     net_sf_farrago_fennel_FennelStorage
+ * Method:    tupleStreamSetRunnable
+ * Signature: (JZ)V
+ */
+JNIEXPORT void JNICALL Java_net_sf_farrago_fennel_FennelStorage_tupleStreamSetRunnable
+(JNIEnv *, jclass, jlong, jboolean);
+
+/*
+ * Class:     net_sf_farrago_fennel_FennelStorage
  * Method:    tupleStreamGraphClose
  * Signature: (JI)V
  */
@@ -137,4 +145,3 @@ JNIEXPORT void JNICALL Java_net_sf_farrago_fennel_FennelStorage_cancelExecution
 }
 #endif
 #endif
-// End NativeMethods.h

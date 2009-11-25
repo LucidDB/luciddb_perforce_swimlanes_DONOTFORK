@@ -27,6 +27,7 @@
 #include "fennel/tuple/TupleAccessor.h"
 #include "fennel/tuple/TupleProjectionAccessor.h"
 #include "fennel/tuple/TupleData.h"
+#include "fennel/tuple/TupleDataWithBuffer.h"
 #include "fennel/segment/SegPageLock.h"
 #include "fennel/sorter/ExternalSortSubStream.h"
 
@@ -52,6 +53,8 @@ class ExternalSortInfo;
 class FENNEL_SORTER_EXPORT ExternalSortRunLoader
     : public ExternalSortSubStream
 {
+
+protected:
     /**
      * Global information.
      */
@@ -130,6 +133,10 @@ class FENNEL_SORTER_EXPORT ExternalSortRunLoader
     uint nTuplesFetched;
 
     /**
+     * partitionKeyData is saved.
+     */
+    bool partitionKeyInitialized;
+    /**
      * Array used to return fetch results.  This gets bound to
      * successive index buffer contents during fetch.
      */
@@ -142,9 +149,10 @@ class FENNEL_SORTER_EXPORT ExternalSortRunLoader
     TupleProjectionAccessor keyAccessor2;
     TupleData keyData;
     TupleData keyData2;
+    TupleDataWithBuffer partitionKeyData;
 
 // ----------------------------------------------------------------------
-// private methods
+// protected methods
 // ----------------------------------------------------------------------
 
     /**
@@ -214,9 +222,26 @@ public:
     ExternalSortRC loadRun(ExecStreamBufAccessor &bufAccessor);
 
     /**
+     * checks for "end of partition".
+     * @return true, if "end of partition" detected.
+     */
+    virtual bool checkEndOfPartition(
+       ExecStreamBufAccessor &bufAccessor
+       , PConstBuffer pSrcTuple);
+
+    /**
+     * check if the tuple pSrcTuple needs to be skipped from sort operation.
+     * @return true, if the tuple is to be skipped. Base class always returns
+     *               false.
+     */
+    virtual bool skipRow(
+       ExecStreamBufAccessor &bufAccessor
+       , PConstBuffer pSrcTuple);
+
+    /**
      * Sorts loaded run.
      */
-    void sort();
+    virtual void sort();
 
     /**
      * @return number of tuples loaded so far in current run

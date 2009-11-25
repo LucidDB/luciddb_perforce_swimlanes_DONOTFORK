@@ -54,6 +54,7 @@ class FENNEL_SORTER_EXPORT ExternalSortExecStreamImpl
 {
     friend class ExternalSortTask;
 
+protected:
     /**
      * Segment to use for storing runs externally.
      */
@@ -142,7 +143,7 @@ class FENNEL_SORTER_EXPORT ExternalSortExecStreamImpl
     bool earlyClose;
 
 // ----------------------------------------------------------------------
-// private methods
+// protected methods
 // ----------------------------------------------------------------------
 
     // TODO jvs 10-Nov-2004:  rework comments
@@ -150,7 +151,7 @@ class FENNEL_SORTER_EXPORT ExternalSortExecStreamImpl
      * Performs enough sorting to be able to start returning results
      * (non-parallel version).
      */
-    void computeFirstResult();
+    ExecStreamResult computeFirstResult();
 
     /**
      * Performs enough sorting to be able to start returning results
@@ -213,8 +214,19 @@ class FENNEL_SORTER_EXPORT ExternalSortExecStreamImpl
      */
     void releaseResources();
 
+    /**
+     * Reallocates resources for partition sorts.
+     */
+    void reallocateResources();
+
     // implement ExecStream
     virtual void closeImpl();
+
+    // Initialize RunLoaders
+    virtual void initRunLoaders(bool restart);
+
+    // handle underflow condition
+    virtual ExecStreamResult handleUnderflow();
 
 public:
     explicit ExternalSortExecStreamImpl();

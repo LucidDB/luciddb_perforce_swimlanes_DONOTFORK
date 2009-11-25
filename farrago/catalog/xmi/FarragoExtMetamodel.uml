@@ -133,7 +133,7 @@
             name="FarragoExtMetamodel.todo" />
     <historyfile name="" />
   </argo>
-<XMI xmi.version = '1.2' xmlns:UML = 'org.omg.xmi.namespace.UML' timestamp = 'Wed Oct 21 18:35:06 PDT 2009'>
+<XMI xmi.version = '1.2' xmlns:UML = 'org.omg.xmi.namespace.UML' timestamp = 'Wed Nov 25 09:04:33 PST 2009'>
   <XMI.header>    <XMI.documentation>
       <XMI.exporter>ArgoUML (using Netbeans XMI Writer version 1.0)</XMI.exporter>
       <XMI.exporterVersion>0.24(5) revised on $Date: 2006-11-06 19:55:22 +0100 (Mon, 06 Nov 2006) $ </XMI.exporterVersion>
@@ -334,6 +334,21 @@
                       </UML:StructuralFeature.multiplicity>
                       <UML:StructuralFeature.type>
                         <UML:DataType xmi.idref = 'Ilsmmsmmsmm4fe91emf85207efd8mm7fde'/>
+                      </UML:StructuralFeature.type>
+                    </UML:Attribute>
+                    <UML:Attribute xmi.id = '127-0-0-1--64328998:1252c4b5726:-8000:0000000000000F5E'
+                      name = 'partitionKeyCount' visibility = 'public' isSpecification = 'false'
+                      ownerScope = 'instance' changeability = 'changeable' targetScope = 'instance'>
+                      <UML:StructuralFeature.multiplicity>
+                        <UML:Multiplicity xmi.id = '127-0-0-1--64328998:1252c4b5726:-8000:0000000000000F64'>
+                          <UML:Multiplicity.range>
+                            <UML:MultiplicityRange xmi.id = '127-0-0-1--64328998:1252c4b5726:-8000:0000000000000F63'
+                              lower = '1' upper = '1'/>
+                          </UML:Multiplicity.range>
+                        </UML:Multiplicity>
+                      </UML:StructuralFeature.multiplicity>
+                      <UML:StructuralFeature.type>
+                        <UML:DataType xmi.idref = 'Ilsmmsmmsmm4fe91emf85207efd8mm7fd8'/>
                       </UML:StructuralFeature.type>
                     </UML:Attribute>
                   </UML:Classifier.feature>
@@ -18227,7 +18242,7 @@
     </path>
   </group>
   <group name="Fig4"
-       description="org.argouml.uml.diagram.static_structure.ui.FigClass[344, 207, 195, 83]pathVisible=false;operationsVisible=false;attributesVisible=true"
+       description="org.argouml.uml.diagram.static_structure.ui.FigClass[344, 207, 195, 96]pathVisible=false;operationsVisible=false;attributesVisible=true"
        href="Ilsmmsmmsmm4fe91emf85207efd8mm7fb0"
        fill="1"
        fillcolor="white"
@@ -18241,7 +18256,7 @@
       x="344"
       y="207"
       width="195"
-      height="83"
+      height="96"
       fill="1"
       fillcolor="white"
       stroke="0"
@@ -18316,7 +18331,7 @@
       </path>
     </group>
     <group name="Fig4.4"
-         description="org.argouml.uml.diagram.ui.FigAttributesCompartment[345, 230, 194, 60]"
+         description="org.argouml.uml.diagram.ui.FigAttributesCompartment[345, 230, 194, 73]"
          fill="1"
          fillcolor="white"
          stroke="0"
@@ -18329,7 +18344,7 @@
         x="345"
         y="230"
         width="194"
-        height="60"
+        height="73"
         fill="1"
         fillcolor="white"
         stroke="0"
@@ -18387,12 +18402,22 @@
         font="Dialog"
         textsize="10"
       >earlyClose : Boolean</text>
+      <text name="Fig4.4.6"
+        x="345"
+        y="283"
+        fill="0"
+        fillcolor="white"
+        stroke="0"
+        strokecolor="black"
+        font="Dialog"
+        textsize="10"
+      >partitionKeyCount : Integer</text>
     </group>
     <rectangle name="Fig4.5"
       x="344"
       y="207"
       width="195"
-      height="83"
+      height="96"
       fill="0"
       fillcolor="white"
       stroke="1"
@@ -37909,7 +37934,7 @@
       textsize="10"
     >User</text>
     <group name="Fig5.3"
-         description="org.argouml.uml.diagram.ui.FigOperationsCompartment[185, 499, 167, 20]"
+         description="org.argouml.uml.diagram.ui.FigOperationsCompartment[185, 512, 219, 20]"
          fill="1"
          fillcolor="white"
          stroke="0"
@@ -37921,8 +37946,8 @@
       
       <rectangle name="Fig5.3.0"
         x="185"
-        y="499"
-        width="167"
+        y="512"
+        width="219"
         height="20"
         fill="1"
         fillcolor="white"
@@ -37939,9 +37964,9 @@
         visibility="0"
       >
         <moveto x="185"
-                y="499" />
-        <lineto x="352"
-                y="499" />
+                y="512" />
+        <lineto x="404"
+                y="512" />
       </path>
     </group>
     <group name="Fig5.4"

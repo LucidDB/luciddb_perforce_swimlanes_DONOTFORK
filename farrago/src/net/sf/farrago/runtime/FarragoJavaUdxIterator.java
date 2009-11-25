@@ -71,18 +71,15 @@ public abstract class FarragoJavaUdxIterator
     protected final FarragoSessionRuntimeContext runtimeContext;
 
     private int iRow;
-
     private long defaultTimeout = Long.MAX_VALUE;
-
     private boolean timeoutAsUnderflow = true;
-
+    private boolean didUnderflow = false;
     private boolean stopThread;
 
     private CountDownLatch latch;
-
     private final ParameterMetaData parameterMetaData;
-
     private List<TupleIter> restartableInputs;
+    private List<MoreDataListener> moreDataListeners;
 
     //~ Constructors -----------------------------------------------------------
 
@@ -115,7 +112,9 @@ public abstract class FarragoJavaUdxIterator
                 null,
                 new Class[] { PreparedStatement.class },
                 new PreparedStatementInvocationHandler(rowType));
+
         restartableInputs = new ArrayList<TupleIter>();
+        moreDataListeners = new ArrayList<MoreDataListener>();
     }
 
     //~ Methods ----------------------------------------------------------------
@@ -151,6 +150,59 @@ public abstract class FarragoJavaUdxIterator
     }
 
     // implement TupleIter
+    public boolean addListener(MoreDataListener c)
+    {
+        if (tracer.isLoggable(Level.FINE)) {
+            tracer.log(
+                Level.FINE, "FarragoJavaUdxIterator {0} added listener {1}",
+                new Object[] {this, c});
+        }
+        moreDataListeners.add(c);
+        return true;
+    }
+
+    private void onUnderflow()
+    {
+        tracer.fine("underflow");
+        didUnderflow = true;
+    }
+
+    private void onData()
+    {
+        if (didUnderflow) {
+            tracer.fine("more data after underflow");
+            didUnderflow = false;
+            for (MoreDataListener c : moreDataListeners) {
+                c.onMoreData();
+            }
+        }
+    }
+
+    // override QueueIterator
+    public void done(Throwable e)
+    {
+        super.done(e);
+        onData();
+    }
+
+    // override QueueIterator
+    public void put(Object o)
+    {
+        super.put(o);
+        onData();
+    }
+
+    // override QueueIterator
+    public boolean offer(Object o, long timeoutMillis)
+    {
+        if (super.offer(o, timeoutMillis)) {
+            onData();
+            return true;
+        }
+        return false;
+    }
+
+    // implement TupleIter
     public Object fetchNext()
     {
         try {
@@ -162,6 +214,7 @@ public abstract class FarragoJavaUdxIterator
         } catch (NoSuchElementException e) {
             return NoDataReason.END_OF_DATA;
         } catch (QueueIterator.TimeoutException e) {
+            didUnderflow = true;
             if (timeoutAsUnderflow) {
                 return NoDataReason.UNDERFLOW;
             } else {
@@ -247,6 +300,7 @@ public abstract class FarragoJavaUdxIterator
     // implement TupleIter
     public void closeAllocation()
     {
+        tracer.fine("close");
         stopWithLatch();
     }
 

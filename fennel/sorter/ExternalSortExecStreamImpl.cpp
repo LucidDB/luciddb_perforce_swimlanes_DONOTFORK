@@ -42,6 +42,7 @@ ExternalSortInfo::ExternalSortInfo(ExecStream &streamInit)
     nIndexMemPages = 0;
     nSortMemPagesPerRun = 0;
     cbPage = 0;
+    partitionKeyCount = 0;
 }
 
 int ExternalSortInfo::compareKeys(TupleData const &key1, TupleData const &key2)
@@ -104,8 +105,19 @@ void ExternalSortExecStreamImpl::prepare(
     sortInfo.memSegmentAccessor = params.scratchAccessor;
     sortInfo.externalSegmentAccessor.pCacheAccessor = params.pCacheAccessor;
     sortInfo.externalSegmentAccessor.pSegment = params.pTempSegment;
+    sortInfo.partitionKeyCount = params.partitionKeyCount;
+    if (sortInfo.partitionKeyCount < 0
+        || sortInfo.partitionKeyCount > sortInfo.keyProj.size())
+    {
+        sortInfo.partitionKeyCount = 0;
+    }
     sortInfo.nSortMemPages = 0;
     sortInfo.nIndexMemPages = 0;
+    assert(sortInfo.partitionKeyCount >= 0);
+    assert(sortInfo.partitionKeyCount <= sortInfo.keyProj.size());
+    if (earlyClose) {
+        assert(sortInfo.partitionKeyCount == 0);
+    }
 }
 
 void ExternalSortExecStreamImpl::getResourceRequirements(
@@ -181,10 +193,8 @@ void ExternalSortExecStreamImpl::open(bool restart)
     // need at least two non-I/O pages per run: one for keys and one for data
     assert(sortInfo.nSortMemPagesPerRun > 1);
 
-    runLoaders.reset(new SharedExternalSortRunLoader[nParallel]);
-    for (uint i = 0; i < nParallel; ++i) {
-        runLoaders[i].reset(new ExternalSortRunLoader(sortInfo));
-    }
+    // Initialize RunLoaders.
+    initRunLoaders(false);
 
     pOutputWriter.reset(new ExternalSortOutput(sortInfo));
 
@@ -198,29 +208,44 @@ void ExternalSortExecStreamImpl::open(bool restart)
     resultsReady = false;
 }
 
+void ExternalSortExecStreamImpl::initRunLoaders(bool restart)
+{
+    runLoaders.reset(new SharedExternalSortRunLoader[nParallel]);
+    for (uint i = 0; i < nParallel; ++i) {
+        runLoaders[i].reset(new ExternalSortRunLoader(sortInfo));
+    }
+}
+
 ExecStreamResult ExternalSortExecStreamImpl::execute(
     ExecStreamQuantum const &quantum)
 {
-    if (!resultsReady) {
-        if (pInAccessor->getState() != EXECBUF_EOS) {
-            ExecStreamResult rc = precheckConduitBuffers();
-            if (rc != EXECRC_YIELD) {
-                return rc;
-            }
-            if (nParallel > 1) {
-                // FIXME
-                computeFirstResultParallel();
+    for (;;) {
+        if (!resultsReady) {
+            if (pInAccessor->getState() != EXECBUF_EOS) {
+                ExecStreamResult rc = precheckConduitBuffers();
+                if (rc == EXECRC_BUF_UNDERFLOW) {
+                    rc = handleUnderflow();
+                }
+                if (rc != EXECRC_YIELD) {
+                    return rc;
+                }
+                if (nParallel > 1) {
+                    // FIXME
+                    computeFirstResultParallel();
+                } else {
+                    rc = computeFirstResult();
+                    if (rc != EXECRC_YIELD) {
+                        return rc;
+                    }
+                }
             } else {
-                computeFirstResult();
-                return EXECRC_BUF_UNDERFLOW;
-            }
-        } else {
-            ExternalSortRunLoader &runLoader = *(runLoaders[0]);
-            if (runLoader.isStarted()) {
-                sortRun(runLoader);
-                if (storedRuns.size() || storeFinalRun) {
-                    // store last run
-                    storeRun(runLoader);
+                ExternalSortRunLoader &runLoader = *(runLoaders[0]);
+                if (runLoader.isStarted()) {
+                    sortRun(runLoader);
+                    if (storedRuns.size() || storeFinalRun) {
+                        // store last run
+                        storeRun(runLoader);
+                    }
                 }
             }
             mergeFirstResult();
@@ -234,9 +259,44 @@ ExecStreamResult ExternalSortExecStreamImpl::execute(
 
             resultsReady = true;
         }
+
+        ExecStreamResult rc2 = pOutputWriter->fetch(*pOutAccessor);
+        if (rc2 == EXECRC_EOS) {
+            if (sortInfo.partitionKeyCount > 0
+                && pInAccessor->getState() != EXECBUF_EOS)
+            {
+                // results have already been produced. Continue loading rows
+                // for the next "partition".
+                reallocateResources();
+                continue;
+            }
+            pOutAccessor->markEOS();
+        }
+        return rc2;
+    }
+}
+
+ExecStreamResult ExternalSortExecStreamImpl::handleUnderflow()
+{
+    // do nothing just return underflow
+    return EXECRC_BUF_UNDERFLOW;
+}
+
+void ExternalSortExecStreamImpl::reallocateResources()
+{
+    initRunLoaders(true);
+
+    for (uint i = 0; i < nParallel; ++i) {
+        runLoaders[i]->startRun();
     }
 
-    return pOutputWriter->fetch(*pOutAccessor);
+    pOutputWriter.reset(new ExternalSortOutput(sortInfo));
+    // default to local sort as output obj
+    pOutputWriter->setSubStream(*(runLoaders[0]));
+    resultsReady = false;
+    pMerger.reset();
+    pFinalRunAccessor.reset();
+    storedRuns.clear();
 }
 
 void ExternalSortExecStreamImpl::closeImpl()
@@ -258,7 +318,7 @@ void ExternalSortExecStreamImpl::releaseResources()
     storedRuns.clear();
 }
 
-void ExternalSortExecStreamImpl::computeFirstResult()
+ExecStreamResult ExternalSortExecStreamImpl::computeFirstResult()
 {
     ExternalSortRunLoader &runLoader = *(runLoaders[0]);
     for (;;) {
@@ -266,12 +326,22 @@ void ExternalSortExecStreamImpl::computeFirstResult()
             runLoader.startRun();
         }
         ExternalSortRC rc = runLoader.loadRun(*pInAccessor);
-        if (rc == EXTSORT_OVERFLOW) {
+        if (rc == EXTSORT_YIELD) {
+            if (runLoader.getLoadedTupleCount() > 0) {
+                sortRun(runLoader);
+                if (storedRuns.size() || storeFinalRun) {
+                    storeRun(runLoader);
+                }
+            }
+            // saw 'end of partition'. ready to merge all stored sortRuns.
+            return EXECRC_YIELD;
+        } else if (rc == EXTSORT_OVERFLOW) {
             sortRun(runLoader);
             storeRun(runLoader);
-        } else {
-            return;
+            // now ready to load more rows from input.
         }
+        // load more rows from input.
+        return EXECRC_BUF_UNDERFLOW;
     }
 }
 
@@ -419,9 +489,6 @@ void ExternalSortExecStreamImpl::computeFirstResultParallel()
 
     // wait for all tasks to complete before beginning merge
     threadPool.stop();
-
-    mergeFirstResult();
-    resultsReady = true;
 }
 
 void ExternalSortTask::execute()
