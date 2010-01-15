@@ -1,6 +1,6 @@
 /*
 // $Id$
-// Fennel is a library of data storage and processing components.
+// Farrago is an extensible data management system.
 // Copyright (C) 2009-2009 The Eigenbase Project
 // Copyright (C) 2009-2009 SQLstream, Inc.
 // Copyright (C) 2009-2009 LucidEra, Inc.
@@ -19,46 +19,23 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+package org.luciddb.jdbc;
 
-#ifndef Fennel_SebCmdInterpreter_Included
-#define Fennel_SebCmdInterpreter_Included
-
-#include "fennel/farrago/CmdInterpreter.h"
-
-FENNEL_BEGIN_NAMESPACE
+import net.sf.farrago.jdbc.client.*;
 
 /**
- * SebCmdInterpreter extends CmdInterpreter with storage engine bridging.
+ * LucidDbClientDriver is a JDBC driver for the LucidDB server for use by remote
+ * clients over HTTP. It is based on VJDBC.
  *
- * @author John Sichi
+ * @author Oscar Gothberg
  * @version $Id$
  */
-class SebCmdInterpreter : public CmdInterpreter
+public class LucidDbClientDriver
+    extends FarragoUnregisteredVjdbcHttpClientDriver
 {
-    static unsigned short userId;
-    static unsigned short dbId;
-
-    virtual void visit(ProxyCmdOpenDatabase &);
-    virtual void visit(ProxyCmdCloseDatabase &);
-    virtual void visit(ProxyCmdCreateIndex &);
-    virtual void visit(ProxyCmdBeginTxn &);
-    virtual void visit(ProxyCmdCommit &);
-    virtual void visit(ProxyCmdRollback &);
-
-public:
-    static inline unsigned short getUserId()
-    {
-        return userId;
+    static {
+        new LucidDbClientDriver().register();
     }
+}
 
-    static inline unsigned short getDbId()
-    {
-        return dbId;
-    }
-};
-
-FENNEL_END_NAMESPACE
-
-#endif
-
-// End SebCmdInterpreter.h
+// End LucidDbClientDriver.java

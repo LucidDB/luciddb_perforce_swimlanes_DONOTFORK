@@ -1,8 +1,8 @@
 /*
 // $Id$
 // LucidDB is a DBMS optimized for business intelligence.
-// Copyright (C) 2005-2007 LucidEra, Inc.
-// Copyright (C) 2005-2007 The Eigenbase Project
+// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005-2009 The Eigenbase Project
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -116,11 +116,17 @@ public class LucidDbSqlTest extends FarragoTestCase
     }
 
     protected void runTest()
-        throws Exception
+        throws Throwable
     {
         // mask out source control Id, etc
         setRefFileDiffMasks();
         runSqlLineTest(getName());
+    }
+
+    protected void runTestSuper()
+        throws Throwable
+    {
+        super.runTest();
     }
 
     public interface LucidDbSqlTestFactory
@@ -184,3 +190,5 @@ public class LucidDbSqlTest extends FarragoTestCase
     }
 
 }
+
+// End LucidDbSqlTest.java

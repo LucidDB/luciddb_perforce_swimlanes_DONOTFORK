@@ -19,34 +19,52 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-package net.sf.farrago.fennel;
+package net.sf.farrago.test;
 
-import net.sf.farrago.fem.fennel.*;
-
-import org.eigenbase.util.*;
-
-import java.sql.*;
+import net.sf.farrago.jdbc.*;
+import net.sf.farrago.jdbc.client.*;
+import net.sf.farrago.server.*;
 
 /**
- * JNI interface for storage engine bridging.
+ * FarragoServerTest tests Farrago client/server connections via VJDBC's
+ * HTTP implementation.
+ *
+ *<p>
+ *
+ * TODO jvs 30-Sept-2009:  validate and re-enable tests with JRockit since
+ * HTTP should be OK there (no RMI distributed gc to cause bumps).
  *
  * @author John Sichi
  * @version $Id$
  */
-public abstract class SebJni
+public class FarragoHttpServerTest extends FarragoVjdbcServerTest
 {
-    //~ Static fields/initializers ---------------------------------------------
+    //~ Constructors -----------------------------------------------------------
 
-    static {
-        Util.loadLibrary("farrago_seb");
+    /**
+     * Initializes a new FarragoHttpServerTest.
+     *
+     * @param testCaseName JUnit test case name
+     */
+    public FarragoHttpServerTest(String testCaseName)
+        throws Exception
+    {
+        super(testCaseName);
     }
 
     //~ Methods ----------------------------------------------------------------
 
-    public static native void registerStreamFactory(long hStreamGraph);
+    protected FarragoAbstractServer newServer()
+    {
+        FarragoVjdbcServer server = new FarragoVjdbcServer();
+        // default protocol is HTTP
+        return server;
+    }
 
-    public static native long executeJavaCmd(FemCmd cmd, long execHandle)
-        throws SQLException;
+    protected FarragoAbstractJdbcDriver newClientDriver()
+    {
+        return new FarragoVjdbcHttpClientDriver();
+    }
 }
 
-// End SebJni.java
+// End FarragoHttpServerTest.java
