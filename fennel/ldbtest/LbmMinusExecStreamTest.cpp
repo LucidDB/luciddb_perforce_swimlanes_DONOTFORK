@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2010-2010 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2010 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -135,14 +135,14 @@ public:
     virtual int64_t generateValue(uint iRow, uint iCol)
     {
         // must be generated in order
-        assert (lastRow <= iRow);
+        assert(lastRow <= iRow);
         lastRow = iRow;
 
         if (iRow >= changeIndexes[current]) {
             current++;
-            assert (current < interval);
+            assert(current < interval);
         }
-        assert (iCol < nKeys);
+        assert(iCol < nKeys);
         return current % repeatSeqValues[iCol];
     }
 

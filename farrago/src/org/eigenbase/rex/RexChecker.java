@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2002-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2002 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -84,19 +84,7 @@ public class RexChecker
      */
     public RexChecker(final RelDataType inputRowType, boolean fail)
     {
-        this(
-            new AbstractList<RelDataType>() {
-                public RelDataType get(int index)
-                {
-                    return inputRowType.getFieldList().get(index).getType();
-                }
-
-                public int size()
-                {
-                    return inputRowType.getFieldCount();
-                }
-            },
-            fail);
+        this(RelOptUtil.getFieldTypeList(inputRowType), fail);
     }
 
     /**

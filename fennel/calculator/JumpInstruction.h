@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -99,7 +99,7 @@ class FENNEL_CALCULATOR_EXPORT JumpTrue
 public:
     explicit
     JumpTrue(TProgramCounter pc, RegisterRef<bool>* op)
-        : JumpInstruction (pc, op)
+        : JumpInstruction(pc, op)
     {}
 
     virtual
@@ -140,7 +140,7 @@ class FENNEL_CALCULATOR_EXPORT JumpFalse
 public:
     explicit
     JumpFalse(TProgramCounter pc, RegisterRef<bool>* op)
-        : JumpInstruction (pc, op)
+        : JumpInstruction(pc, op)
     {}
 
     virtual
@@ -182,7 +182,7 @@ class FENNEL_CALCULATOR_EXPORT JumpNull
 public:
     explicit
     JumpNull(TProgramCounter pc, RegisterRef<bool>* op)
-        : JumpInstruction (pc, op)
+        : JumpInstruction(pc, op)
     {}
 
     virtual
@@ -224,7 +224,7 @@ class FENNEL_CALCULATOR_EXPORT JumpNotNull
 public:
     explicit
     JumpNotNull(TProgramCounter pc, RegisterRef<bool>* op)
-        : JumpInstruction (pc, op)
+        : JumpInstruction(pc, op)
     {}
 
     virtual

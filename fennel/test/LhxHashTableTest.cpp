@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -298,7 +298,7 @@ void LhxHashTableTest::testInsert(
         dataTrace << "\n";
         numTuples ++;
     }
-    assert (numTuples == numRows);
+    assert(numTuples == numRows);
 
     /*
      * Verify that the keys are inserted.
@@ -330,7 +330,7 @@ void LhxHashTableTest::testInsert(
         }
     }
 
-    assert (numTuples == numRows);
+    assert(numTuples == numRows);
 
     if (dumpHashTable) {
         LhxHashTableDump hashTableDump(
@@ -369,7 +369,7 @@ void LhxHashTableTest::testInsert(
             hashTableDump.dump(dataTrace.str());
         }
         // verify read/write row count match.
-        assert (tuplesWritten == numRows && tuplesRead == tuplesWritten);
+        assert(tuplesWritten == numRows && tuplesRead == tuplesWritten);
     }
 
     if (recursivePartitioning > 0) {

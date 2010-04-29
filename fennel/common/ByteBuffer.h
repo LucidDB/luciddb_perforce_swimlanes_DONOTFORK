@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -281,7 +281,7 @@ public:
      */
     void advance(IndexT pos)
     {
-        assert (pos >= start);
+        assert(pos >= start);
 
         // If we not keeping any data, reset the start pointer to the
         // beginning of the internal buffer. Otherwise, advance it.

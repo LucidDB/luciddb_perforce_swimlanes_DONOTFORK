@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,7 @@ class RegisterReference;
 class TupleDescriptor;
 class StoredTypeDescriptorFactory;
 
-extern int CalcYYparse (void *);
+extern int CalcYYparse(void *);
 
 /**
  * The CalcAssembler is responsible for taking a textual representation
@@ -258,7 +258,7 @@ public:
         PConstBuffer buffer);
 
 protected:
-    friend int CalcYYparse (void *);
+    friend int CalcYYparse(void *);
 
     // Protected functions that are used by CalcYYparse
 

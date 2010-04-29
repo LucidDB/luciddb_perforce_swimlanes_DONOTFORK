@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -160,13 +160,13 @@ void CastDateTimeToInt64(
 
 void CurrentTime(RegisterRef<int64_t>* result)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
+    assert(result->type() == STANDARD_TYPE_INT_64);
     result->value(UniversalTime());
 }
 
 void CurrentTimestamp(RegisterRef<int64_t>* result)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
+    assert(result->type() == STANDARD_TYPE_INT_64);
     result->value(UniversalTimestamp());
 }
 
@@ -174,8 +174,8 @@ void CurrentTime(
     RegisterRef<int64_t>* result,
     RegisterRef<int32_t>* precision)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (precision->type() == STANDARD_TYPE_INT_32);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(precision->type() == STANDARD_TYPE_INT_32);
 
     // precision is ignored for now
     result->value(UniversalTime());
@@ -185,8 +185,8 @@ void CurrentTimestamp(
     RegisterRef<int64_t>* result,
     RegisterRef<int32_t>* precision)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (precision->type() == STANDARD_TYPE_INT_32);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(precision->type() == STANDARD_TYPE_INT_32);
 
     // precision is ignored for now
     result->value(UniversalTimestamp());
@@ -196,8 +196,8 @@ void LocalTime(
     RegisterRef<int64_t>* result,
     RegisterRef<char *>* tz)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (tz->type() == STANDARD_TYPE_CHAR);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(tz->type() == STANDARD_TYPE_CHAR);
 
     time_zone_ptr tzPtr(
         new posix_time_zone(
@@ -210,8 +210,8 @@ void LocalTimestamp(
     RegisterRef<int64_t>* result,
     RegisterRef<char *>* tz)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (tz->type() == STANDARD_TYPE_CHAR);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(tz->type() == STANDARD_TYPE_CHAR);
 
     time_zone_ptr tzPtr(
         new posix_time_zone(
@@ -225,9 +225,9 @@ void LocalTime(
     RegisterRef<char *>* tz,
     RegisterRef<int32_t>* precision)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (tz->type() == STANDARD_TYPE_CHAR);
-    assert (precision->type() == STANDARD_TYPE_INT_32);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(tz->type() == STANDARD_TYPE_CHAR);
+    assert(precision->type() == STANDARD_TYPE_INT_32);
 
     time_zone_ptr tzPtr(
         new posix_time_zone(
@@ -242,9 +242,9 @@ void LocalTimestamp(
     RegisterRef<char *>* tz,
     RegisterRef<int32_t>* precision)
 {
-    assert (result->type() == STANDARD_TYPE_INT_64);
-    assert (tz->type() == STANDARD_TYPE_CHAR);
-    assert (precision->type() == STANDARD_TYPE_INT_32);
+    assert(result->type() == STANDARD_TYPE_INT_64);
+    assert(tz->type() == STANDARD_TYPE_CHAR);
+    assert(precision->type() == STANDARD_TYPE_INT_32);
 
     time_zone_ptr tzPtr(
         new posix_time_zone(

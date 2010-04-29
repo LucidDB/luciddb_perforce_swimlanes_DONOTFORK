@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -72,8 +72,8 @@ void LhxHashGenerator::init(uint levelInit)
     magicTable = LhxHashGeneratorMagicTable;
 
     uint base = level * 4;
-    hashValueSeed
-        = (uint8_t(base) << 24)
+    hashValueSeed =
+        (uint8_t(base) << 24)
         | (uint8_t(base + 1) << 16)
         | (uint8_t(base + 2) << 8)
         | (uint8_t(base + 3));

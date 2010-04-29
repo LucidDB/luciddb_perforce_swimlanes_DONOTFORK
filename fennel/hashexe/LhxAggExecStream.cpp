@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -57,7 +57,7 @@ void LhxAggExecStream::prepare(
     outputDesc = hashInfo.inputDesc[buildInputIndex];
 
     if (!params.outputTupleDesc.empty()) {
-        assert (outputDesc == params.outputTupleDesc);
+        assert(outputDesc == params.outputTupleDesc);
     }
 
     outputTuple.compute(outputDesc);
@@ -512,7 +512,7 @@ void LhxAggExecStream::setAggComputers(
 
     uint i = 0;
 
-    assert (aggInvocations.size() == aggsProj.size());
+    assert(aggInvocations.size() == aggsProj.size());
 
     for (AggInvocationConstIter pInvocation(aggInvocations.begin());
          pInvocation != aggInvocations.end();

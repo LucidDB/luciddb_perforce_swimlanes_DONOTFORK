@@ -2,10 +2,10 @@
 <!--
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -384,7 +384,7 @@ ${farrago.test.jvmargs}
     <pathelement location="${javahome.dir}/lib/tools.jar"/>
     <pathelement location="${rmijdbc.dir}/dist/lib/RmiJdbc.jar"/>
     <pathelement location="${csvjdbc.dir}/csvjdbc.jar"/>
-    <pathelement location="${janino.dir}/lib/janino.jar"/>
+    <pathelement location="${janino.dir}/janino.jar"/>
     <pathelement location="${openjava.dir}/openjava.jar"/>
     <pathelement location="${hsqldb.dir}/lib/hsqldb.jar"/>
     <pathelement location="${thirdparty.dir}/commons-transaction-1.1.jar"/>
@@ -830,7 +830,7 @@ ${farrago.test.jvmargs}
         <classpath path="@{sqltest.classpath}"/>
         <jvmarg line="${assertions.jvmarg}"/>
         <jvmarg line="&FarragoSqlLineProps;"/>
-        <jvmarg line="-Xmx768m"/>
+        <jvmarg line="-Xmx1024m"/>
         <jvmarg line="-XX:MaxPermSize=160m" />
         <sysproperty key="java.ext.dirs" value="@{java.ext.dirs}"/>
         <sysproperty key="net.sf.farrago.fileset.unitsql" file="@{file}"/>

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -1272,7 +1272,7 @@ inline void LhxHashBlockAccessor::allocSlots(uint slotCount)
      * A slot is a pointer to a hash key.
      */
     PBuffer bufPtr = allocBuffer(slotCount * sizeof(PBuffer));
-    assert (bufPtr != NULL);
+    assert(bufPtr != NULL);
 }
 
 inline uint LhxHashTable::slotsNeeded(RecordNum cndKeys)

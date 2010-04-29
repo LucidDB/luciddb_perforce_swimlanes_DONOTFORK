@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2002-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2002 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -629,7 +629,31 @@ public class SqlStdOperatorTable
      * <code>AVG</code> aggregate function.
      */
     public static final SqlAggFunction avgOperator =
-        new SqlAvgAggFunction(null);
+        new SqlAvgAggFunction(null, SqlAvgAggFunction.Subtype.AVG);
+
+    /**
+     * <code>STDDEV_POP</code> aggregate function.
+     */
+    public static final SqlAggFunction stddevPopOperator =
+        new SqlAvgAggFunction(null, SqlAvgAggFunction.Subtype.STDDEV_POP);
+
+    /**
+     * <code>STDDEV_SAMP</code> aggregate function.
+     */
+    public static final SqlAggFunction stddevSampOperator =
+        new SqlAvgAggFunction(null, SqlAvgAggFunction.Subtype.STDDEV_SAMP);
+
+    /**
+     * <code>VAR_POP</code> aggregate function.
+     */
+    public static final SqlAggFunction varPopOperator =
+        new SqlAvgAggFunction(null, SqlAvgAggFunction.Subtype.VAR_POP);
+
+    /**
+     * <code>VAR_SAMP</code> aggregate function.
+     */
+    public static final SqlAggFunction varSampOperator =
+        new SqlAvgAggFunction(null, SqlAvgAggFunction.Subtype.VAR_SAMP);
 
     //-------------------------------------------------------------
     // WINDOW Aggregate Functions
@@ -1012,6 +1036,15 @@ public class SqlStdOperatorTable
             SqlTypeStrategies.rtiNullableDouble,
             null,
             SqlTypeStrategies.otcNumericX2,
+            SqlFunctionCategory.Numeric);
+
+    public static final SqlFunction sqrtFunc =
+        new SqlFunction(
+            "SQRT",
+            SqlKind.Function,
+            SqlTypeStrategies.rtiNullableDouble,
+            null,
+            SqlTypeStrategies.otcNumeric,
             SqlFunctionCategory.Numeric);
 
     public static final SqlFunction modFunc =

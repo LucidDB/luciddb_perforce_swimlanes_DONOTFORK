@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -2640,6 +2640,21 @@ public class FarragoJdbcTest
         }
     }
 
+    protected void checkNegativeTimeouts(PreparedStatement preparedStmt)
+    {
+        // negative timeouts should throw
+        for (int i = 0; i >= -2; i--) {
+            try {
+                preparedStmt.setQueryTimeout(i);
+                assertTrue("negative timeout=" + i + " should throw", i >= 0);
+            } catch (SQLException e) {
+                assertContains(
+                    FarragoStatement.ERRMSG_REQ_NON_NEG,
+                    e.getMessage());
+            }
+        }
+    }
+
     /**
      * Tests setQueryTimeout.
      *
@@ -2662,17 +2677,7 @@ public class FarragoJdbcTest
                 Arrays.asList("San Francisco", null, "Vancouver", null));
         }
 
-        // negative timeouts should throw
-        for (int i = 0; i >= -2; i--) {
-            try {
-                preparedStmt.setQueryTimeout(i);
-                assertTrue("negative timeout=" + i + " should throw", i >= 0);
-            } catch (SQLException e) {
-                assertContains(
-                    FarragoStatement.ERRMSG_REQ_NON_NEG,
-                    e.getMessage());
-            }
-        }
+        checkNegativeTimeouts(preparedStmt);
 
         sql = "select empid from sales.emps where name=?";
         preparedStmt = connection.prepareStatement(sql);

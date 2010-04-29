@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2010-2010 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2010 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -188,7 +188,7 @@ void LbmEntry::setEntryTuple(TupleData const &indexTuple)
             pSegDescStart = pSegDescEnd = scratchBuffer + keySize;
             uint reservedSpace = 0;
             bool ret = addSegDesc(reservedSpace, segLength);
-            assert (ret);
+            assert(ret);
         } else {
             pSegDescStart = (PBuffer)entryTuple[segmentDescField].pData;
             pSegDescEnd = pSegDescStart + entryTuple[segmentDescField].cbData;
@@ -215,7 +215,7 @@ bool LbmEntry::setRIDNewSegment(LcsRid rid)
 
 bool LbmEntry::setRIDAdjacentSegByte(LcsRid rid)
 {
-    assert (!isSingleBitmap());
+    assert(!isSingleBitmap());
 
     if (currSegLength == LbmMaxSegSize) {
         /*
@@ -260,8 +260,8 @@ bool LbmEntry::setRIDAdjacentSegByte(LcsRid rid)
 
 bool LbmEntry::openNewSegment(LcsRid rid)
 {
-    assert (!isSegmentOpen());
-    assert (pSegDescEnd);
+    assert(!isSegmentOpen());
+    assert(pSegDescEnd);
 
     if (currentEntrySize + 2 > scratchBufferUsableSize) {
         return false;
@@ -294,8 +294,8 @@ bool LbmEntry::openNewSegment(LcsRid rid)
 
 void LbmEntry::openLastSegment()
 {
-    assert (!isSegmentOpen());
-    assert (pSegEnd);
+    assert(!isSegmentOpen());
+    assert(pSegEnd);
 
     uint lastZeroRIDs = 0;
     uint rowCount = getRowCount(currSegDescByte, lastZeroRIDs);
@@ -322,8 +322,8 @@ void LbmEntry::openLastSegment()
 
 void LbmEntry::closeCurrentSegment()
 {
-    assert (isSegmentOpen());
-    assert (currSegLength >= 1 && currSegLength <= LbmMaxSegSize);
+    assert(isSegmentOpen());
+    assert(currSegLength >= 1 && currSegLength <= LbmMaxSegSize);
 
     setSegLength(*currSegDescByte, currSegLength);
     resetSegment();
@@ -469,7 +469,7 @@ uint LbmEntry::getRowCount(
     PBuffer &lastSegDescByte,
     uint &lastZeroRIDs)
 {
-    assert (!isSingleBitmap());
+    assert(!isSingleBitmap());
 
     uint rowCount = 0;
 
@@ -529,7 +529,7 @@ bool LbmEntry::singleton2Bitmap()
 
 bool LbmEntry::setRID(LcsRid rid)
 {
-    assert (!isSingleBitmap());
+    assert(!isSingleBitmap());
 
     /*
      * First prepare the current LbmEntry for insert.
@@ -563,7 +563,7 @@ bool LbmEntry::setRID(LcsRid rid)
         openLastSegment();
     }
 
-    assert (isSegmentOpen());
+    assert(isSegmentOpen());
 
     /*
      * Now insert the new RID.
@@ -787,7 +787,7 @@ bool LbmEntry::adjustEntry(TupleData &inputTuple)
          *                            first byte is 0 0 1 1 1 0 0 0
          * See test case LER-422 in lbm.sql.
          */
-        assert ((opaqueToInt(startRID) - opaqueToInt(inputStartRID))
+        assert((opaqueToInt(startRID) - opaqueToInt(inputStartRID))
             < LbmOneByteSize);
 
         // use the input as the current and set the bit at inputStartRID.
@@ -898,7 +898,7 @@ bool LbmEntry::adjustEntry(TupleData &inputTuple)
 
 bool LbmEntry::mergeEntry(TupleData &inputTuple)
 {
-    assert (!isSingleBitmap());
+    assert(!isSingleBitmap());
 
     /*
      * MergeEntry needs to first handle the case where there are overlapping
@@ -2143,9 +2143,8 @@ int LbmEntry::segmentContainsRid(
         } else {
             return -1;
         }
-    } else {
-        return 1;
     }
+    return 1;
 }
 
 bool LbmEntry::inRange(LcsRid rid)

@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2009-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2009 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -57,11 +57,11 @@ class MedMqlDataServer
 
     public static final String PROP_UDX_SPECIFIC_NAME = "UDX_SPECIFIC_NAME";
 
-    public static final String DEFAULT_URL
-        = "http://api.freebase.com/api/service/mqlread";
+    public static final String DEFAULT_URL =
+        "http://api.freebase.com/api/service/mqlread";
 
-    public static final String DEFAULT_UDX_SPECIFIC_NAME
-        = "LOCALDB.METAWEB.MQL_QUERY";
+    public static final String DEFAULT_UDX_SPECIFIC_NAME =
+        "LOCALDB.METAWEB.MQL_QUERY";
 
     //~ Instance fields --------------------------------------------------------
 

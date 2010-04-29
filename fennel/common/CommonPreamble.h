@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 1999-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 1999 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -38,7 +38,12 @@
 #define __STDC_LIMIT_MACROS
 #else
 #define NOMINMAX
-#pragma warning (disable : 4355)
+#pragma warning(disable : 4355)
+#ifdef _WIN64
+#define __WORDSIZE 64
+#else
+#define __WORDSIZE 32
+#endif
 #endif
 
 #define _XOPEN_SOURCE 500
@@ -396,7 +401,7 @@ inline Numeric sqr(Numeric n)
 }
 
 // NOTE jvs 18-Mar-2005:  neither boost nor stlport exposes this
-extern int FENNEL_COMMON_EXPORT getCurrentThreadId();
+extern int64_t FENNEL_COMMON_EXPORT getCurrentThreadId();
 
 extern std::logic_error FENNEL_COMMON_EXPORT constructAssertion(
     char const *pFilename,int lineNum,char const *condExpr);

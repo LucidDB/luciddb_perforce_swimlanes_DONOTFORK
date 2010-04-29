@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -126,7 +126,8 @@ public:
                 IntegralNativeInstruction<TMPLT>::mResult->toNull();
                 // SQL99 22.1 SQLState dataexception class 22,
                 // division by zero subclass 012
-                throw CalcMessage("22012", pc - 1);
+                throw CalcMessage(
+                    SqlState::instance().code22012(), pc - 1);
             }
             IntegralNativeInstruction<TMPLT>::mResult->value(
                 NativeInstruction<TMPLT>::mOp1->value() % o2);

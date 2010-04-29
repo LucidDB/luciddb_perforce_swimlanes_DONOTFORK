@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -42,8 +42,8 @@ import static com.sun.mirror.util.DeclarationVisitors.*;
 public class EigenbaseInventoryGenerator implements AnnotationProcessorFactory
 {
     // Process any set of annotations
-    private static final Collection<String> supportedAnnotations
-        = unmodifiableCollection(Arrays.asList("*"));
+    private static final Collection<String> supportedAnnotations =
+        unmodifiableCollection(Arrays.asList("*"));
 
     // No supported options
     private static final Collection<String> supportedOptions = emptySet();

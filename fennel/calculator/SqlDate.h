@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -37,6 +37,7 @@
 #include <unicode/ustring.h>
 #endif
 
+#include "fennel/calculator/SqlState.h"
 
 FENNEL_BEGIN_NAMESPACE
 
@@ -113,7 +114,7 @@ SqlDateToStr(
                     // SQL99 Part 2 Section 6.22 General Rule 9.a.iii =>
                     // exception SQL99 22.1 22-001 "String Data Right
                     // truncation"
-                    throw "22001";
+                    throw SqlState::instance().code22001();
                 }
                 memcpy(dest, buf, len);
                 break;
@@ -123,7 +124,7 @@ SqlDateToStr(
                     // SQL99 Part 2 Section 6.22 General Rule 9.a.iii =>
                     // exception SQL99 22.1 22-001 "String Data Right
                     // truncation"
-                    throw "22001";
+                    throw SqlState::instance().code22001();
                 }
                 memcpy(dest, buf, len);
                 break;
@@ -133,7 +134,7 @@ SqlDateToStr(
                     // SQL99 Part 2 Section 6.22 General Rule 9.a.iii =>
                     // exception SQL99 22.1 22-001 "String Data Right
                     // truncation"
-                    throw "22001";
+                    throw SqlState::instance().code22001();
                 }
                 memcpy(dest, buf, len);
                 break;

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -144,16 +144,14 @@ public abstract class JoinRelBase
             // fields, left fields, and right fields. Very similar to the
             // output row type, except that fields have not yet been made due
             // due to outer joins.
-            final List<RelDataTypeField> fieldList =
-                new ArrayList<RelDataTypeField>();
-            fieldList.addAll(getSystemFieldList());
-            fieldList.addAll(getLeft().getRowType().getFieldList());
-            fieldList.addAll(getRight().getRowType().getFieldList());
             RexChecker checker =
                 new RexChecker(
                     getCluster().getTypeFactory().createStructType(
                         new RelDataTypeFactory.ListFieldInfo(
-                            fieldList)),
+                            CompositeList.of(
+                                getSystemFieldList(),
+                                getLeft().getRowType().getFieldList(),
+                                getRight().getRowType().getFieldList()))),
                     fail);
             condition.accept(checker);
             if (checker.getFailureCount() > 0) {

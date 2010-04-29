@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2010-2010 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2010 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -62,7 +62,7 @@ ExecStreamResult LbmNormalizerExecStream::execute(
             } else if (rc != EXECRC_YIELD) {
                 return rc;
             }
-            assert (producePending);
+            assert(producePending);
         }
         if (! produceTuple()) {
             return EXECRC_BUF_OVERFLOW;
@@ -73,14 +73,14 @@ ExecStreamResult LbmNormalizerExecStream::execute(
 
 ExecStreamResult LbmNormalizerExecStream::readSegment()
 {
-    assert (! producePending);
+    assert(!producePending);
 
     ExecStreamResult rc = segmentReader.readSegmentAndAdvance(
         segment.byteNum, segment.byteSeg, segment.len);
     if (rc == EXECRC_YIELD) {
         producePending = true;
         nTuplesPending = segment.countBits();
-        assert (nTuplesPending > 0);
+        assert(nTuplesPending > 0);
     }
     return rc;
 }

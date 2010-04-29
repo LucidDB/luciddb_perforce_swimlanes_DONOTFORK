@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -164,7 +164,7 @@ void FlatFileParser::scanRow(
         if (bounded) {
             int target = mapped ? columns.getMap(i) : i;
             if (target >= 0) {
-                assert (target < resultColumns);
+                assert(target < resultColumns);
                 result.setColumn(target, offset, columnResult.size);
             }
         } else {

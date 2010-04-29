@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -184,7 +184,8 @@ SqlDateTest::testSqlDateToStr_Ascii()
                         ticks_per_year
                         + size * ticks_per_month
                         + storage * ticks_per_day);
-                } catch (const char *str) {
+                } catch (SqlStateInfo const &info) {
+                    const char *str = info.str().c_str();
                     caught = true;
                     BOOST_CHECK_EQUAL(strcmp(str, "22001"), 0);
                     BOOST_CHECK(t.verify());
@@ -245,7 +246,8 @@ SqlDateTest::testSqlTimeToStr_Ascii()
                         ticks_per_hour
                         + size * ticks_per_minute
                         + storage * ticks_per_sec);
-                } catch (const char *str) {
+                } catch (SqlStateInfo const &info) {
+                    const char *str = info.str().c_str();
                     caught = true;
                     BOOST_CHECK_EQUAL(strcmp(str, "22001"), 0);
                     BOOST_CHECK(t.verify());
@@ -290,7 +292,8 @@ SqlDateTest::testSqlStrToDate_Ascii_Helper(
         default:
             permAssert(false);
         }
-    } catch (const char *str) {
+    } catch (SqlStateInfo const &info) {
+        const char *str = info.str().c_str();
         caught = true;
         BOOST_CHECK_EQUAL(strcmp(str, "22007"), 0);
     } catch (...) {

@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -100,7 +100,9 @@ public:
     virtual void exec(TProgramCounter& pc) const {
         pc++;
         if (!mCode->isNull()) {
-            throw CalcMessage(mCode->pointer(), pc - 1);
+            SqlStateInfo const *stateInfo =
+                SqlState::instance().lookup(mCode->pointer());
+            throw CalcMessage(*stateInfo, pc - 1);
         }
     }
 

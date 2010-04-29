@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2006-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2006-2009 LucidEra, Inc.
+// Copyright (C) 2006 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2006 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -351,7 +351,7 @@ void LhxPartitionInfo::open(
     AggComputerList *aggList)
 {
     uint i, j;
-    assert (numInputs == 1);
+    assert(numInputs == 1);
     uint buildIndex = numInputs - 1;
 
     curInputIndex = buildIndex;

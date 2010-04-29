@@ -1,10 +1,10 @@
 /*
 // $Id$
 // Farrago is an extensible data management system.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2005-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
-// Portions Copyright (C) 2003-2009 John V. Sichi
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2005 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
+// Portions Copyright (C) 2003 John V. Sichi
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@ import java.sql.*;
 
 import org.eigenbase.jdbc4.*;
 import org.eigenbase.reltype.*;
+import org.eigenbase.sql.SqlIdentifier;
 import org.eigenbase.sql.type.*;
 
 
@@ -83,7 +84,72 @@ public class FarragoJdbcMetaDataImpl
 
     protected String getFieldClassName(int fieldOrdinal)
     {
-        // TODO
+        int type = getFieldJdbcType(fieldOrdinal);
+        switch (type) {
+        case Types.ARRAY:
+            return "java.sql.Array";
+        case Types.BIGINT:
+            return "java.lang.Long";
+        case Types.BINARY:
+            return "[B";
+        case Types.BIT:
+            return "java.lang.Boolean";
+        case Types.BLOB:
+            return "java.sql.Blob";
+        case Types.BOOLEAN:
+            return "java.lang.Boolean";
+        case Types.CHAR:
+            return "java.lang.String";
+        case Types.CLOB:
+            return "java.sql.Clob";
+        case Types.DATALINK:
+            return "";
+        case Types.DATE:
+            return "java.sql.Date";
+        case Types.DECIMAL:
+            return "java.math.BigDecimal";
+        case Types.DISTINCT:
+            // TODO
+            return "";
+        case Types.DOUBLE:
+            return "java.lang.Double";
+        case Types.FLOAT:
+            return "java.lang.Double";
+        case Types.INTEGER:
+            return "java.lang.Integer";
+        case Types.JAVA_OBJECT:
+            return "java.lang.Object";
+        case Types.LONGVARBINARY:
+            return "[B";
+        case Types.LONGVARCHAR:
+            return "java.lang.String";
+        case Types.NULL:
+            // TODO
+            return "";
+        case Types.NUMERIC:
+            return "java.math.BigDecimal";
+        case Types.OTHER:
+            return "java.lang.Object";
+        case Types.REAL:
+            return "java.lang.Float";
+        case Types.REF:
+            // TODO
+            return "";
+        case Types.SMALLINT:
+            return "java.lang.Short";
+        case Types.STRUCT:
+            return "java.sql.Struct";
+        case Types.TIME:
+            return "java.sql.Time";
+        case Types.TIMESTAMP:
+            return "java.sql.Timestamp";
+        case Types.TINYINT:
+            return "java.lang.Byte";
+        case Types.VARBINARY:
+            return "[B";
+        case Types.VARCHAR:
+            return "java.lang.String";
+        }
         return "";
     }
 

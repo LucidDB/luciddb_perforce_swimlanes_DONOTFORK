@@ -1,10 +1,10 @@
 #!/bin/bash
 # $Id$
 # Farrago is an extensible data management system.
-# Copyright (C) 2005-2009 The Eigenbase Project
-# Copyright (C) 2005-2009 SQLstream, Inc.
-# Copyright (C) 2005-2009 LucidEra, Inc.
-# Portions Copyright (C) 2003-2009 John V. Sichi
+# Copyright (C) 2005 The Eigenbase Project
+# Copyright (C) 2005 SQLstream, Inc.
+# Copyright (C) 2005 Dynamo BI Corporation
+# Portions Copyright (C) 2003 John V. Sichi
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -128,8 +128,8 @@ mkdir $BIN_DIR
 
 # copy thirdparty libs
 cd $THIRDPARTY_DIR
-cp janino/lib/janino.jar $LIB_DIR
-cp janino/src/org/codehaus/janino/doc-files/new_bsd_license.txt $LIB_DIR/janino.license.txt
+cp janino/janino.jar $LIB_DIR
+cp janino/new_bsd_license.txt $LIB_DIR/janino.license.txt
 cp resgen/lib/eigenbase-resgen.jar $LIB_DIR
 cp resgen/lib/eigenbase-xom.jar $LIB_DIR
 cp resgen/COPYING $LIB_DIR/resgen.license.txt

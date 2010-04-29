@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2009-2009 SQLstream, Inc.
-// Copyright (C) 2005-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2009 SQLstream, Inc.
+// Copyright (C) 2005 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -207,7 +207,7 @@ void FlatFileExecStreamTest::checkTrim(
     const char *result)
 {
     char buffer[128];
-    assert (strlen(string) < sizeof(buffer));
+    assert(strlen(string) < sizeof(buffer));
     strcpy(buffer, string);
 
     uint size = strlen(result);
@@ -221,7 +221,7 @@ void FlatFileExecStreamTest::checkStrip(
     const char *result)
 {
     char buffer[128];
-    assert (strlen(string) < sizeof(buffer));
+    assert(strlen(string) < sizeof(buffer));
     strcpy(buffer, string);
 
     uint size = strlen(result);

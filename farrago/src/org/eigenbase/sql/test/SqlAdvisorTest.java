@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Package org.eigenbase is a class library of data management components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2002-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2002 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -156,6 +156,8 @@ public class SqlAdvisorTest
             "Keyword(SPECIFIC)",
             "Keyword(SQRT)",
             "Keyword(SUBSTRING)",
+            "Keyword(STDDEV_POP)",
+            "Keyword(STDDEV_SAMP)",
             "Keyword(SUM)",
             "Keyword(SYSTEM_USER)",
             "Keyword(TIME)",
@@ -165,7 +167,9 @@ public class SqlAdvisorTest
             "Keyword(TRUE)",
             "Keyword(UNKNOWN)",
             "Keyword(UPPER)",
-            "Keyword(USER)");
+            "Keyword(USER)",
+            "Keyword(VAR_POP)",
+            "Keyword(VAR_SAMP)");
 
     protected static final List<String> SELECT_KEYWORDS =
         Arrays.asList(

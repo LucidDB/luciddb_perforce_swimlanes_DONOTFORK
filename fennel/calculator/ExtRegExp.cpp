@@ -1,9 +1,9 @@
 /*
 // $Id$
 // Fennel is a library of data storage and processing components.
-// Copyright (C) 2005-2009 The Eigenbase Project
-// Copyright (C) 2004-2009 SQLstream, Inc.
-// Copyright (C) 2009-2009 LucidEra, Inc.
+// Copyright (C) 2005 The Eigenbase Project
+// Copyright (C) 2004 SQLstream, Inc.
+// Copyright (C) 2009 Dynamo BI Corporation
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -84,7 +84,7 @@ strLikeEscapeA(
                 // SQL99 Part 2 Section 8.5 General Rule 3.b.i2 *seems* like
                 // best fit here.
                 // Data Exception - Invalid Escape Sequence
-                throw "22025";
+                throw SqlState::instance().code22025();
             }
             // get context anew
             ctxP = static_cast<ExtRegExpContext*>(context.get());
@@ -151,7 +151,7 @@ strSimilarEscapeA(
             } catch (boost::bad_expression badexp) {
                 // SQL2003 Part 2 Section 8.6 General Rule 2
                 // Data Exception - Invalid Regular Expression
-                throw "2201B";
+                throw SqlState::instance().code2201B();
             }
             // get context anew
             ctxP = static_cast<ExtRegExpContext*>(context.get());
