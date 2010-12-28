@@ -215,9 +215,19 @@ public class FennelWindowRel
         return clone;
     }
 
-    public List<Window> getWindows()
+    protected Window[] getWindows()
     {
-        return Arrays.asList(windows);
+        return windows;
+    }
+
+    protected RexProgram getInputProgram()
+    {
+        return inputProgram;
+    }
+
+    protected RexProgram getOutputProgram()
+    {
+        return outputProgram;
     }
 
     public boolean isValid(boolean fail)
@@ -309,17 +319,17 @@ public class FennelWindowRel
         return planner.makeCost(rowsIn, rowsIn * count, 0);
     }
 
-    public FemExecutionStreamDef toStreamDef(FennelRelImplementor implementor)
+    // for toStreamDef()
+    protected void
+        fillStreamDef(FemWindowStreamDef def, FennelRelImplementor implementor)
     {
-        // Create a plan object.
         final FarragoMetadataFactory repos = implementor.getRepos();
-        final FemWindowStreamDef windowStreamDef =
-            repos.newFemWindowStreamDef();
+
         implementor.addDataFlowFromProducerToConsumer(
             implementor.visitFennelChild((FennelRel) getChild(), 0),
-            windowStreamDef);
+            def);
 
-        windowStreamDef.setFilter(outputProgram.getCondition() != null);
+        def.setFilter(outputProgram.getCondition() != null);
 
         // Generate output program.
         RexToCalcTranslator translator =
@@ -330,7 +340,7 @@ public class FennelWindowRel
             translator.generateProgram(
                 outputProgram.getInputRowType(),
                 outputProgram);
-        windowStreamDef.setOutputProgram(program);
+        def.setOutputProgram(program);
 
         // Setup sort list.
         final List<RelCollation> collationList = getChild().getCollationList();
@@ -339,21 +349,21 @@ public class FennelWindowRel
             final RelCollation collation = collationList.get(0);
             for (
                 RelFieldCollation fieldCollation
-                : collation.getFieldCollations())
-            {
-                sortFieldList.add(fieldCollation.getFieldIndex());
-            }
+                    : collation.getFieldCollations())
+                {
+                    sortFieldList.add(fieldCollation.getFieldIndex());
+                }
         }
         Integer [] sortFields =
             sortFieldList.toArray(new Integer[sortFieldList.size()]);
-        windowStreamDef.setInputOrderKeyList(
+        def.setInputOrderKeyList(
             FennelRelUtil.createTupleProjection(repos, sortFields));
 
         // For each window...
         for (int i = 0; i < windows.length; i++) {
             Window window = windows[i];
             final FemWindowDef windowDef = repos.newFemWindowDef();
-            windowStreamDef.getWindow().add(windowDef);
+            def.getWindow().add(windowDef);
             windowDef.setPhysical(window.physical);
             windowDef.setOrderKeyList(
                 FennelRelUtil.createTupleProjection(repos, window.orderKeys));
@@ -443,8 +453,14 @@ public class FennelWindowRel
                         partition.partitionKeys));
             }
         }
+    }
 
-        return windowStreamDef;
+    public FemExecutionStreamDef toStreamDef(FennelRelImplementor implementor)
+    {
+        final FarragoMetadataFactory repos = implementor.getRepos();
+        final FemWindowStreamDef def = repos.newFemWindowStreamDef();
+        fillStreamDef(def, implementor);
+        return def;
     }
 
     /**

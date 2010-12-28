@@ -21,16 +21,16 @@
 */
 package net.sf.farrago.fennel.rel;
 
+import java.lang.reflect.Constructor;
 import java.util.*;
-
-import net.sf.farrago.query.*;
 
 import org.eigenbase.rel.*;
 import org.eigenbase.relopt.*;
-import org.eigenbase.reltype.*;
+import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.rex.*;
-import org.eigenbase.sql.*;
-import org.eigenbase.util.*;
+import org.eigenbase.sql.SqlNode;
+import org.eigenbase.util.Util;
+import net.sf.farrago.query.FennelRel;
 
 
 /**
@@ -43,12 +43,20 @@ import org.eigenbase.util.*;
  * merges {@link CalcRel} and {@link WindowedAggregateRel} objects together,
  * thereby dealing with this problem at the logical level.)
  *
+ * By default the rule produces a {@link FennelWindowRel}, but each instance can
+ * be altered to produce a subclass instead: see {@link #setResultClass}.
+
  * @author jhyde
  * @version $Id$
  */
 public abstract class FennelWindowRule
     extends RelOptRule
 {
+    //~ Instance fields
+
+    // class of RelNode to produce
+    private Class<FennelWindowRel> resultFactoryClass = FennelWindowRel.class;
+
     //~ Static fields/initializers ---------------------------------------------
 
     /**
@@ -194,6 +202,18 @@ public abstract class FennelWindowRule
     }
 
     //~ Methods ----------------------------------------------------------------
+
+    /**
+     * Changes the class of result RelNode.
+     * @return the changed rule.
+     * @param c new class; must be a subtype of FennelWindowRel.
+     */
+    public FennelWindowRule setResultClass(Class c)
+    {
+        assert FennelWindowRel.class.isAssignableFrom(c) : "invalid arg class";
+        this.resultFactoryClass = c;
+        return this;
+    }
 
     // implement RelOptRule
     public CallingConvention getOutConvention()
@@ -479,13 +499,12 @@ public abstract class FennelWindowRule
 
         // Put all these programs together in the final relational expression.
         FennelWindowRel fennelCalcRel =
-            new FennelWindowRel(
+            newFennelWindowRel(
                 cluster,
                 fennelInput,
-                outputProgram.getOutputRowType(),
-                inputProgram,
                 windowList.toArray(
                     new FennelWindowRel.Window[windowList.size()]),
+                inputProgram,
                 outputProgram);
         RelTraitSet outTraits = fennelCalcRel.getTraits().clone();
         // copy over other traits from the child
@@ -621,6 +640,51 @@ public abstract class FennelWindowRule
                 orderKeys);
         windowList.add(window);
         return window;
+    }
+
+    /**
+     * factory method for a FennelWindowRel
+     */
+    private FennelWindowRel newFennelWindowRel(
+        RelOptCluster cluster,
+        RelNode child,
+        FennelWindowRel.Window[] windows,
+        RexProgram inputProgram,
+        RexProgram outputProgram)
+    {
+        if (resultFactoryClass == FennelWindowRel.class) {
+            // default case; normal java to show what it means
+            return new FennelWindowRel(
+                cluster,
+                child,
+                outputProgram.getOutputRowType(),
+                inputProgram,
+                windows,
+                outputProgram);
+        } else {
+            // otherwise call constructor by reflection
+            try {
+                final Constructor<FennelWindowRel> ctor;
+                ctor = resultFactoryClass.getConstructor(
+                    RelOptCluster.class,
+                    RelNode.class,
+                    RelDataType.class,
+                    RexProgram.class,
+                    FennelWindowRel.Window[].class,
+                    RexProgram.class);
+                return ctor.newInstance(
+                    cluster,
+                    child,
+                    outputProgram.getOutputRowType(),
+                    inputProgram,
+                    windows,
+                    outputProgram);
+            } catch (Exception e) {
+                assert false : "Internal error"; // FIX
+                e.printStackTrace();
+                return null;
+            }
+        }
     }
 }
 
