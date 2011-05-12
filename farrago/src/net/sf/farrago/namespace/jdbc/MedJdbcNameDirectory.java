@@ -662,6 +662,7 @@ public class MedJdbcNameDirectory
         List<String> tableListOptimized)
         throws SQLException
     {
+        assert (sink.getTypeFactory() != null);
         if (tableListOptimized.equals(Collections.singletonList("*"))) {
             return queryColumnsImpl(
                 query,

@@ -416,6 +416,14 @@ public class FarragoDefaultSessionPersonality
                 "ParentLabel",
                 null,
                 ReferentialRuleTypeEnum.IMPORTED_KEY_RESTRICT));
+
+        // Drop the
+        ddlValidator.defineDropRule(
+            repos.getCorePackage().getInitialValue(),
+            new FarragoSessionDdlDropRule(
+                "attribute",
+                CwmColumn.class,
+                ReferentialRuleTypeEnum.IMPORTED_KEY_CASCADE));
     }
 
     // implement FarragoSessionPersonality

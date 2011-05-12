@@ -34,9 +34,6 @@ external name 'class net.sf.farrago.syslib.FarragoManagementUDR.statements';
 create or replace view statements_view as
   select * from table(statements());
 
--- todo:  grant this only to a privileged user
-grant select on statements_view to public;
-
 create or replace function sessions()
 returns table(id int, url varchar(128), current_user_name varchar(128), current_role_name varchar(128), session_user_name varchar(128), system_user_name varchar(128), system_user_fullname varchar(128), session_name varchar(128), program_name varchar(128), process_id int, catalog_name varchar(128), schema_name varchar(128), is_closed boolean, is_auto_commit boolean, is_txn_in_progress boolean, label_name varchar(128))
 language java
@@ -47,9 +44,6 @@ external name 'class net.sf.farrago.syslib.FarragoManagementUDR.sessions';
 create or replace view sessions_view as
   select * from table(sessions());
 
--- todo:  grant this only to a privileged user
-grant select on sessions_view to public;
-
 create or replace function objects_in_use()
 returns table(session_id bigint, stmt_id bigint, mof_id varchar(128))
 language java
@@ -59,9 +53,6 @@ external name 'class net.sf.farrago.syslib.FarragoManagementUDR.objectsInUse';
 
 create or replace view objects_in_use_view as
   select * from table(objects_in_use());
-
--- TODO: grant this only to a privileged user
-grant select on objects_in_use_view to public;
 
 create or replace function threads()
 returns table(
@@ -86,6 +77,8 @@ external name
 
 create or replace function system_info()
 returns table(
+    category varchar(128),
+    subcategory varchar(128),
     source_name varchar(128), 
     item_name varchar(1024), 
     item_units varchar(128),
@@ -98,6 +91,8 @@ external name
 
 create or replace function performance_counters()
 returns table(
+    counter_category varchar(128),
+    counter_subcategory varchar(128),
     source_name varchar(128), 
     counter_name varchar(1024), 
     counter_units varchar(128),
@@ -126,7 +121,6 @@ create or replace procedure flush_code_cache()
   'class net.sf.farrago.syslib.FarragoManagementUDR.flushCodeCache';
 
 -- lets an administrator kill a running session
--- TODO: grant this only to a privileged user
 create or replace procedure kill_session(in id bigint)
   language java
   parameter style java
@@ -143,7 +137,6 @@ create or replace procedure kill_session(in id bigint, in cancel_only boolean)
 -- lets an administrator kill an executing statement
 -- (like unix "kill -KILL")
 -- param ID: globally-unique statement id
--- TODO: grant this only to a privileged user
 create or replace procedure kill_statement(in id bigint)
   language java
   parameter style java
@@ -161,7 +154,6 @@ create or replace procedure kill_statement(in id bigint, in cancel_only boolean)
 -- (like unix pkill)
 -- Works around lack of scalar subqueries, which makes kill_statement(id) hard to use
 -- param SQL: a string
--- TODO: grant this only to a privileged user
 create or replace procedure kill_statement_match(in s varchar(256))
   language java
   parameter style java
@@ -255,7 +247,6 @@ external name
 create or replace view session_parameters_view as
   select * from table(session_parameters());
 
--- todo:  grant this only to a privileged user
 grant select on session_parameters_view to public;
 
 --
@@ -462,13 +453,16 @@ create or replace view sequences_view as
 -- Indexes
 --
 
+-- TODO:  "creator" should never have been here; eliminate it
+-- in a release after LucidDB 0.9.4
 create or replace view dba_indexes_internal as
     select
         cast(t.table_cat as varchar(128)) as catalog_name,
         cast(t.table_schem as varchar(128)) as schema_name,
         cast(i."name" as varchar(128)) as index_name,
-        cast(ai."name" as varchar(128)) as creator,
+        cast(null as varchar(128)) as creator,
         cast(i."creationTimestamp" as timestamp) as creation_timestamp,
+        cast(i."modificationTimestamp" as timestamp) as modification_timestamp,
         cast(t.table_name as varchar(128)) as table_name,
         i."isUnique" as is_unique,
         i."isClustered" as is_clustered,
@@ -481,16 +475,6 @@ create or replace view dba_indexes_internal as
         sys_fem."MED"."LocalIndex" i
     on
         t."mofId" = i."spannedClass"
-    inner join
-        sys_fem."Security"."Grant" g
-    on
-        i."mofId" = g."Element"
-    inner join
-        sys_fem."Security"."AuthId" ai
-    on
-        g."Grantee" = ai."mofId"
-    where
-        g."action" = 'CREATION'
 ;
 
 create or replace view dba_index_columns_internal as
@@ -995,6 +979,38 @@ no sql
 external name 
 'class net.sf.farrago.syslib.FarragoMedUDR.browseForeignSchemas';
 
+create or replace function browse_foreign_tables(
+  foreign_server_name varchar(128),
+  schema_name varchar(128))
+returns table(
+  table_name varchar(128),
+  description varchar(4096))
+language java
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoMedUDR.browseForeignTables';
+
+create or replace function browse_foreign_columns(
+  foreign_server_name varchar(128),
+  schema_name varchar(128))
+returns table(
+  table_name varchar(128),
+  column_name varchar(128),
+  ordinal integer,
+  datatype varchar(128),
+  "PRECISION" integer,
+  dec_digits integer,
+  is_nullable boolean,
+  formatted_datatype varchar(128),
+  description varchar(4096),
+  default_value varchar(128))
+language java
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoMedUDR.browseForeignColumns';
+
 --
 -- Datetime conversion functions
 --
@@ -1075,6 +1091,243 @@ parameter style system defined java
 no sql
 external name 
 'class net.sf.farrago.syslib.FarragoManagementUDR.lobText';
+
+-- returns a create statement for every item in a given schema
+create or replace function generate_ddl_for_schema(
+  schema_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_schema
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForSchema';
+
+-- use other catalogs
+create or replace function generate_ddl_for_schema(
+  catalog_name varchar(128),
+  schema_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_schema2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForSchema';
+
+-- ddl dumps everything in current catalog
+create or replace function generate_ddl_for_catalog()
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_catalog
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForCatalog';
+
+-- use other catalogs
+create or replace function generate_ddl_for_catalog(catalog_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_catalog2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForCatalog';
+
+-- ddl for tables and views
+create or replace function generate_ddl_for_table(
+  schema_name varchar(128),
+  table_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_table
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForTable';
+
+-- use other catalogs
+create or replace function generate_ddl_for_table(
+  catalog_name varchar(128),
+  schema_name varchar(128),
+  table_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_table2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForTable';
+
+-- ddl for generic procedures and functions (returns all matches)
+create or replace function generate_ddl_for_routine(
+  schema_name varchar(128),
+  routine_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_routine
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForRoutine';
+
+-- use other catalogs
+create or replace function generate_ddl_for_routine(
+  catalog_name varchar(128),
+  schema_name varchar(128),
+  routine_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_routine2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForRoutine';
+
+-- used when specific name is desired
+create or replace function generate_ddl_for_specific_routine(
+  schema_name varchar(128),
+  routine_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_specific_routine
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForSpecificRoutine';
+
+-- use other catalogs
+create or replace function generate_ddl_for_specific_routine(
+  catalog_name varchar(128),
+  schema_name varchar(128),
+  routine_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_specific_routine2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForSpecificRoutine';
+
+-- ddl for jars
+create or replace function generate_ddl_for_jar(
+  schema_name varchar(128),
+  jar_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_jar
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForJar';
+
+-- use other catalogs
+create or replace function generate_ddl_for_jar(
+  catalog_name varchar(128),
+  schema_name varchar(128),
+  jar_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_jar2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForJar';
+
+-- ddl for servers
+create or replace function generate_ddl_for_server(server_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_server
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForServer';
+
+-- ddl for wrappers
+create or replace function generate_ddl_for_wrapper(wrapper_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_wrapper
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForWrapper';
+
+-- ddl for indexes
+create or replace function generate_ddl_for_index(
+  schema_name varchar(128),
+  index_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_index
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForIndex';
+
+-- use other catalogs
+create or replace function generate_ddl_for_index(
+  catalog_name varchar(128),
+  schema_name varchar(128),
+  index_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_index2
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForIndex';
+
+-- ddl for users
+create or replace function generate_ddl_for_user(user_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_user
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForUser';
+
+-- ddl for roles
+create or replace function generate_ddl_for_role(role_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_role
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForRole';
+
+-- ddl for labels
+create or replace function generate_ddl_for_label(label_name varchar(128))
+returns table(
+  statement varchar(65535))
+language java
+specific generate_ddl_for_label
+parameter style system defined java
+no sql
+external name
+'class net.sf.farrago.syslib.FarragoDdlViewUDR.generateForLabel';
 
 -- variation of LucidDB session personality but with index only scans enabled
 create or replace jar sys_boot.sys_boot.luciddb_index_only_plugin 

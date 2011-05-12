@@ -835,7 +835,7 @@ public abstract class FarragoCatalogUtil
         String inheritAction = PrivilegedActionEnum.INHERIT_ROLE.toString();
 
         Set<FemRole> inheritedRoles = new HashSet<FemRole>();
-
+        
         for (FemGrant grant : authId.getGranteePrivilege()) {
             if (grant.getAction().equals(inheritAction)) {
                 FemRole inheritedRole = (FemRole) grant.getElement();
@@ -964,6 +964,36 @@ public abstract class FarragoCatalogUtil
     }
 
     /**
+     * Determines whether an element automatically gets a
+     * creation grant indicating its owner.
+     *
+     * @param obj element to check
+     *
+     * @return true if a creation grant should be instantiated
+     */
+    public static boolean needsCreationGrant(CwmModelElement obj) 
+    {
+        if ((obj instanceof CwmOperation)
+            || (obj instanceof CwmDependency)
+            || (obj instanceof CwmSqlindex)
+            || (obj instanceof CwmSqlindexColumn)
+            || (obj instanceof CwmSqlindexColumn)
+            || (obj instanceof FemAbstractTypedElement)
+            || (obj instanceof CwmUniqueConstraint)
+            || (obj instanceof FemUserDefinedOrdering)
+            || (obj instanceof FemSqlmultisetType)
+            || (obj instanceof FemSqlrowType)
+            || (obj instanceof FemKeyComponent))
+        {
+            // piddling second-class object
+            return false;
+        } else {
+            // for everything else, assume we need one
+            return true;
+        }
+    }
+
+    /**
      * Creates a new grant representing ownership of an object by its creator.
      *
      * @param repos repository storing the objects
@@ -1025,6 +1055,32 @@ public abstract class FarragoCatalogUtil
         return grant;
     }
 
+    /**
+     * Gets the creator of an object.
+     *
+     * @param repos repository storing the object
+     *
+     * @param obj object of interest
+     *
+     * @return creator
+     */
+    public static FemAuthId getCreator(FarragoRepos repos, CwmModelElement obj) 
+    {
+        SecurityPackage sp = repos.getSecurityPackage();
+        for (FemGrant grant
+                 : sp.getPrivilegeIsGrantedOnElement().getPrivilege(obj))
+        {
+            if (!grant.getAction().equals(
+                    PrivilegedActionEnum.CREATION.toString()))
+            {
+                continue;
+            }
+            return grant.getGrantee();
+        }
+        throw Util.newInternal(
+            "No creator found for " + repos.getLocalizedObjectName(obj));
+    }
+    
     /**
      * Determines the allowed access for a table
      *
