@@ -118,9 +118,7 @@ public class ArrayQueue<E>
      */
     public ArrayQueue(Collection<? extends E> c)
     {
-        this(Math.max(
-                DEFAULT_CAPACITY,
-                c.size()));
+        this(Math.max(DEFAULT_CAPACITY, c.size()));
 
         addAll(c);
     }
@@ -139,9 +137,7 @@ public class ArrayQueue<E>
      */
     public ArrayQueue(int capacity, Collection<? extends E> c)
     {
-        this(Math.max(
-                capacity,
-                c.size()));
+        this(Math.max(capacity, c.size()));
 
         addAll(c);
     }
@@ -205,6 +201,7 @@ public class ArrayQueue<E>
         }
 
         E result = queue[start];
+        queue[start] = null; // Let the "result" be GCed as soon as possible
         start = increment(start);
         return result;
     }

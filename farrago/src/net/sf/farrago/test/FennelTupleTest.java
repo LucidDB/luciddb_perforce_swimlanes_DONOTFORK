@@ -74,7 +74,8 @@ public class FennelTupleTest
     {
         FennelTupleDescriptor d = new FennelTupleDescriptor();
         for (int i = 0; i < types.length; ++i) {
-            d.add(new FennelTupleAttributeDescriptor(
+            d.add(
+                new FennelTupleAttributeDescriptor(
                     types[i],
                     false,
                     0));
@@ -335,10 +336,8 @@ public class FennelTupleTest
     public void testTupleAlignment()
     {
         FennelTupleAccessor def = new FennelTupleAccessor();
-        FennelTupleAccessor by4 =
-            new FennelTupleAccessor(FennelTupleAccessor.TUPLE_ALIGN4);
-        FennelTupleAccessor by8 =
-            new FennelTupleAccessor(FennelTupleAccessor.TUPLE_ALIGN8);
+        FennelTupleAccessor by4 = new FennelTupleAccessor();
+        FennelTupleAccessor by8 = new FennelTupleAccessor();
         //        FennelTupleAccessor by5 = new FennelTupleAccessor(5);
 
         FennelTupleDescriptor desc = new FennelTupleDescriptor();
@@ -349,15 +348,18 @@ public class FennelTupleTest
                 0));
         desc.add(
             new FennelTupleAttributeDescriptor(
-
                 // len=32 requires padding for 8-byte alignment
                 FennelStandardTypeDescriptor.VARCHAR,
                 false,
                 32));
 
         def.compute(desc);
-        by4.compute(desc);
-        by8.compute(desc);
+        by4.compute(
+            desc, FennelTupleAccessor.TupleFormat.TUPLE_FORMAT_STANDARD,
+            FennelTupleAccessor.TupleAlignment.TUPLE_ALIGN4);
+        by8.compute(
+            desc, FennelTupleAccessor.TupleFormat.TUPLE_FORMAT_STANDARD,
+            FennelTupleAccessor.TupleAlignment.TUPLE_ALIGN8);
 
         int defsize = def.getMaxByteCount();
         int by4size = by4.getMaxByteCount();
@@ -425,16 +427,16 @@ public class FennelTupleTest
         Object [] maxVals =
         {
             new Integer(Integer.MAX_VALUE),
-            new Long(
-                (((long) (Integer.MAX_VALUE)) << 1) - 1),
-            new Long(
-                Long.MAX_VALUE), new Long(Long.MAX_VALUE), // FIXME
+            new Long((((long) (Integer.MAX_VALUE)) << 1) - 1),
+            new Long(Long.MAX_VALUE),
+            new Long(Long.MAX_VALUE), // FIXME
             new Short(Short.MAX_VALUE),
-            new Integer(
-                (((int) (Short.MAX_VALUE)) << 1) - 1), new Byte(
-                Byte.MAX_VALUE), new Short((short) 255), new Boolean(true),
-            new Float(
-                Float.MAX_VALUE), new Double(Double.MAX_VALUE)
+            new Integer((((int) (Short.MAX_VALUE)) << 1) - 1),
+            new Byte(Byte.MAX_VALUE),
+            new Short((short) 255),
+            new Boolean(true),
+            new Float(Float.MAX_VALUE),
+            new Double(Double.MAX_VALUE)
         };
 
         ByteBuffer buff = marshallValues(desc, maxVals);
