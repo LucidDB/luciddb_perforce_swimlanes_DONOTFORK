@@ -143,6 +143,8 @@ ${farrago.test.jvmargs}
     <exclude name="ddl/sqldeploymentdescriptor.sql"/>
     <!-- TODO issue with DDL gen -->
     <exclude name="syslib/mgmt.sql"/>
+    <!-- TODO issue with unicode character in test -->
+    <exclude name="ddl/ddlgen.sql"/>
 
     <exclude name="med/scott.sql" unless="oracle.test"/>
   </fileset>
@@ -2073,12 +2075,7 @@ Oracle tests were requested via oracle.test, but Oracle is not available.
       <entry key="product.build.number" value="${p4.change}"/>
     </propertyfile>
     <antcall target="releaseProps"/>
-    <copy file="${release.properties}" todir="${farrago.dist.dir}"/>
-    <delete>
-      <fileset dir="${farrago.dist.dir}">
-        <include name="farrago*.bz2"/>
-      </fileset>
-    </delete>
+    <copy file="${release.properties}" todir="${farrago.dist.dir}" force="true"/>
     <ant dir="dist" target="createReleaseDir"/>
   </target>
 
